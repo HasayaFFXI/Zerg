@@ -49,16 +49,25 @@ public static class Counting
     /// </summary>
     public static CombatEvent Credit(CombatEvent e)
     {
-        if (string.IsNullOrEmpty(e.Owner) || e.Actor == e.Owner) return e;
-        var by = !string.IsNullOrEmpty(e.Pet) ? e.Pet : e.Actor;
+        if (Credited(e.Owner, e.Actor, e.Pet) is not { } by) return e;
         return e with
         {
-            Actor = e.Owner,
+            Actor = e.Owner!,
             ActorKind = "player",   // the owner came out of a party slot
             By = by,
-            Action = by + ": " + e.Action,
+            Action = Credited(by, e.Action),
         };
     }
+
+    /// <summary>Who acted for <paramref name="owner"/>, when a pet's row or
+    /// heal is to be credited to them: the pet, by name; null when there is
+    /// nothing to credit (no owner, or the row is the owner's already).
+    /// Damage and healing are credited by this one rule.</summary>
+    internal static string? Credited(string? owner, string actor, string? pet) =>
+        string.IsNullOrEmpty(owner) || actor == owner ? null : !string.IsNullOrEmpty(pet) ? pet : actor;
+
+    /// <summary>The action a credited row is listed under: the pet's name, then its own.</summary>
+    internal static string Credited(string by, string action) => by + ": " + action;
 
     /// <summary>
     /// Every drop rule that is not about time, in one place: the credited row,
@@ -96,8 +105,8 @@ public static class Counting
     ///
     /// <para>With a session this is the one place the clock changes: rows before
     /// the zero or inside a pause are dropped, and each survivor is copied with
-    /// <c>T</c> moved from wall clock to milliseconds since the zero and the
-    /// wall clock kept in <c>Wall</c>. Downstream there is no time of day left.
+    /// <c>T</c> moved from wall clock to milliseconds since the zero.
+    /// Downstream there is no time of day left.
     /// A session with no zero yet (idle, or armed and waiting) selects nothing.</para>
     /// </summary>
     public static List<CombatEvent> Filter(IReadOnlyList<CombatEvent> events, FilterOptions? opts = null)
@@ -117,7 +126,7 @@ public static class Counting
             }
             var e = Counted(row, opts.Roster, opts.Actors, opts.Skillchains, opts.Targets, opts.Types);
             if (e == null) continue;
-            if (el is double t) e = e with { Wall = e.Wall ?? e.T, T = t };
+            if (el is double t) e = e with { T = t };
             output.Add(e);
         }
         return output;
@@ -205,7 +214,7 @@ public static class Counting
                 targets[output.Count] = [e.Target];
                 // A fresh use: who swung is not carried (By is dropped), as a
                 // folded use is counted by actor and owner alone.
-                output.Add(e with { By = null, Parts = 1 });
+                output.Add(e with { By = null });
                 continue;
             }
 
@@ -219,7 +228,6 @@ public static class Counting
                 Crit = u.Crit || e.Crit,
                 Burst = u.Burst || e.Burst,
                 T = e.T < u.T ? e.T : u.T,   // the use happened when it was announced
-                Parts = u.Parts + 1,
             };
         }
 
@@ -229,6 +237,27 @@ public static class Counting
             output[i] = list.Count > 1
                 ? u with { Targets = list, Target = list.Count + " targets", TargetKind = "" }
                 : u with { Targets = list };
+        }
+        return output;
+    }
+
+    /// <summary>
+    /// <see cref="Collapse"/> without the copies: each use's figures, in the
+    /// order its first row came, each beside that first row.
+    /// </summary>
+    static List<Use> Fold(IReadOnlyList<CombatEvent> events)
+    {
+        var output = new List<Use>(events.Count);
+        var byUse = new Dictionary<double, int>();   // use → index in output
+        foreach (var e in events)
+        {
+            if (e.Use is not double use) output.Add(new Use(e));
+            else if (byUse.TryGetValue(use, out var i)) output[i] = output[i].With(e);
+            else
+            {
+                byUse[use] = output.Count;
+                output.Add(new Use(e));
+            }
         }
         return output;
     }
@@ -248,16 +277,18 @@ public static class Counting
     /// A weaponskill connects when it dealt damage, summed over its targets, so
     /// this takes a folded use. Everything else connects exactly when it hit.
     /// </summary>
-    public static bool? Connects(CombatEvent e)
+    public static bool? Connects(CombatEvent e) => Connects(e.Kind, e.Dmg, e.Msg, e.Hit);
+
+    internal static bool? Connects(string kind, double dmg, double msg, bool hit)
     {
-        if (e.Kind == "ws") return e.Dmg > 0;
-        if (e.Kind is "melee" or "ranged")
+        if (kind == "ws") return dmg > 0;
+        if (kind is "melee" or "ranged")
         {
-            if (e.Msg == MsgShadows) return true;
-            if (e.Kind == "melee" && e.Msg == MsgDodge) return null;
-            if (e.Kind == "melee" && e.Msg == MsgMobHeal) return true;
+            if (msg == MsgShadows) return true;
+            if (kind == "melee" && msg == MsgDodge) return null;
+            if (kind == "melee" && msg == MsgMobHeal) return true;
         }
-        return e.Hit;
+        return hit;
     }
 
     /// <summary>
@@ -268,47 +299,39 @@ public static class Counting
     /// when given it divides every DPS here, the party's and each character's
     /// alike. One denominator is what makes the column add up, and a character
     /// who did nothing for a minute is one whose DPS fell, which is the question
-    /// being asked. Each character's own first-to-last span is still reported,
-    /// as <c>Window</c>; without a duration it is what DPS divides by.</para>
+    /// being asked. Without a duration each character's own first-to-last span
+    /// is what their DPS divides by.</para>
     /// </summary>
     public static Aggregate Aggregate(IReadOnlyList<CombatEvent> events, double? duration = null)
     {
-        var byActor = new Dictionary<string, ActorTotals>(StringComparer.Ordinal);
-        var order = new List<string>();
-        int lines = events.Count;
-        var uses = Collapse(events);
+        // An ordered map keeps the characters in the order they first acted,
+        // which is the order a tie keeps once they are sorted.
+        var byActor = new OrderedDictionary<string, ActorTotals>(StringComparer.Ordinal);
+        double tMin = double.PositiveInfinity, tMax = double.NegativeInfinity;
 
-        foreach (var e in uses)
+        foreach (var u in Fold(events))
         {
-            if (!byActor.TryGetValue(e.Actor, out var a))
-            {
-                byActor[e.Actor] = a = new ActorTotals { Name = e.Actor };
-                order.Add(e.Actor);
-            }
-            a.Add(e);
-            a.Split.Add(e);
+            var e = u.Row;
+            if (!byActor.TryGetValue(e.Actor, out var a)) byActor[e.Actor] = a = new ActorTotals { Name = e.Actor };
+            a.Add(u);
+            a.Split.Add(u);
 
             if (!a.Actions.TryGetValue(e.Action, out var act))
-            {
                 a.Actions[e.Action] = act = new ActionTotals { Name = e.Action, Kind = e.Kind };
-                a.ActionOrder.Add(e.Action);
-            }
-            act.Add(e);
+            act.Add(u);
         }
 
-        var actors = new List<ActorTotals>();
+        var actors = new List<ActorTotals>(byActor.Count);
         var party = new Split();
-        double grand = 0, tMin = double.PositiveInfinity, tMax = double.NegativeInfinity;
+        double grand = 0;
 
-        foreach (var name in order)
+        foreach (var a in byActor.Values)
         {
-            var a = byActor[name];
             a.Finish();
-            a.ActionList = a.ActionOrder.Select(k => { var x = a.Actions[k]; x.Finish(); return x; }).ToList();
-            Js.StableSort(a.ActionList, (x, y) => y.Total - x.Total);
-            var span = ((a.Last ?? 0) - (a.First ?? 0)) / 1000;
-            a.Window = span;
-            a.Duration = duration ?? span;
+            a.ActionList = a.Actions.Values.ToList();
+            foreach (var x in a.ActionList) x.Finish();
+            a.ActionList.SortByDescending(x => x.Total);
+            a.Duration = duration ?? ((a.Last ?? 0) - (a.First ?? 0)) / 1000;
             a.Dps = a.Duration > 0 ? a.Total / a.Duration : 0;
             a.FinishSplit();
             party.Add(a.Split);
@@ -318,24 +341,39 @@ public static class Counting
             actors.Add(a);
         }
 
-        Js.StableSort(actors, (x, y) => y.Total - x.Total);
+        actors.SortByDescending(x => x.Total);
         foreach (var a in actors)
             a.Share = grand != 0 && !double.IsNaN(grand) ? a.Total / grand : 0;
 
-        bool none = double.IsPositiveInfinity(tMin);
         return new Aggregate
         {
             Actors = actors,
             Total = grand,
-            Start = none ? null : tMin,
-            End = double.IsNegativeInfinity(tMax) ? null : tMax,
-            Window = none ? 0 : (tMax - tMin) / 1000,
-            Duration = duration ?? (none ? 0 : (tMax - tMin) / 1000),
-            Events = lines,
-            Uses = uses.Count,
+            Duration = duration ?? (double.IsPositiveInfinity(tMin) ? 0 : (tMax - tMin) / 1000),
             Split = party,
             Party = party.Figures(grand),
         };
+    }
+
+    /// <summary>
+    /// Who dealt damage, by name, largest first: the order of
+    /// <see cref="Aggregate"/>'s characters, and nothing else of it. Counted
+    /// as it counts (per use, a use that landed anywhere dealing all it
+    /// dealt), so the two cannot disagree on who comes first.
+    /// </summary>
+    public static List<string> Ranked(IReadOnlyList<CombatEvent> events)
+    {
+        var totals = new OrderedDictionary<string, double>(StringComparer.Ordinal);
+        var uses = new Dictionary<double, (string Actor, double Dmg, bool Hit)>();
+        foreach (var e in events)
+        {
+            if (!totals.ContainsKey(e.Actor)) totals[e.Actor] = 0;
+            if (e.Use is not double use) { if (e.Hit) totals[e.Actor] += e.Dmg; continue; }
+            uses[use] = uses.TryGetValue(use, out var u) ? (u.Actor, u.Dmg + e.Dmg, u.Hit || e.Hit) : (e.Actor, e.Dmg, e.Hit);
+        }
+        foreach (var u in uses.Values)
+            if (u.Hit) totals[u.Actor] += u.Dmg;
+        return totals.OrderByDescending(p => p.Value).Select(p => p.Key).ToList();
     }
 
     /// <summary>
@@ -444,10 +482,11 @@ public static class Counting
         var picked = new List<CombatEvent>();
         int misses = 0, crits = 0, bursts = 0, tries = 0, lands = 0;
 
-        foreach (var e in Collapse(events))
+        // Every row of a use is one actor's and one action's, so the rows can
+        // be picked before they are folded, and only those are.
+        var mine = events.Where(e => e.Actor == actor && (action == null || e.Action == action)).ToList();
+        foreach (var e in Collapse(mine))
         {
-            if (e.Actor != actor) continue;
-            if (action != null && e.Action != action) continue;
             // The same accuracy rule as the per-character table, so drilling
             // into "Attack" agrees with that character's Accuracy cell.
             if (Connects(e) is bool o) { tries++; if (o) lands++; }
@@ -457,9 +496,8 @@ public static class Counting
             if (e.Burst) bursts++;
         }
 
-        var values = picked.Select(e => e.Dmg).ToList();
-        var sorted = values.ToList();
-        Js.StableSort(sorted, (a, b) => a - b);
+        var sorted = picked.Select(e => e.Dmg).ToList();
+        sorted.Sort();
         int n = sorted.Count;
 
         double sum = 0;
@@ -501,7 +539,6 @@ public static class Counting
             Actor = actor,
             Action = action,
             Events = picked,
-            Values = values,
             Sorted = sorted,
             Bins = bins,
             Count = n,

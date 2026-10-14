@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,57 +22,64 @@ public sealed partial class MainViewModel
     /// <summary>How long the note about the last Export stays up.</summary>
     static readonly TimeSpan NoteFor = TimeSpan.FromSeconds(8);
 
-    /// <summary>The parse opened in the View section, or null. Kept while
-    /// another section is on screen, so coming back finds it still open.</summary>
-    Tracker? viewed;
-    /// <summary>The file it was opened from, by name.</summary>
-    string viewedFile = "";
+    /// <summary>The parses open in the View section, a tab each, in the
+    /// order they were opened. Kept while another section is on screen, so
+    /// coming back finds them still open.</summary>
+    public ObservableCollection<ViewedParse> Parses { get; } = [];
+
+    /// <summary>The parse whose tab was picked last, or null with none open:
+    /// the one on screen while the View section is.</summary>
+    ViewedParse? viewed;
     DispatcherTimer? noteTimer;
 
     /// <summary>The View section is on screen with a parse open in it.</summary>
     bool Viewing => IsView && viewed != null;
 
     /// <summary>
-    /// What is counted and drawn: the parse in the View section while that is
-    /// on screen, otherwise the session. Everything that puts a figure, a
-    /// name or a colour on screen reads this, so a saved parse is drawn by
-    /// the code that draws the session, panels included, and the two cannot
-    /// differ in how they count.
+    /// What is counted and drawn: the parse picked in the View section while
+    /// that is on screen, otherwise the session. Everything that puts a
+    /// figure, a name or a colour on screen reads this, so a saved parse is
+    /// drawn by the code that draws the session, panels included, and the
+    /// two cannot differ in how they count.
     /// </summary>
-    Tracker Shown => Viewing ? viewed! : live;
+    Tracker Shown => Viewing ? viewed!.Tracker : live;
 
     // ------------------------------------------------------ the View section
 
     /// <summary>A parse is open in the View section, whichever section is on screen.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDamage), nameof(IsHealing), nameof(ShowsParse), nameof(FillsPage), nameof(HideNamesTip),
-                              nameof(ImportTip))]
+    [NotifyPropertyChangedFor(nameof(IsDamage), nameof(IsHealing), nameof(ShowsParse), nameof(FillsPage), nameof(HideNamesTip))]
     private bool hasParse;
 
-    /// <summary>Which side of the parse the View section shows: "Damage" or "Healing".</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDamage), nameof(IsHealing))]
-    private string viewMode;
+    /// <summary>The parse whose tab is picked: what the View section's band
+    /// says. Null with none open.</summary>
+    public ViewedParse? Viewed => viewed;
 
-    /// <summary>The characters listed follow the side on screen, as they
-    /// follow the section.</summary>
-    partial void OnViewModeChanged(string value)
+    /// <summary>The side last picked, which a new tab opens on.</summary>
+    string viewMode;
+
+    /// <summary>Which side of the picked parse the View section shows:
+    /// "Damage" or "Healing". Each tab keeps its own; the last one picked
+    /// is remembered for the next tab, and the next start.</summary>
+    public string ViewMode
     {
-        settings.ViewMode = value;
-        settings.Save();
-        if (Viewing) Recount();
+        get => viewed?.Mode ?? viewMode;
+        set
+        {
+            if (value == ViewMode) return;
+            viewMode = value;
+            if (viewed != null) viewed.Mode = value;
+            settings.ViewMode = value;
+            settings.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsDamage));
+            OnPropertyChanged(nameof(IsHealing));
+            // The characters listed follow the side on screen, as they
+            // follow the section.
+            if (Viewing) Recount();
+        }
     }
 
-    /// <summary>What the parse is called: its file's name.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ImportTip))]
-    private string viewedName = "";
-    /// <summary>The event file the parse was recorded from, where it says.</summary>
-    [ObservableProperty] private string viewedTip = "";
-    [ObservableProperty] private string viewedStarted = "";
-    [ObservableProperty] private string viewedLength = "";
-    [ObservableProperty] private string viewedParty = "";
-    [ObservableProperty] private string viewedSkipped = "";
     /// <summary>Why the last file would not open. What was open stays open.</summary>
     [ObservableProperty] private string viewError = "";
     /// <summary>A file is being held over the section's card.</summary>
@@ -82,74 +90,178 @@ public sealed partial class MainViewModel
     public Func<ParseText?>? Picker { get; set; }
     public Func<string, string?>? Saver { get; set; }
 
-    /// <summary>Opens an exported parse in the View section. A second one
-    /// replaces the first.</summary>
+    /// <summary>Opens an exported parse in a tab of its own, and shows it.</summary>
     [RelayCommand]
-    void OpenParse() => Read(() => Picker?.Invoke());
+    Task OpenParse() => Read(() => Picker?.Invoke());
 
     /// <summary>
     /// Import, on the command bar: the way into the View section. It opens a
-    /// parse and shows it. A parse left open while another section was on
-    /// screen is gone back to, not asked for again; the section's own card
-    /// replaces or closes it.
+    /// parse in a tab of its own and shows it. A parse already open is gone
+    /// back to by its tab.
     /// </summary>
     [RelayCommand]
-    void Import()
+    async Task Import()
     {
-        if (HasParse && !IsView || Read(() => Picker?.Invoke())) Section = ViewSection;
+        if (await Read(() => Picker?.Invoke())) Section = ViewSection;
     }
 
-    public string ImportTip => HasParse && !IsView
-        ? $"Back to {ViewedName}, the parse open here. The session goes on being measured underneath"
-        : "Open a parse exported from Zerg, to look through its damage and its healing. " +
-          "The session goes on being measured underneath";
-
     /// <summary>A file dropped on the section's card.</summary>
-    public void Take(string path) => Read(() => ParseDialog.Read(path));
+    public void Take(string path) => _ = Read(() => ParseDialog.Read(path));
+
+    /// <summary>A parse Windows handed Zerg: a .zerg file opened from
+    /// Explorer, at a start or in the Zerg already running; several files
+    /// opened together come one call each. It opens in a tab of its own,
+    /// and View is shown whatever was on screen; a file that would not open
+    /// is said so there, and stays said while the files opened with it
+    /// open after it.</summary>
+    public void Open(string path) => _ = OpenAndShow(path);
+
+    async Task OpenAndShow(string path)
+    {
+        await Read(() => ParseDialog.Read(path), clears: false);
+        Section = ViewSection;
+    }
+
+    /// <summary>The open asked for last, which the next waits for. A parse
+    /// is read off the UI thread, and several asked for together (files
+    /// opened from Explorer at once) would otherwise get their tabs in the
+    /// order they finished reading, not the order they were asked for, and
+    /// a file asked for twice could be read twice.</summary>
+    Task opening = Task.CompletedTask;
 
     /// <summary>False when no file was chosen. A file that would not open
-    /// is still an answer: the section's card says why.</summary>
-    bool Read(Func<ParseText?> source)
+    /// is still an answer: the section's card says why, until a parse the
+    /// player chose here opens (<paramref name="clears"/>). A file already
+    /// open is not opened twice: its tab is picked. Each waits for the one
+    /// asked for before it.</summary>
+    async Task<bool> Read(Func<ParseText?> source, bool clears = true)
     {
+        var before = opening;
+        var done = new TaskCompletionSource();
+        opening = done.Task;
         try
         {
-            if (source() is not { } file) return false;
-            var parse = ParseFile.Import(file.Text);
-            var info = CompareSheet.Describe(parse);
-            viewed = Tracker.Of(parse);
-            viewedFile = file.Name;
-            ViewedName = ParseDialog.Title(file.Name);
-            ViewedTip = parse.File ?? file.Name;
-            (ViewedStarted, ViewedLength, ViewedParty, ViewedSkipped) = (info.Started, info.Length, info.Party, info.Skipped);
-            ViewError = "";
-            Log.Write($"viewing {file.Name}");
-            // Counted before the cards come on screen, so they arrive drawn.
-            Recount();
-            HasParse = true;
+            await before;
+            return await ReadNow(source, clears);
         }
+        finally
+        {
+            done.SetResult();
+        }
+    }
+
+    async Task<bool> ReadNow(Func<ParseText?> source, bool clears)
+    {
+        if (source() is not { } file) return false;
+        if (Parses.FirstOrDefault(p => p.IsFile(file.Path)) is { } open)
+        {
+            if (clears) ViewError = "";
+            Pick(open);
+            return true;
+        }
+        try
+        {
+            var parse = await Task.Run(() => ParseFile.Import(file.Read()));
+            var tab = new ViewedParse(Tracker.Of(parse), file.Name, file.Path, CompareSheet.Describe(parse), parse.File,
+                                      viewMode, Pick);
+            if (clears) ViewError = "";
+            Parses.Add(tab);
+            Log.Write($"viewing {file.Name} ({Parses.Count} open)");
+            HasParse = true;
+            Pick(tab);
+        }
+        // Named, since several may be opened at once.
         catch (ParseImportException e)
         {
-            ViewError = e.Message;
+            ViewError = file.Name + ": " + e.Message;
+            Log.Write($"not opened {file.Name}: {e.Message}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            ViewError = "Could not open: " + e.Message;
+            ViewError = "Could not open " + file.Name + ": " + e.Message;
+            Log.Write($"not opened {file.Name}: {e.Message}");
         }
         return true;
     }
 
-    /// <summary>Empties the View section. The session was never touched.</summary>
-    [RelayCommand]
-    void CloseParse()
+    /// <summary>
+    /// Puts a parse on screen: its tab is picked and the View section shown.
+    /// </summary>
+    void Pick(ViewedParse tab)
     {
-        if (viewed == null) return;
-        viewed = null;
-        viewedFile = "";
-        ViewedName = ViewedTip = ViewedStarted = ViewedLength = ViewedParty = ViewedSkipped = ViewError = "";
-        Log.Write("closed the viewed parse");
-        HasParse = false;
-        // The panels were showing it too: back to the session.
-        Recount();
+        bool moved = !ReferenceEquals(viewed, tab);
+        viewed = tab;
+        if (moved) Picked();
+        // Into the section is a count; within it, the section does not change.
+        if (!IsView) Section = ViewSection;
+        else if (moved) Recount();
+    }
+
+    /// <summary>Whatever follows the picked parse is told it changed.</summary>
+    void Picked()
+    {
+        OnPropertyChanged(nameof(Viewed));
+        OnPropertyChanged(nameof(ViewMode));
+        OnPropertyChanged(nameof(IsDamage));
+        OnPropertyChanged(nameof(IsHealing));
+        OnPropertyChanged(nameof(ShowsParse));
+        OnPropertyChanged(nameof(FillsPage));
+        OnPropertyChanged(nameof(HideNamesTip));
+        MarkTabs();
+    }
+
+    /// <summary>Which tab is lit: the picked parse's, while View is on screen.</summary>
+    void MarkTabs()
+    {
+        foreach (var p in Parses) p.Mark(IsView && ReferenceEquals(p, viewed));
+    }
+
+    /// <summary>
+    /// A tab moved along the bar: dragged a step, or moved by a key. The
+    /// last word of a move (<paramref name="done"/>) moves nothing and is
+    /// only logged; the order is kept for the run, as the tabs are.
+    /// </summary>
+    public void MoveParse(int from, int to, bool done)
+    {
+        if (from < 0 || to < 0 || from >= Parses.Count || to >= Parses.Count || from == to) return;
+        if (done)
+        {
+            Log.Write($"moved the tab of {Parses[to].File} from {from + 1} to {to + 1}");
+            return;
+        }
+        Parses.Move(from, to);
+    }
+
+    /// <summary>
+    /// Closes a parse's tab: the mark on the tab, or the band's Close, which
+    /// closes the one on screen. The tab after it is picked in its place, or
+    /// the one before; with none left the View section is empty. The
+    /// session was never touched.
+    /// </summary>
+    [RelayCommand]
+    void CloseParse(ViewedParse? tab)
+    {
+        tab ??= viewed;
+        if (tab == null) return;
+        int at = Parses.IndexOf(tab);
+        if (at < 0) return;
+        Parses.RemoveAt(at);
+        Log.Write($"closed {tab.File} ({Parses.Count} open)");
+        if (!ReferenceEquals(tab, viewed))
+        {
+            looking.Remove(tab.Tracker);
+            return;
+        }
+
+        bool shown = Viewing;
+        viewed = Parses.Count > 0 ? Parses[Math.Min(at, Parses.Count - 1)] : null;
+        ViewError = "";
+        HasParse = Parses.Count > 0;
+        Picked();
+        // The panels were showing it too: on to the next, or back to the session.
+        if (shown) Recount();
+        // What it was being looked into with, kept as it went.
+        looking.Remove(tab.Tracker);
     }
 
     // ---------------------------------------------------------------- export

@@ -36,25 +36,62 @@ public sealed record Change(string Main, string Sub, ChangeTone Tone)
 {
     public static readonly Change Nothing = new(CompareSheet.Dash, "", ChangeTone.None);
 
+    /// <summary>
+    /// The change from <paramref name="a"/> to <paramref name="b"/>.
+    ///
+    /// <para><b>Which way it went is read off what is printed</b>: a change
+    /// that prints as nothing ("0.0%", "0.0 pt", "0s") is "±" and flat, however
+    /// far apart the two figures were before they were rounded, so a colour
+    /// never says better or worse over two figures that read the same. The
+    /// plain difference under a percentage takes its sign the same way, from
+    /// its own text.</para>
+    /// </summary>
     /// <param name="format">How the plain difference is spelled.</param>
     /// <param name="good">+1 when more is better, −1 when less is, 0 when it is neither.</param>
     public static Change Of(double? a, double? b, ChangeKind kind, Func<double, string> format, int good)
     {
         if (a is not double x || b is not double y) return Nothing;
-        double d = y - x;
-        int dir = Math.Abs(d) < 1e-9 ? 0 : d > 0 ? 1 : -1;
-        var tone = dir == 0 || good == 0 ? ChangeTone.Flat : dir * good > 0 ? ChangeTone.Better : ChangeTone.Worse;
-        string sign = dir > 0 ? "+" : dir < 0 ? "−" : "±";
-        return kind switch
+        double d = y - x, size = Math.Abs(d);
+        int way = d > 0 ? 1 : d < 0 ? -1 : 0;
+
+        string text;
+        bool none;
+        switch (kind)
         {
-            ChangeKind.Points => new(sign + Format.Num(Math.Abs(d) * 100, 1) + " pt", "", tone),
-            ChangeKind.Time => new(sign + Format.Duration(Math.Abs(d)), "", tone),
-            // Over a baseline of nothing there is no percentage to give:
-            // anything at all is simply new.
-            _ => new(x != 0 && !double.IsNaN(x) ? sign + Format.Num(Math.Abs(d / x) * 100, 1) + "%" : dir != 0 ? "new" : "±0",
-                     sign + format(Math.Abs(d)), tone),
-        };
+            case ChangeKind.Points:
+                text = Format.Num(size * 100, 1) + " pt";
+                none = Format.Round(size * 100, 1) == 0;
+                break;
+            case ChangeKind.Time:
+                text = Format.Duration(size);
+                none = Format.Round(size) == 0;
+                break;
+            default:
+                if (x != 0 && double.IsFinite(x))
+                {
+                    var percent = Math.Abs(d / x) * 100;
+                    text = Format.Num(percent, 1) + "%";
+                    none = Format.Round(percent, 1) == 0;
+                }
+                else
+                {
+                    // Over a baseline of nothing there is no percentage to
+                    // give: anything at all is simply new.
+                    none = way == 0;
+                    text = none ? "0" : "new";
+                }
+                break;
+        }
+
+        int dir = none ? 0 : way;
+        var tone = dir == 0 || good == 0 ? ChangeTone.Flat : dir * good > 0 ? ChangeTone.Better : ChangeTone.Worse;
+        var main = text == "new" ? text : Sign(dir) + text;
+        if (kind != ChangeKind.Percent) return new(main, "", tone);
+        var plain = format(size);
+        return new(main, Sign(plain == format(0) ? 0 : way) + plain, tone);
     }
+
+    static string Sign(int dir) => dir > 0 ? "+" : dir < 0 ? "−" : "±";
 }
 
 /// <summary>A figure for each run, A over B.</summary>
@@ -267,8 +304,7 @@ public sealed class CompareSheet
             sub != null ? sub(ma!) : null, sub != null ? sub(mb!) : null, Change.Of(a, b, kind, format, good));
 
     /// <summary>Why a rate is a dash while targets are isolated.</summary>
-    public const string NoRate = "No DPS while a target is isolated: the clock is the whole run’s, not the time that " +
-                                 "target was fought";
+    public static readonly string NoRate = Zerg.Core.Targets.NoRate("whole run’s");
 
     static List<CompareTile> TilesOfDamage(Measurement ma, Measurement mb, bool skillchains, IReadOnlyList<string> isolated,
                                            IReadOnlyList<string> types) =>
@@ -587,7 +623,7 @@ public sealed class CompareSheet
             }
         }
 
-        static string? Main(JobInfo? j) => j != null && !string.IsNullOrEmpty(j.Main) && j.Main != "NON" ? j.Main : null;
+        static string? Main(JobInfo? j) => j is { HasMain: true } ? j.Main : null;
 
         /// <summary>A job standing in for a name, numbered from the second
         /// character on it: "SAM/WAR", "SAM/WAR 2".</summary>
@@ -625,11 +661,9 @@ public sealed class CompareSheet
     {
         var sn = run.Session;
         double started = sn.StartedAt ?? 0;
-        var day = DateTimeOffset.FromUnixTimeMilliseconds((long)Math.Truncate(started)).ToLocalTime()
-                                .ToString("yyyy'-'MM'-'dd", CultureInfo.InvariantCulture);
         int party = run.Source.Roster.Kinds.Count(k => k.Value == "player");
         return new RunSummary(
-            day + " " + Format.Clock(started),
+            Format.Day(started) + " " + Format.Clock(started),
             Format.Stopwatch(sn.Elapsed(sn.PausedAt)),
             party.ToString(CultureInfo.InvariantCulture) + " character" + (party == 1 ? "" : "s"),
             run.Skipped > 0 ? Format.Int(run.Skipped) + " unreadable record" + (run.Skipped == 1 ? "" : "s") + " skipped" : "");
@@ -650,6 +684,6 @@ public sealed class CompareSheet
         if (session.StartedAt == null) return null;
         var frozen = session.Clone();
         frozen.PausedAt ??= now;
-        return ParseFile.Stringify(ParseFile.Export(reader, frozen, t => frozen.At(t) != null, file, now));
+        return ParseFile.Export(reader, frozen, t => frozen.At(t) != null, file, now);
     }
 }

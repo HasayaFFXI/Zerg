@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using static Zerg.Native.User32;
 
 namespace Zerg.Native;
 
@@ -52,7 +53,11 @@ static class Overlay
         var hwnd = new WindowInteropHelper(window).Handle;
         if (hwnd == 0) return;
         nint style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-        SetWindowLongPtr(hwnd, GWL_EXSTYLE, on ? style | WS_EX_TRANSPARENT : style & ~WS_EX_TRANSPARENT);
+        Marshal.SetLastPInvokeError(0);
+        // Zero is both a failure and a style of nothing: the error says which.
+        if (SetWindowLongPtr(hwnd, GWL_EXSTYLE, on ? style | WS_EX_TRANSPARENT : style & ~WS_EX_TRANSPARENT) == 0
+            && Marshal.GetLastPInvokeError() is int error and not 0)
+            Log.Write($"click-through {(on ? "on" : "off")}: a panel's style could not be set (error {error})");
     }
 
     /// <summary>
@@ -65,7 +70,7 @@ static class Overlay
         readonly nint hwnd;
         readonly Hold hold;
         readonly Point32 from;
-        readonly Rect start;
+        readonly Rect32 start;
         readonly int minWidth, minHeight;
 
         public Drag(Window window, Hold hold, int minWidth, int minHeight)
@@ -107,29 +112,14 @@ static class Overlay
     const nint WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000, WS_EX_TRANSPARENT = 0x20;
     const int WM_MOUSEACTIVATE = 0x21;
     const int MA_NOACTIVATE = 3;
-    const uint SWP_NOSIZE = 0x1, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct Rect { public int Left, Top, Right, Bottom; }
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct Point32 { public int X, Y; }
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
     static extern nint GetWindowLongPtr(nint hwnd, int index);
 
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     static extern nint SetWindowLongPtr(nint hwnd, int index, nint value);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool GetCursorPos(out Point32 point);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool GetWindowRect(nint hwnd, out Rect rect);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
 }

@@ -12,6 +12,10 @@ public class SplitEditsTests
     const double W = 1440, H = 706;
 
     static PaneSplit Columns(double ratio, SplitNode a, SplitNode b) => new(SplitWay.Columns, ratio, a, b);
+
+    /// <summary>Folded if it was open, open if it was folded.</summary>
+    static SplitNode ToggleFold(SplitNode tree, string key) =>
+        SplitTree.Leaf(tree, key) is { } leaf ? SplitTree.Fold(tree, key, !leaf.Folded) : tree;
     static PaneSplit Rows(double ratio, SplitNode a, SplitNode b) => new(SplitWay.Rows, ratio, a, b);
     static PaneLeaf Pane(string key, bool folded = false) => new(key, folded);
 
@@ -84,7 +88,7 @@ public class SplitEditsTests
         Assert.Same(tree, SplitTree.SetRatio(tree, "", 0.653));      // as it is already
         Assert.Same(tree, SplitTree.Fold(tree, "nobody", true));
         Assert.Same(tree, SplitTree.Fold(tree, "bars", false));
-        Assert.Same(tree, SplitTree.ToggleFold(tree, "nobody"));
+        Assert.Same(tree, ToggleFold(tree, "nobody"));
         Assert.Same(tree, SplitTree.Move(tree, "bars", "bars", PaneSide.Left));
         Assert.Same(tree, SplitTree.Move(tree, "bars", "nobody", PaneSide.Left));
         Assert.Same(tree, SplitTree.Move(tree, "nobody", "bars", PaneSide.Left));
@@ -171,7 +175,7 @@ public class SplitEditsTests
     [Fact]
     public void A_pane_folds_and_opens_again()
     {
-        var folded = SplitTree.ToggleFold(Four, "bars");
+        var folded = ToggleFold(Four, "bars");
 
         Assert.True(SplitTree.Leaf(folded, "bars")!.Folded);
         Assert.False(SplitTree.Leaf(Four, "bars")!.Folded);
@@ -179,7 +183,7 @@ public class SplitEditsTests
         Assert.Equal(new Box(0, 0, 940, 30), a.Panes["bars"]);
         Assert.Equal(new Box(0, 31, 940, 675), a.Panes["actions"]);
         // Opened again it is the installed tree, share and all.
-        Assert.Equal(Four, SplitTree.ToggleFold(folded, "bars"));
+        Assert.Equal(Four, ToggleFold(folded, "bars"));
     }
 
     // -------------------------------------------------------------- a move
@@ -358,7 +362,7 @@ public class SplitEditsTests
                     1 => SplitTree.MoveToEdge(tree, a, side),
                     2 => SplitTree.Swap(tree, a, b),
                     3 => SplitTree.MoveBy(tree, a, side),
-                    4 => SplitTree.ToggleFold(tree, a),
+                    4 => ToggleFold(tree, a),
                     _ => SplitTree.SetRatio(tree, SplitTree.PathTo(tree, a)![..^1], random.NextDouble() * 1.4 - 0.2),
                 };
 
@@ -705,7 +709,7 @@ public class SplitEditsTests
         Assert.Equal(healing, PaneLayouts.Read(written, "Healing"));
         Assert.Same(PaneLayouts.Damage, PaneLayouts.Read(written, "Damage"));
 
-        var all = PaneLayouts.Write(SplitTree.ToggleFold(PaneLayouts.Damage, "bars"), healing,
+        var all = PaneLayouts.Write(ToggleFold(PaneLayouts.Damage, "bars"), healing,
                                     SplitTree.SetRatio(PaneLayouts.Compare, "", 0.5))!.Value;
         Assert.Equal(new[] { "Damage", "Healing", "Compare" }, all.EnumerateObject().Select(p => p.Name));
         Assert.True(SplitTree.Leaf(PaneLayouts.Read(all, "Damage"), "bars")!.Folded);

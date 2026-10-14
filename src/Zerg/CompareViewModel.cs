@@ -182,10 +182,7 @@ public sealed partial class ComparePickRow(object line, string key, string name,
     public override string ToString() => Name;
     /// <summary>The rows that name no target are a line of the table, with nothing to isolate.</summary>
     public bool CanPick => key.Length > 0;
-    public string Tip => !CanPick ? "Damage that named no target"
-        : Isolated ? "Isolated: only this is counted. Press to let it go"
-        : Dimmed ? "Isolate " + Name + " as well"
-        : pick;
+    public string Tip => !CanPick ? "Damage that named no target" : PickFilter.TipOf(Name, Isolated, Dimmed, pick);
 
     [RelayCommand(CanExecute = nameof(CanPick))]
     void Pick() => flip(key);
@@ -494,12 +491,15 @@ public sealed partial class CompareViewModel : ObservableObject
     /// measures exactly as it would had it been saved and opened here.</summary>
     internal void UseCurrent(RunSlot slot) => Read(slot, host.Current);
 
-    internal void Read(RunSlot slot, Func<ParseText?> source)
+    /// <summary>A parse into a slot. The file is read and its parse made off
+    /// the UI thread; whatever goes wrong is the slot's to say.</summary>
+    internal async void Read(RunSlot slot, Func<ParseText?> source)
     {
+        if (source() is not { } file) return;
         try
         {
-            if (source() is not { } file) return;
-            slot.Show(ParseFile.Import(file.Text), ParseDialog.Title(file.Name));
+            var parse = await Task.Run(() => ParseFile.Import(file.Read()));
+            slot.Show(parse, ParseDialog.Title(file.Name));
             Forget();
             // Another run has targets of its own, and types.
             TargetFilter.Reset();

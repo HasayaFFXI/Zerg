@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -31,7 +32,7 @@ public enum StatusLight { Idle, Armed, Live, Held, Waiting, Error }
 /// </summary>
 public sealed partial class MainViewModel : ObservableObject
 {
-    const string Dot = " · ", None = "—";
+    internal const string Dot = " · ", None = "—";
 
     readonly Settings settings;
     readonly EventFeed feed;
@@ -42,6 +43,19 @@ public sealed partial class MainViewModel : ObservableObject
     Snapshot? snapshot;
     /// <summary>What the last count was of: the session, or a saved parse.</summary>
     Tracker? drawn;
+
+    /// <summary>What one parse was being looked into with: its two
+    /// drill-downs and the targets and types isolated in it.</summary>
+    sealed record Looking((string Actor, string Action)? Drill, (string Actor, string Action)? HealDrill,
+                          string[] Targets, string[] Types);
+
+    /// <summary>
+    /// What each parse that is not on screen was left being looked into
+    /// with, the session's included: switching tabs, or between the session
+    /// and a saved parse, puts each back as it was left. Kept for the run
+    /// and never saved; a parse's goes when its tab is closed.
+    /// </summary>
+    readonly Dictionary<Tracker, Looking> looking = new(ReferenceEqualityComparer.Instance);
     /// <summary>The characters with a chip right now: what All and None act on.</summary>
     List<string> listed = [];
     string? error;
@@ -58,7 +72,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDamage), nameof(IsHealing), nameof(IsView), nameof(IsCompare), nameof(ShowsParse),
-                              nameof(FillsPage), nameof(HideNamesTip), nameof(IsSettings), nameof(ImportTip))]
+                              nameof(FillsPage), nameof(HideNamesTip), nameof(IsSettings))]
     private string section;
 
     public const string DamageSection = "Damage", HealingSection = "Healing", ViewSection = "View", CompareSection = "Compare";
@@ -154,8 +168,9 @@ public sealed partial class MainViewModel : ObservableObject
     /// of the Damage section's By target pane, which is this filter's own
     /// table (Views/TallyCard). Of the session,
     /// or of the parse open in the View section, whichever is drawn. Not
-    /// saved, and emptied when what it lists changes hands: Start, a new
-    /// event file, the session and a saved parse changing places.
+    /// saved. Each of those keeps its own (<see cref="Looking"/>), put back
+    /// when it is drawn again; the session's is emptied by Start and by a
+    /// new event file.
     /// </summary>
     public PickFilter TargetFilter { get; } = PickFilter.OfTargets(paired: false);
 
@@ -178,8 +193,11 @@ public sealed partial class MainViewModel : ObservableObject
     {
         this.settings = settings;
         this.feed = feed;
+        MakeSavers();
         excluded = new HashSet<string>(settings.Excluded, StringComparer.Ordinal);
         Panels = new PanelSet(settings);
+        DamageDrill = new DrillView(DrillWords.Damage, Panels["actions"], CloseDrillCommand);
+        HealingDrill = new DrillView(DrillWords.Healing, Panels["hactions"], CloseHealDrillCommand);
         Panels.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(PanelSet.OutCount) or nameof(PanelSet.ClickThrough))
@@ -247,7 +265,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// healed. So this is a count again, though no figure moves. Compare
     /// lists nobody, and draws whatever changed while it was off screen.
     /// Into the View section, or out of it, what is counted changes hands
-    /// between the session and the parse open there. The Settings page is
+    /// between the session and the parse picked there. The Settings page is
     /// not saved as the section: the next start opens on the one it was
     /// opened over.
     /// </summary>
@@ -255,8 +273,10 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (value == SettingsSection)
         {
-            // What is in the folder may have changed since the page was last open.
+            // What is in the folder may have changed since the page was last
+            // open, and so may where Windows opens a parse.
             DescribeFolder();
+            DescribeParseFiles();
         }
         else
         {
@@ -265,6 +285,7 @@ public sealed partial class MainViewModel : ObservableObject
             settings.Save();
         }
         Compare.Active = IsCompare;
+        MarkTabs();
         Recount();
     }
 
@@ -293,17 +314,57 @@ public sealed partial class MainViewModel : ObservableObject
                 TargetFilter.Reset();
                 TypeFilter.Reset();
             }
+            // With a saved parse on screen, what the session was left with
+            // goes instead: it was the old file's.
+            else looking.Remove(live);
             Log.Write($"following {u.File}");
             // The Settings page says which file is newest in the folder.
             if (IsSettings) DescribeFolder();
         }
-        live.Feed(u.Lines);
+        if (u.Skipped > 0) Log.Write($"{u.Skipped} bytes with no line break in {u.File} passed over");
+        int unreadable = live.Reader.Unreadable;
+        live.Feed(u.Records);
+        if (live.Reader.Unreadable > unreadable)
+            Log.Write($"{live.Reader.Unreadable - unreadable} unreadable line(s) in {u.File} skipped");
 
         // A saved parse on screen is not moved by what the addon writes. The
         // lines are kept for the session, which is counted on the way back:
         // an armed one finds its zero then, at the same hit it would have.
-        if (!Viewing && (fresh || u.Lines.Count > 0)) Recount();
+        if (!Viewing && (fresh || u.Records.Count > 0)) RecountSoon(fresh);
         else DescribeStatus();
+    }
+
+    /// <summary>
+    /// The least time between two counts that new lines ask for. In a fight
+    /// the addon writes several times a second, and the watcher brings a poll
+    /// forward for each; a count is the whole session again, so lines that
+    /// land inside this wait after a count are counted together at its end.
+    /// The clock and the rates are the beat's and do not wait.
+    /// </summary>
+    static readonly TimeSpan CountGap = TimeSpan.FromMilliseconds(250);
+    long countedAt;
+    DispatcherTimer? countTimer;
+
+    void RecountSoon(bool now)
+    {
+        var since = Stopwatch.GetElapsedTime(countedAt);
+        if (now || since >= CountGap)
+        {
+            Recount();
+            return;
+        }
+        if (countTimer is { IsEnabled: true }) return;
+        countTimer ??= new DispatcherTimer(DispatcherPriority.Normal, Dispatcher.CurrentDispatcher);
+        countTimer.Interval = CountGap - since;
+        countTimer.Tick -= OnCountDue;
+        countTimer.Tick += OnCountDue;
+        countTimer.Start();
+    }
+
+    void OnCountDue(object? sender, EventArgs e)
+    {
+        countTimer?.Stop();
+        Recount();
     }
 
     void OnFailed(Exception e)
@@ -395,13 +456,22 @@ public sealed partial class MainViewModel : ObservableObject
 
     // -------------------------------------------------------------- filters
 
+    /// <summary>A drill-down open on a skillchain.</summary>
+    static bool IsChain((string Actor, string Action)? on) =>
+        on is { } d && d.Action.StartsWith("Skillchain:", StringComparison.Ordinal);
+
     partial void OnSkillchainsChanged(bool value)
     {
         settings.Skillchains = value;
         settings.Save();
         // A drill-down into a skillchain has nothing left to show once the
         // chains are out, so it closes rather than sitting there empty.
-        if (!value && drill is { } d && d.Action.StartsWith("Skillchain:", StringComparison.Ordinal)) drill = null;
+        if (!value)
+        {
+            if (IsChain(drill)) drill = null;
+            foreach (var (tracker, l) in looking.ToList())
+                if (IsChain(l.Drill)) looking[tracker] = l with { Drill = null };
+        }
         Recount();
         Compare.SharedChanged();
     }
@@ -473,16 +543,23 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Counts the session as it stands and redraws every card from it.</summary>
     void Recount()
     {
+        // Whatever was waiting for a count is in this one.
+        countTimer?.Stop();
+        countedAt = Stopwatch.GetTimestamp();
         var now = Session.Now();
-        // A drill-down names a character and an action of what was on screen:
-        // it closes when the session and a saved parse change places.
+        // A drill-down names a character and an action of what was on
+        // screen, and the targets and types picked were its too: when
+        // another parse comes on screen (another tab, or the session and a
+        // saved parse changing places) they are kept with the one that goes,
+        // and the one that comes gets back what it was left with.
         if (!ReferenceEquals(drawn, Shown))
         {
+            if (drawn != null) looking[drawn] = new(drill, healDrill, [.. TargetFilter.Picked], [.. TypeFilter.Picked]);
             drawn = Shown;
-            drill = healDrill = null;
-            // And the targets and types picked were the other's.
-            TargetFilter.Reset();
-            TypeFilter.Reset();
+            looking.Remove(drawn, out var back);
+            (drill, healDrill) = (back?.Drill, back?.HealDrill);
+            TargetFilter.Set(back?.Targets ?? []);
+            TypeFilter.Set(back?.Types ?? []);
         }
         var c = snapshot = Shown.Count(excluded, Skillchains, now, TargetFilter.Only, TypeFilter.Only);
         if (c.Latched) LogSession("started");
@@ -586,11 +663,11 @@ public sealed partial class MainViewModel : ObservableObject
         // line, so it has no line count.
         if (Viewing)
         {
-            int rows = viewed!.Reader.Events.Count;
+            int rows = viewed!.Tracker.Reader.Events.Count;
             StatusLight = StatusLight.Held;
-            StatusFile = "viewing" + Dot + viewedFile;
+            StatusFile = "viewing" + Dot + viewed.File;
             StatusDetail = Format.Int(rows) + " event" + (rows == 1 ? "" : "s") + Dot +
-                           SessionText.Status(viewed.Session, imported: true);
+                           SessionText.Status(viewed.Tracker.Session, imported: true);
             return;
         }
         if (error is not null)
@@ -610,7 +687,7 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        int events = Shown.Reader.Events.Count;
+        int events = Shown.Reader.Rows;
         StatusLight = View.Light switch
         {
             SessionLight.Armed => StatusLight.Armed,
@@ -619,8 +696,11 @@ public sealed partial class MainViewModel : ObservableObject
             _ => StatusLight.Idle,
         };
         StatusFile = Shown.File ?? "";
+        int unreadable = Shown.Reader.Unreadable;
         StatusDetail = Format.Int(events) + " event" + (events == 1 ? "" : "s") + Dot +
-                       Format.Int(Shown.Lines) + " lines" + Dot + SessionText.Status(Shown.Session);
+                       Format.Int(Shown.Lines) + " lines" +
+                       (unreadable > 0 ? Dot + Format.Int(unreadable) + " unreadable" : "") +
+                       Dot + SessionText.Status(Shown.Session);
     }
 
     // ------------------------------------------------------- for Compare
@@ -634,7 +714,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         var now = Session.Now();
         return CompareSheet.Snapshot(live.Reader, live.Session, live.File, now) is { } text
-            ? new ParseText("Current session " + Format.Clock(now), text)
+            ? new ParseText("Current session " + Format.Clock(now), Text: text)
             : null;
     }
 
@@ -664,31 +744,25 @@ public sealed partial class MainViewModel : ObservableObject
         return Color.FromRgb(r, g, b);
     }
 
-    static readonly Dictionary<Color, SolidColorBrush> Solids = [];
-
-    internal static SolidColorBrush Solid(Color c)
-    {
-        if (Solids.TryGetValue(c, out var b)) return b;
-        b = new SolidColorBrush(c);
-        b.Freeze();
-        return Solids[c] = b;
-    }
+    internal static SolidColorBrush Solid(Color c) => Inks.Solid(c);
 
     Brush SwatchOf(string name) => Solid(ColorOf(name));
 
     // A row's shade: the character's colour at the strength that leaves
-    // the quieter ink legible on it (Zerg.Core/RowShade has the rule).
-    // Frozen and kept, as the solid brushes are: the same few brushes are
-    // handed to every row on every count.
+    // the quieter ink legible on it (Zerg.Core/RowShade has the rule). The
+    // strength is worked out once per colour and surface; the brush is
+    // Inks', as every brush is.
 
     /// <summary>What a shade lies on, which decides how strong it may be.</summary>
     enum ShadeOn { Row, Heading, Strip, PanelHeading }
 
-    static readonly Dictionary<(Color Colour, ShadeOn On, bool Dark), SolidColorBrush> ShadeBrushes = [];
+    static readonly Dictionary<(Color Colour, ShadeOn On, bool Dark), int> ShadeStrengths = [];
 
     static SolidColorBrush Shade(Color c, ShadeOn on, bool dark)
     {
-        if (ShadeBrushes.TryGetValue((c, on, dark), out var b)) return b;
+        if (ShadeStrengths.TryGetValue((c, on, dark), out var known)) return Inks.At(c, known);
+        // Bounded as the brushes are: a colour picked and dropped goes too.
+        if (ShadeStrengths.Count >= 1024) ShadeStrengths.Clear();
         static (byte, byte, byte) Rgb(Color x) => (x.R, x.G, x.B);
         // In a panel, against the panel's own backdrop and ink, which are
         // the same whatever the theme (RowShade.Strip).
@@ -699,9 +773,8 @@ public sealed partial class MainViewModel : ObservableObject
                                 dark ? RowShade.DarkTarget : RowShade.LightTarget, dark ? RowShade.DarkCap : RowShade.LightCap);
         // The strength is the brush's own, so whatever is filled with it
         // needs no opacity of its own.
-        b = new SolidColorBrush(c) { Opacity = percent / 100.0 };
-        b.Freeze();
-        return ShadeBrushes[(c, on, dark)] = b;
+        ShadeStrengths[(c, on, dark)] = percent;
+        return Inks.At(c, percent);
     }
 
     /// <summary>The shade behind a character's row in the per-character tables.</summary>
@@ -744,7 +817,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     void DrawChips(Snapshot c)
     {
-        listed = IsHealing ? c.Healers.Select(a => a.Name).ToList() : c.Listed.Select(a => a.Name).ToList();
+        listed = IsHealing ? c.Healers.Select(a => a.Name).ToList() : c.Listed.ToList();
         Rows.Sync(Chips, listed, n => n, n => new ChipRow(n) { Flipped = SetIncluded }, (row, n) =>
         {
             bool included = !excluded.Contains(n);

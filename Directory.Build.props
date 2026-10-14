@@ -5,9 +5,18 @@
        the exe. CHANGELOG.md says what each version was; CLAUDE.md, "Versions",
        says when the number moves. -->
   <PropertyGroup>
-    <Version>0.2.2</Version>
+    <Version>0.3.0</Version>
     <!-- The version string is shown to players; keep the git hash out of it. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <!-- The build has no warnings, and a new one stops it rather than
+       scrolling by: a name that hides a member, a null not seen to. A
+       package found vulnerable is still a warning, so a build without the
+       network, or on the day an advisory comes out, is not stopped by it. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
   </PropertyGroup>
 
 </Project>

@@ -239,7 +239,7 @@ public class TrackerTests
         t.Feed([Lines.Hit(21, "Hasaya", 100), Lines.Hit(22, "Tank", 150)]);
         var c = t.Count(new HashSet<string> { "Tank" }, true, 30_000);
         Assert.Equal(["Hasaya"], c.Totals.Actors.Select(a => a.Name));
-        Assert.Equal(["Tank", "Hasaya"], c.Listed.Select(a => a.Name));
+        Assert.Equal(["Tank", "Hasaya"], c.Listed);
         Assert.Equal(100, c.Totals.Total);
     }
 
@@ -498,15 +498,7 @@ public class TrackerTests
         var t = Following();
         t.Follow(file);
         Assert.Equal(owner, t.Reader.Roster.Owner);
-        Assert.Equal(owner, EventReader.ParseFilename(file).Owner);
-    }
-
-    [Fact]
-    public void The_date_is_read_from_the_file_name()
-    {
-        Assert.Equal(new DateOnly(2026, 7, 31), EventReader.ParseFilename("Rhyllis-20260731213045.jsonl").Date);
-        Assert.Equal(new DateOnly(2026, 7, 31), EventReader.ParseFilename("Rhyllis_2026.07.31.jsonl").Date);
-        Assert.Null(EventReader.ParseFilename("Rhyllis-213045.jsonl").Date);
+        Assert.Equal(owner, EventReader.OwnerOf(file));
     }
 
     [Fact]
@@ -648,7 +640,7 @@ public class TrackerTests
         t.Feed([Lines.Hit(21, "Hasaya", 100), Lines.Heal(22, "Sylviane", 300), Lines.Heal(23, "Sylviane", 200, "Cure III")]);
         var c = t.Count(Nobody, true, 31_000);
         Assert.Equal(100, c.Totals.Total);
-        Assert.Equal(["Hasaya"], c.Listed.Select(a => a.Name));
+        Assert.Equal(["Hasaya"], c.Listed);
         Assert.Equal(500, c.Healing.Total);
         Assert.Equal(2, c.Healing.Casts);
         Assert.Equal(["Sylviane"], c.Healers.Select(a => a.Name));
@@ -789,7 +781,6 @@ public class TrackerTests
         Assert.Equal(StartLook.Armed, v.StartLook);
         Assert.Equal("Cancel", v.SecondText);
         Assert.True(v.SecondEnabled);
-        Assert.False(v.SecondIsToggle);
         Assert.Equal(SecondLook.Cancel, v.SecondLook);
         Assert.Equal(SessionLight.Armed, v.Light);
     }
@@ -802,14 +793,11 @@ public class TrackerTests
         Assert.Equal("Restart", v.StartText);
         Assert.Equal(StartLook.Running, v.StartLook);
         Assert.Equal("Pause", v.SecondText);
-        Assert.True(v.SecondIsToggle);
-        Assert.False(v.SecondPressed);
         Assert.Equal(SecondLook.Live, v.SecondLook);
         Assert.Equal(SessionLight.Live, v.Light);
 
         v = SessionView.Of(s.Pause(9000));
         Assert.Equal("Resume", v.SecondText);
-        Assert.True(v.SecondPressed);
         Assert.Equal(SecondLook.Held, v.SecondLook);
         Assert.Equal(SessionLight.Held, v.Light);
     }
@@ -826,7 +814,6 @@ public class TrackerTests
         Assert.False(v.StartAsks);
         Assert.Equal("Cancel", v.SecondText);
         Assert.True(v.SecondEnabled);
-        Assert.False(v.SecondIsToggle);
         Assert.Equal(SecondLook.Cancel, v.SecondLook);
         // Still being measured, and the light says so.
         Assert.Equal(SessionLight.Live, v.Light);

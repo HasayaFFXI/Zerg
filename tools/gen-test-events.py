@@ -355,7 +355,8 @@ def generate(seed=SEED, start=None):
         'isZoningType': 'number', 'selfName': 'Hasaya', 'selfSpawnFlags': 525,
         'abilProbeId': 5, 'abilRaw': 'Combo', 'abilOffset': 'Berserk',
         'spellLookup': 'Cure', 'wsLookup': 'Combo',
-        'path': 'C:\\Users\\thadl\\AppData\\Local\\VibeXI\\events\\Hasaya_2026.07.30.jsonl',
+        # Where the probe says its file is: a player's folder, not anyone's in particular.
+        'path': 'C:\\Users\\Player\\AppData\\Local\\VibeXI\\events\\Hasaya_2026.07.30.jsonl',
     })
 
     # ---- the party, before anybody swings
@@ -672,7 +673,6 @@ def to_export(w, owner, file_name, now_iso):
         'owner': owner,
         'session': {'armedAt': started, 'startedAt': started, 'spans': [], 'pausedAt': paused},
         'kinds': kinds,
-        'manual': {},
         'jobs': [job_record(r) for r in jobs.values()],
     }
     events = [r for r in timed if r['kind'] != 'heal' and keep(r)]
@@ -704,8 +704,8 @@ def main(argv=None):
 
     if args.export:
         out = Path(args.export)
-        if out.suffix.lower() not in ('.zerg', '.json'):
-            ap.error('--export must end in .zerg (or .json): Zerg follows *.jsonl, and an export must never look like one')
+        if out.suffix.lower() != '.zerg':
+            ap.error('--export must end in .zerg: Zerg follows *.jsonl, and an export must never look like one')
         out.parent.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())
         text, n_ev, n_heal = to_export(w, 'Hasaya', file_name, stamp)

@@ -4,10 +4,12 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Zerg.Core;
+using Zerg.Native;
 
 namespace Zerg;
 
-// The Settings page: the folder the event files are looked for in, the keys
+// The Settings page: the folder the event files are looked for in, whether
+// Windows opens a .zerg file here (Native/FileAssociation), the keys
 // that switch click-through, the pop-outs' default opacity (which is in
 // Panels), the draw frequency, how the tables' rows are shaded, the low
 // accuracy mark's threshold, the theme, and the colours of Compare's two
@@ -19,33 +21,39 @@ public sealed partial class MainViewModel
 {
     public const string SettingsSection = "Settings";
 
-    /// <summary>
-    /// Something to do once a control has stood still: a slider reports
-    /// every step of a drag and a colour picker every point its marker
-    /// passes, and the settings file is not written for each. What is on
-    /// screen has followed already; this is the save, and whatever else is
-    /// only worth doing once. Each call puts the moment off again.
-    ///
-    /// <para>Nothing is lost if Zerg closes first: the value is in the
-    /// settings by then, and closing saves them.</para>
-    /// </summary>
-    static void Settle(ref DispatcherTimer? timer, Action done)
+    // What waits for a control to stand still (Debouncer): each made once,
+    // in the constructor, with the one thing it does. Nothing is lost if Zerg
+    // closes first: the value is in the settings by then, and closing does
+    // whatever is still waiting (FlushSaves).
+    Debouncer lowSaver = null!, runsSaver = null!, drawSaver = null!, layoutSaver = null!;
+
+    void MakeSavers()
     {
-        if (timer is null)
+        lowSaver = new(() =>
         {
-            var made = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.CurrentDispatcher)
-            {
-                Interval = TimeSpan.FromMilliseconds(400),
-            };
-            made.Tick += (_, _) =>
-            {
-                made.Stop();
-                done();
-            };
-            timer = made;
-        }
-        timer.Stop();
-        timer.Start();
+            settings.Save();
+            Log.Write($"low accuracy under {settings.LowAccuracy}%");
+        });
+        runsSaver = new(RunsSettled);
+        drawSaver = new(() =>
+        {
+            settings.Save();
+            Log.Write($"draw frequency {settings.DrawFrequency}/s");
+        });
+        layoutSaver = new(() =>
+        {
+            settings.Save();
+            Log.Write("layout " + layoutWhat);
+        });
+    }
+
+    /// <summary>Zerg is closing: whatever is waiting to be saved is saved now.</summary>
+    public void FlushSaves()
+    {
+        lowSaver.Flush();
+        runsSaver.Flush();
+        drawSaver.Flush();
+        layoutSaver.Flush();
     }
 
     /// <summary>The section the page was opened over, to go back to.</summary>
@@ -168,6 +176,79 @@ public sealed partial class MainViewModel
     static bool SameFolder(string a, string b) =>
         string.Equals(Path.TrimEndingDirectorySeparator(a), Path.TrimEndingDirectorySeparator(b),
                       StringComparison.OrdinalIgnoreCase);
+
+    // ------------------------------------------------------------ parse files
+    //
+    // Not a setting in settings.json: Windows holds it (Native/FileAssociation),
+    // so it is read from there each time the page opens.
+
+    /// <summary>Where a .zerg file opened from Explorer goes now, in a sentence or two.</summary>
+    [ObservableProperty] private string parseFilesNote = "";
+
+    /// <summary>.zerg files open in the Zerg that is running.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(OpenParsesHereCommand))]
+    private bool parsesOpenHere;
+
+    /// <summary>.zerg files open in some Zerg, this one or another.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(StopOpeningParsesCommand))]
+    private bool parsesOpenInZerg;
+
+    bool ParsesOpenElsewhere => !ParsesOpenHere;
+
+    [RelayCommand(CanExecute = nameof(ParsesOpenElsewhere))]
+    void OpenParsesHere()
+    {
+        var exe = FileAssociation.ThisExe;
+        try
+        {
+            FileAssociation.Register(exe);
+            Log.Write($"parse files open with {exe}");
+            DescribeParseFiles();
+        }
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            Log.Write("parse files: can't register (" + e.Message + ")");
+            DescribeParseFiles();
+            ParseFilesNote = "Windows would not take it: " + e.Message;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(ParsesOpenInZerg))]
+    void StopOpeningParses()
+    {
+        try
+        {
+            FileAssociation.Unregister();
+            Log.Write("parse files no longer open with Zerg");
+            DescribeParseFiles();
+        }
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            Log.Write("parse files: can't unregister (" + e.Message + ")");
+            DescribeParseFiles();
+            ParseFilesNote = "Windows would not let it go: " + e.Message;
+        }
+    }
+
+    void DescribeParseFiles()
+    {
+        var target = FileAssociation.Target();
+        ParsesOpenHere = target != null && string.Equals(Path.GetFullPath(target), FileAssociation.ThisExe,
+                                                         StringComparison.OrdinalIgnoreCase);
+        ParsesOpenInZerg = target != null;
+        var note = target == null
+            ? "Not set up: Explorer leaves .zerg files to whatever Windows picks, or asks."
+            : ParsesOpenHere
+                ? "Set up: a .zerg file opened from Explorer opens here, in the View section, with Zerg's icon on it."
+                : "Set up for the Zerg at " + target + (File.Exists(target) ? "" : ", which is no longer there") +
+                  ". Press the button to use this one.";
+        if (FileAssociation.ChosenElsewhere() != null)
+            note += " Windows was told to open them with another program (Open with, Always), and that comes first: " +
+                    "right-click a .zerg file, Open with, Choose another app, Zerg, Always.";
+        ParseFilesNote = note;
+    }
 
     // ------------------------------------------------- the click-through hot key
 
@@ -337,14 +418,8 @@ public sealed partial class MainViewModel
         settings.LowAccuracy = v;
         // The marks follow every step of the slider; the file is written
         // once it settles.
-        Settle(ref lowSaver, () =>
-        {
-            settings.Save();
-            Log.Write($"low accuracy under {settings.LowAccuracy}%");
-        });
+        lowSaver.Poke();
     }
-
-    DispatcherTimer? lowSaver;
 
     // ------------------------------------------- the colours of Compare's runs
     //
@@ -391,10 +466,8 @@ public sealed partial class MainViewModel
         AppTheme.Runs(a, b);
         (settings.RunA, settings.RunB) = (a, b);
         RunsShown();
-        Settle(ref runsSaver, RunsSettled);
+        runsSaver.Poke();
     }
-
-    DispatcherTimer? runsSaver;
 
     /// <summary>The runs' colours have changed and are staying: saved, and
     /// handed to what is drawn from a colour and not from a brush.</summary>
@@ -489,7 +562,6 @@ public sealed partial class MainViewModel
 
     // ------------------------------------------------------ the draw frequency
 
-    DispatcherTimer? drawSaver;
 
     /// <summary>How many times a second <see cref="Tick"/> is called: the
     /// main window keeps that beat, and takes up a change at once.</summary>
@@ -505,13 +577,6 @@ public sealed partial class MainViewModel
         }
         settings.DrawFrequency = v;
         // A slider reports every step of a drag; the file is written once it settles.
-        drawSaver ??= new DispatcherTimer(TimeSpan.FromMilliseconds(400), DispatcherPriority.Background, (_, _) =>
-        {
-            drawSaver!.Stop();
-            settings.Save();
-            Log.Write($"draw frequency {settings.DrawFrequency}/s");
-        }, Dispatcher.CurrentDispatcher);
-        drawSaver.Stop();
-        drawSaver.Start();
+        drawSaver.Poke();
     }
 }

@@ -279,18 +279,7 @@ public sealed class LineChart : Chart
     protected override string Summary()
     {
         if (Model is not { Times.Length: > 0, Series.Count: > 0 } m) return Nothing("No data");
-        // The line that ends highest, and where it ends.
-        LineSeries? top = null;
-        double most = double.NegativeInfinity;
-        foreach (var line in m.Series)
-        {
-            double last = double.NaN;
-            for (int i = line.Values.Length - 1; i >= 0 && !double.IsFinite(last); i--) last = line.Values[i];
-            if (double.IsFinite(last) && last > most) (top, most) = (line, last);
-        }
-        string lines = m.Series.Count == 1 ? "1 line" : m.Series.Count + " lines";
-        string over = lines + " over " + Format.Clock(m.Times[^1]);
-        return top is null ? over : $"{over}. Highest: {top.Name}, {Format.Int(most)}";
+        return LineLayout.Summary(m.Times, m.Series.Select(s => (s.Name, s.Values)).ToList());
     }
 
     protected override Readout? ReadoutAt(Point p)

@@ -22,7 +22,7 @@ public static class Ticks
         var output = new List<double>();
         if (!(step > 0)) return output;
         for (var v = Math.Ceiling(min / step) * step; v <= max + step * 1e-9; v += step)
-            output.Add(Js.Round(v / step) * step);
+            output.Add(Format.Round(v / step) * step);
         return output;
     }
 

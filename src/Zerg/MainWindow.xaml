@@ -196,21 +196,18 @@
       </Style.Triggers>
     </Style>
 
-    <!-- The View tab's label: the word, then the name of the parse that is
-         open, in the face of a file name. The word has the same unseen
-         SemiBold twin under it as every tab's label (TabLabel in
-         Themes/Controls.xaml), so the tab is as wide picked as not. The name
-         gives way first when the bar runs out of room. -->
-    <DataTemplate x:Key="ViewTabLabel">
-      <DockPanel>
-        <Grid DockPanel.Dock="Left">
-          <v:Room Text="View" FontWeight="SemiBold"/>
-          <TextBlock Text="View"/>
-        </Grid>
-        <TextBlock Text="{Binding ViewedName}" Style="{StaticResource Mono}" FontWeight="Normal" Margin="9,1,0,0"
-                   Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                   MaxWidth="280" Visibility="{Binding HasParse, Converter={StaticResource Visible}}"/>
-      </DockPanel>
+    <!-- A parse's tab label: its name, in the face of a file name, in the
+         tab's own ink and weight. The name in SemiBold lies under it unseen
+         (v:Room), as under every tab's label, so the tab is as wide picked
+         as not. Cut short with an ellipsis when the tabs run out of room
+         (v:TabStrip); the tab's tooltip has it whole. -->
+    <DataTemplate x:Key="ParseTabLabel">
+      <Grid>
+        <v:Room Text="{Binding Name}" FontFamily="{StaticResource MonoFont}" FontSize="12" FontWeight="SemiBold"
+                TextTrimming="CharacterEllipsis"/>
+        <TextBlock Text="{Binding Name}" FontFamily="{StaticResource MonoFont}" FontSize="12"
+                   TextTrimming="CharacterEllipsis"/>
+      </Grid>
     </DataTemplate>
 
     <!-- A section's panes (v:SplitPanel): on the pane surface, which shows
@@ -325,12 +322,15 @@
                        ToolTip="Two saved parses side by side. The session goes on being measured underneath"
                        AutomationProperties.Name="Compare section" WindowChrome.IsHitTestVisibleInChrome="True"/>
 
-          <!-- View: ruled off from the three, because it is not the session.
-               Its label is the word and the open parse's name; the mark
-               after it closes the parse (and with it the tab, unless the
-               section is the one on screen). Import, on the command bar, is
-               still the way to open a parse into it. The mark is written
-               before the tab it closes and reached after it. -->
+          <!-- The parses open in the View section, a tab each, ruled off
+               from the three because they are not the session. A tab's
+               label is the parse's name; the mark after it closes that
+               parse. With none open, while the View section is on screen,
+               one tab stands for it, "View". Import, on the command bar,
+               opens a parse into a tab of its own. Each mark is written
+               before the tab it closes and reached after it. The tabs share
+               what room the bar has, and their names give way when it runs
+               out (v:TabStrip). -->
           <DockPanel KeyboardNavigation.TabNavigation="Local">
             <DockPanel.Style>
               <Style TargetType="DockPanel">
@@ -346,17 +346,44 @@
               </Style>
             </DockPanel.Style>
             <Border DockPanel.Dock="Left" Style="{StaticResource GroupRule}" Margin="2,0,5,1"/>
-            <!-- Over the tab's own right-hand padding, so the mark is 14
-                 units from the end of the name, as drawn. -->
-            <Button DockPanel.Dock="Right" Style="{StaticResource TabClose}" Content="&#xE8BB;" Margin="-7,0,0,1"
-                    Panel.ZIndex="1" TabIndex="1" Command="{Binding CloseParseCommand}" ToolTip="Close this parse"
-                    Visibility="{Binding HasParse, Converter={StaticResource Visible}}"
-                    AutomationProperties.Name="Close the View tab" WindowChrome.IsHitTestVisibleInChrome="True"/>
-            <RadioButton Style="{StaticResource SectionTab}" GroupName="section" Content="{Binding}" TabIndex="0"
-                         ContentTemplate="{StaticResource ViewTabLabel}"
+            <RadioButton DockPanel.Dock="Left" Style="{StaticResource SectionTab}" GroupName="section" Content="View"
                          IsChecked="{Binding Section, Converter={StaticResource Equals}, ConverterParameter=View}"
-                         ToolTip="A saved parse, opened to look through. The session goes on being measured underneath"
+                         Visibility="{Binding HasParse, Converter={StaticResource Hidden}}"
+                         ToolTip="Open a saved parse to look through. The session goes on being measured underneath"
                          AutomationProperties.Name="View section" WindowChrome.IsHitTestVisibleInChrome="True"/>
+            <ItemsControl ItemsSource="{Binding Parses}" Focusable="False" IsTabStop="False">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <v:TabStrip/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <!-- Over the tab's own right-hand padding, so the mark is
+                       14 units from the end of the name, as drawn. The tab
+                       is in no group with the others: which one is lit is
+                       the view model's to say (ViewedParse.IsPicked), and a
+                       group would uncheck them behind its back. -->
+                  <DockPanel KeyboardNavigation.TabNavigation="Local">
+                    <!-- The glyph is not the button's content as text: a button
+                         whose content is a string drops the underscores from
+                         its automation name, and names of parses have them. -->
+                    <Button DockPanel.Dock="Right" Style="{StaticResource TabClose}" Margin="-7,0,0,1"
+                            Panel.ZIndex="1" TabIndex="1"
+                            Command="{Binding DataContext.CloseParseCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                            CommandParameter="{Binding}" ToolTip="Close this parse"
+                            AutomationProperties.Name="{Binding Name, StringFormat=Close {0}}"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                      <TextBlock Text="&#xE8BB;"/>
+                    </Button>
+                    <RadioButton Style="{StaticResource SectionTab}" Content="{Binding}" TabIndex="0"
+                                 ContentTemplate="{StaticResource ParseTabLabel}" IsChecked="{Binding IsPicked}"
+                                 ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name, StringFormat=View {0}}"
+                                 WindowChrome.IsHitTestVisibleInChrome="True"/>
+                  </DockPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
           </DockPanel>
         </DockPanel>
       </DockPanel>
@@ -430,10 +457,11 @@
                     ToolTipService.ShowOnDisabled="True" VerticalAlignment="Center" Margin="0,0,6,0"
                     Visibility="{Binding ShowsParse, Converter={StaticResource Visible}}"
                     AutomationProperties.Name="Export"/>
-            <!-- The way into the View section: opens a saved parse and shows it,
-                 or goes back to the one left open there. No face until pointed
-                 at: it stands beside Export and should not compete with it. -->
-            <Button Content="Import…" Command="{Binding ImportCommand}" ToolTip="{Binding ImportTip}"
+            <!-- The way into the View section: opens a saved parse in a tab of
+                 its own and shows it. No face until pointed at: it stands
+                 beside Export and should not compete with it. -->
+            <Button Content="Import…" Command="{Binding ImportCommand}"
+                    ToolTip="Open a parse exported from Zerg in a tab of its own, to look through its damage and its healing. The session goes on being measured underneath"
                     Style="{StaticResource GhostButton}" VerticalAlignment="Center"
                     AutomationProperties.Name="Import"/>
           </StackPanel>
@@ -903,7 +931,7 @@
           <Grid.Style>
             <Style TargetType="Grid">
               <Style.Triggers>
-                <DataTrigger Binding="{Binding DrillOpen}" Value="False">
+                <DataTrigger Binding="{Binding DamageDrill.Open}" Value="False">
                   <Setter Property="v:SplitPanel.SelfFolded" Value="True"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Panels[actions].IsOut}" Value="True">
@@ -912,7 +940,7 @@
               </Style.Triggers>
             </Style>
           </Grid.Style>
-          <v:DrillCard/>
+          <v:DrillCard DataContext="{Binding DamageDrill}"/>
         </Grid>
 
       </v:SplitPanel>
@@ -968,7 +996,7 @@
           <Grid.Style>
             <Style TargetType="Grid">
               <Style.Triggers>
-                <DataTrigger Binding="{Binding HealDrillOpen}" Value="False">
+                <DataTrigger Binding="{Binding HealingDrill.Open}" Value="False">
                   <Setter Property="v:SplitPanel.SelfFolded" Value="True"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Panels[hactions].IsOut}" Value="True">
@@ -977,7 +1005,7 @@
               </Style.Triggers>
             </Style>
           </Grid.Style>
-          <v:HealDrillCard/>
+          <v:DrillCard DataContext="{Binding HealingDrill}"/>
         </Grid>
 
       </v:SplitPanel>

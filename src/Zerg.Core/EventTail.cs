@@ -10,8 +10,14 @@ namespace Zerg.Core;
 /// <param name="Size">The file's length in bytes when it was read.</param>
 /// <param name="Modified">When the file was last written (UTC), as found
 /// before reading it.</param>
+/// <param name="Skipped">Bytes passed over: a line too long to be one.</param>
 public sealed record TailUpdate(string? File, bool Reset, IReadOnlyList<string> Lines, long Size,
-                                DateTime Modified = default);
+                                DateTime Modified = default, long Skipped = 0)
+{
+    /// <summary>The same lines, each read (<see cref="EventRecord.Parse"/>):
+    /// done where the poll is, off the UI thread.</summary>
+    public IReadOnlyList<EventRecord?> Records { get; init; } = [];
+}
 
 /// <summary>
 /// Follows the newest event file in a folder, one poll at a time: the file
@@ -53,6 +59,9 @@ public sealed class EventTail(string directory)
 
         File = newest.Name;
         Offset = tail.NextOffset;
-        return new TailUpdate(newest.Name, reset, tail.Lines, tail.Size, newest.LastWriteTimeUtc);
+        return new TailUpdate(newest.Name, reset, tail.Lines, tail.Size, newest.LastWriteTimeUtc, tail.Skipped)
+        {
+            Records = tail.Lines.Select(EventRecord.Parse).ToList(),
+        };
     }
 }

@@ -86,8 +86,7 @@ public sealed partial class MainViewModel
         totalShare = any && c.Whole > 0
             ? Format.Num(c.Totals.Total / c.Whole * 100, 1) + "% of " + Format.Int(c.Whole) + Dot
             : "";
-        DpsTip = isolated ? "No DPS while a target is isolated: the clock is the session’s, not the time that target was fought"
-            : null;
+        DpsTip = isolated ? Targets.NoRate("session’s") : null;
     }
 
     void DrawTiles(Snapshot c)
@@ -112,27 +111,37 @@ public sealed partial class MainViewModel
         // The count lists characters largest first, so the leader is the first.
         // The dot is the hue that character has on every chart.
         HasTop = n > 0;
-        if (n > 0)
-        {
-            var top = agg.Actors[0];
-            // Not beside a name that is the job: it would read "SAM/WAR · SAM/WAR".
-            var job = JobBadge(top.Name);
-            TopSwatch = SwatchOf(top.Name);
-            TopName = NameOf(top.Name);
-            TopTip = Roster.JobTitle(top.Name) is { Length: > 0 } title ? title : NameOf(top.Name);
-            TopNote = (job.Length > 0 ? job + Dot : "") + Format.Num(top.Share * 100, 1) + "% of " +
-                      Format.Int(agg.Total) + " damage";
-        }
-        else
-        {
-            TopSwatch = Brushes.Transparent;
-            TopName = TopNote = None;
-            TopTip = null;
-        }
+        (TopSwatch, TopName, TopTip, TopNote) = n > 0
+            ? Leader(agg.Actors[0].Name, agg.Actors[0].Share, agg.Total, "damage")
+            : NoLeader;
 
         var best = c.Best;
         BigText = best != null ? Format.Int(best.Max) : "0";
         BigNote = best != null ? NameOf(best.Who) + Dot + best.What : None;
+    }
+
+    /// <summary>
+    /// The figure for whoever leads a section: their swatch, their name, a
+    /// tooltip with their jobs in full, and the note under it ("SAM/WAR ·
+    /// 31.2% of 153,687 damage"). The job is not beside a name that is the
+    /// job: it would read "SAM/WAR · SAM/WAR".
+    /// </summary>
+    (Brush Swatch, string Name, string? Tip, string Note) Leader(string name, double share, double total, string what)
+    {
+        var job = JobBadge(name);
+        return (SwatchOf(name), NameOf(name),
+                Roster.JobTitle(name) is { Length: > 0 } title ? title : NameOf(name),
+                (job.Length > 0 ? job + Dot : "") + Format.Num(share * 100, 1) + "% of " + Format.Int(total) + " " + what);
+    }
+
+    static readonly (Brush Swatch, string Name, string? Tip, string Note) NoLeader = (Brushes.Transparent, None, null, None);
+
+    /// <summary>What the pointer resting on a character's row is told: who,
+    /// their jobs in full, and the one figure the table has no column for.</summary>
+    string RowTip(string name, string? figure)
+    {
+        var full = Aliased(name) ? "" : Roster.JobTitle(name);
+        return NameOf(name) + (full.Length > 0 ? Dot + full : "") + (figure != null ? Dot + figure : "");
     }
 
     // ----------------------------------------------------- cumulative damage
@@ -231,13 +240,7 @@ public sealed partial class MainViewModel
         // carries the share of the whole.
         double top = RowMarks.Largest(actors.Select(a => a.Total));
 
-        // What the pointer resting on a row is told: who, their job in
-        // full, and the one figure the table has no column for.
-        string Tip(ActorTotals a)
-        {
-            var full = Aliased(a.Name) ? "" : Roster.JobTitle(a.Name);
-            return NameOf(a.Name) + (full.Length > 0 ? Dot + full : "") + Dot + Format.Int(a.Avg) + " avg per action";
-        }
+        string Tip(ActorTotals a) => RowTip(a.Name, Format.Int(a.Avg) + " avg per action");
 
         ShowJob = !HideNames;
         HasActors = actors.Count > 0;
@@ -398,18 +401,8 @@ public sealed partial class MainViewModel
     /// <summary>The drill-down just opened: the window brings it into view.</summary>
     public event Action? DrillOpened;
 
-    [ObservableProperty] private bool drillOpen;
-    [ObservableProperty] private string drillTitle = "";
-    [ObservableProperty] private string drillNote = "";
-    /// <summary>Whose action it is, as a swatch before the note.</summary>
-    [ObservableProperty] private Brush? drillSwatch;
-    [ObservableProperty] private IReadOnlyList<StatTile> drillTiles = [];
-    [ObservableProperty] private HistogramModel? histogram;
-    [ObservableProperty] private Color histogramFill = Colors.Gray;
-    /// <summary>The same, in a floating panel's colours.</summary>
-    [ObservableProperty] private Color panelHistogramFill = Colors.Gray;
-    [ObservableProperty] private string drillCaption = "";
-    [ObservableProperty] private IReadOnlyList<HitRow> drillHits = [];
+    /// <summary>What the drill-down card draws (Views/DrillCard).</summary>
+    public DrillView DamageDrill { get; }
 
     /// <summary>Selecting an action opens its drill-down; selecting it again closes it.</summary>
     [RelayCommand]
@@ -437,64 +430,45 @@ public sealed partial class MainViewModel
     {
         if (drill is not { } on)
         {
-            DrillOpen = false;
+            DamageDrill.Close();
             return;
         }
 
         // Folded per use, like every count: an area attack is one figure, what
         // the action hit for, not a point per target.
         var d = Counting.Distribution(c.Events, on.Actor, on.Action);
-        DrillOpen = true;
-        DrillTitle = on.Action;
-        DrillSwatch = SwatchOf(on.Actor);
-        DrillNote = NameOf(on.Actor) + Dot + Format.Int(d.Count) + " hit" + (d.Count == 1 ? "" : "s") +
-                    (d.Misses != 0 ? Dot + d.Misses.ToString(CultureInfo.InvariantCulture) + " miss" + (d.Misses == 1 ? "" : "es") : "") +
-                    Dot + Format.Int(d.Total) + " total damage";
-
-        if (d.Count == 0)
-        {
-            DrillTiles = [new StatTile("No hits in range", "")];
-            Histogram = null;
-            DrillCaption = "";
-            DrillHits = [];
-            return;
-        }
-
-        DrillTiles =
-        [
-            new("Min", Format.Int(d.Min)),
-            new("Average", Format.Int(d.Avg)),
-            new("Max", Format.Int(d.Max)),
-            new("Median", Format.Int(d.Median)),
-            new("Std dev", Format.Int(d.Stdev)),
-            // The same question the per-character table's Accuracy asks, so
-            // drilling into "Attack" agrees with that cell.
-            new("Accuracy", Format.Num(d.Accuracy * 100, 0) + "%"),
-        ];
-
-        Histogram = HistogramModel.From(d);
-        HistogramFill = ColorOf(on.Actor);
-        PanelHistogramFill = PanelColorOf(on.Actor);
-        DrillCaption = "Damage distribution" + Dot + d.Bins.Count.ToString(CultureInfo.InvariantCulture) + " bins" + Dot +
-                       "IQR " + Format.Int(d.Q1) + "–" + Format.Int(d.Q3) + Dot +
-                       "90th percentile " + Format.Int(d.P90) +
-                       (d.Crits != 0 ? Dot + Format.Num(d.CritRate * 100, 0) + "% crit" : "") +
-                       (d.Bursts != 0 ? Dot + d.Bursts.ToString(CultureInfo.InvariantCulture) + " magic burst" : "");
-
-        // Newest first. Each with how far it fell from the average, out of
-        // the furthest any of them fell: the length of the small bar beside it.
-        double furthest = RowMarks.Furthest(d.Events.Select(e => e.Dmg), d.Avg);
-        var hits = new List<HitRow>(d.Events.Count);
-        for (int i = d.Events.Count - 1; i >= 0; i--)
-        {
-            var e = d.Events[i];
-            var delta = e.Dmg - d.Avg;
-            hits.Add(new HitRow(Format.Elapsed(e.T),
-                                e.Target.Length > 0 ? NameOf(e.Target) : None,
-                                Format.Int(e.Dmg),
-                                (delta >= 0 ? "+" : "−") + Format.Int(Math.Abs(delta)),
-                                RowMarks.Offset(e.Dmg, d.Avg, furthest), e.Crit));
-        }
-        DrillHits = hits;
+        var note = NameOf(on.Actor) + Dot + Format.Int(d.Count) + " hit" + (d.Count == 1 ? "" : "s") +
+                   (d.Misses != 0 ? Dot + d.Misses.ToString(CultureInfo.InvariantCulture) + " miss" + (d.Misses == 1 ? "" : "es") : "") +
+                   Dot + Format.Int(d.Total) + " total damage";
+        // The same question the per-character table's Accuracy asks, so
+        // drilling into "Attack" agrees with that cell.
+        var tiles = DrillTiles(d, new StatTile("Accuracy", Format.Num(d.Accuracy * 100, 0) + "%"));
+        var caption = DrillCaption("Damage distribution", d) +
+                      (d.Crits != 0 ? Dot + Format.Num(d.CritRate * 100, 0) + "% crit" : "") +
+                      (d.Bursts != 0 ? Dot + d.Bursts.ToString(CultureInfo.InvariantCulture) + " magic burst" : "");
+        DamageDrill.Show(DrillKey(on), on.Action, note, SwatchOf(on.Actor), d, tiles, caption,
+                         ColorOf(on.Actor), PanelColorOf(on.Actor), NameOf);
     }
+
+    /// <summary>What a drill-down's list is of, and how it is drawn: a list
+    /// with the same key may only have grown since the last count.</summary>
+    string DrillKey((string Actor, string Action) on) => on.Actor + KeyGap + on.Action + KeyGap + HideNames;
+
+    /// <summary>The six figures over a drill-down: five of the spread, and
+    /// one of the section's own.</summary>
+    static IReadOnlyList<StatTile> DrillTiles(Distribution d, StatTile last) =>
+    [
+        new("Min", Format.Int(d.Min)),
+        new("Average", Format.Int(d.Avg)),
+        new("Max", Format.Int(d.Max)),
+        new("Median", Format.Int(d.Median)),
+        new("Std dev", Format.Int(d.Stdev)),
+        last,
+    ];
+
+    /// <summary>The line under a drill-down's chart, as far as the two sections share it.</summary>
+    static string DrillCaption(string what, Distribution d) =>
+        what + Dot + d.Bins.Count.ToString(CultureInfo.InvariantCulture) + " bins" + Dot +
+        "IQR " + Format.Int(d.Q1) + "–" + Format.Int(d.Q3) + Dot +
+        "90th percentile " + Format.Int(d.P90);
 }

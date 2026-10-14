@@ -129,10 +129,6 @@ public static partial class SplitTree
     public static SplitNode Fold(SplitNode tree, string key, bool folded) =>
         Rebuild(tree, node => node is PaneLeaf leaf && leaf.Key == key && leaf.Folded != folded ? leaf with { Folded = folded } : node)!;
 
-    /// <summary>Folded if it was open, open if it was folded.</summary>
-    public static SplitNode ToggleFold(SplitNode tree, string key) =>
-        Leaf(tree, key) is { } leaf ? Fold(tree, key, !leaf.Folded) : tree;
-
     // -------------------------------------------------------------- a move
 
     /// <summary>The tree without one pane: the split it was a half of

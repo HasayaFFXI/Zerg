@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using static Zerg.Native.User32;
 
 namespace Zerg.Native;
 
@@ -20,6 +21,7 @@ sealed class TrayIcon : IDisposable
     readonly nint hwnd;
     readonly string tip;
     readonly nint icon;
+    readonly bool ownsIcon;
     readonly HwndSourceHook hook;
     readonly uint taskbarCreated = RegisterWindowMessage("TaskbarCreated");
 
@@ -38,7 +40,7 @@ sealed class TrayIcon : IDisposable
     {
         hwnd = new WindowInteropHelper(window).Handle;
         this.tip = tip;
-        icon = OwnIcon();
+        (icon, ownsIcon) = OwnIcon();
         hook = OnMessage;
         HwndSource.FromHwnd(hwnd)?.AddHook(hook);
         Add();
@@ -67,12 +69,14 @@ sealed class TrayIcon : IDisposable
     };
 
     /// <summary>The icon the exe carries, at the size the notification area
-    /// draws; Windows' plain application icon if it carries none.</summary>
-    static nint OwnIcon()
+    /// draws, which is this icon's to destroy; Windows' plain application
+    /// icon if it carries none, which is shared and is not.</summary>
+    static (nint Icon, bool Owned) OwnIcon()
     {
         var small = new nint[1];
-        if (Environment.ProcessPath is { } exe && ExtractIconEx(exe, 0, null, small, 1) > 0 && small[0] != 0) return small[0];
-        return LoadIcon(0, IDI_APPLICATION);
+        if (Environment.ProcessPath is { } exe && ExtractIconEx(exe, 0, null, small, 1) > 0 && small[0] != 0)
+            return (small[0], true);
+        return (LoadIcon(0, IDI_APPLICATION), false);
     }
 
     nint OnMessage(nint h, int msg, nint wp, nint lp, ref bool handled)
@@ -107,7 +111,7 @@ sealed class TrayIcon : IDisposable
             Shell_NotifyIcon(NIM_DELETE, ref data);
             Shown = false;
         }
-        if (icon != 0) DestroyIcon(icon);
+        if (icon != 0 && ownsIcon) DestroyIcon(icon);
     }
 
     // ------------------------------------------------------------- interop
@@ -156,10 +160,6 @@ sealed class TrayIcon : IDisposable
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool DestroyIcon(nint icon);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool SetForegroundWindow(nint hwnd);
 
     [DllImport("user32.dll", EntryPoint = "RegisterWindowMessageW", CharSet = CharSet.Unicode)]
     static extern uint RegisterWindowMessage(string name);

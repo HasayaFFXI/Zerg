@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Zerg.Core.Tests;
 
 /// <summary>What the Compare section prints for a pair of runs.</summary>
@@ -38,6 +40,22 @@ public class CompareSheetTests
     {
         Assert.Equal(ChangeTone.Better, Change.Of(200, 150, ChangeKind.Percent, Format.Int, -1).Tone);
         Assert.Equal(ChangeTone.Worse, Change.Of(100, 150, ChangeKind.Percent, Format.Int, -1).Tone);
+    }
+
+    [Fact]
+    public void A_change_too_small_to_print_is_flat_whatever_its_sign()
+    {
+        // Two rates that read 2,606.5 each: the change prints as nothing and
+        // is not coloured as better, though B is a hair above A.
+        Assert.Equal(new Change("±0.0%", "±0.0", ChangeTone.Flat),
+                     Change.Of(2606.50, 2606.52, ChangeKind.Percent, n => Format.Num(n, 1), 1));
+        // The plain difference under it says what it does, with its own sign.
+        Assert.Equal(new Change("±0.0%", "+2", ChangeTone.Flat), Change.Of(2_606_500, 2_606_502, ChangeKind.Percent, Format.Int, 1));
+        Assert.Equal(new Change("±0.0 pt", "", ChangeTone.Flat), Change.Of(0.9, 0.9004, ChangeKind.Points, Format.Int, 1));
+        Assert.Equal(new Change("+0.1 pt", "", ChangeTone.Better), Change.Of(0.9, 0.9006, ChangeKind.Points, Format.Int, 1));
+        Assert.Equal(new Change("±0s", "", ChangeTone.Flat), Change.Of(60, 60.4, ChangeKind.Time, Format.Int, 1));
+        Assert.Equal(new Change("new", "+5", ChangeTone.Better), Change.Of(0, 5, ChangeKind.Percent, Format.Int, 1));
+        Assert.Equal(new Change("±0", "±0", ChangeTone.Flat), Change.Of(0, 0, ChangeKind.Percent, Format.Int, 1));
     }
 
     [Fact]
@@ -449,7 +467,7 @@ public class CompareSheetTests
         var info = CompareSheet.Describe(run);
         var began = DateTimeOffset.FromUnixTimeMilliseconds(10_000).ToLocalTime();
 
-        Assert.Equal(began.ToString("yyyy-MM-dd HH:mm:ss"), info.Started);
+        Assert.Equal(began.ToString("yyyy'-'MM'-'dd HH':'mm':'ss", CultureInfo.InvariantCulture), info.Started);
         Assert.Equal("01:05", info.Length);
         Assert.Equal("2 characters", info.Party);
         Assert.Equal("", info.Skipped);

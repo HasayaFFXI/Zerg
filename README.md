@@ -15,6 +15,12 @@ in the [VibeXI repository](https://github.com/HasayaFFXI/VibeXI).** Those
 instructions are the authority on setting up the addon; this repository does
 not repeat them.
 
+## Getting Zerg
+
+Zerg comes as a zip with one `Zerg.exe` in it (Windows 10 or 11, 64-bit;
+nothing else to install) and a `README.txt` that says how to start. It is
+made with `python tools/package.py`.
+
 ## Building from source
 
 ```

@@ -21,4 +21,8 @@
     <ProjectReference Include="..\..\src\Zerg.Core\Zerg.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Parses\*.zerg" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

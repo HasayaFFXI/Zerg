@@ -90,13 +90,21 @@ public static class Targets
     }
 
     /// <summary>What the rows that name nothing came to: the whole, less
-    /// every line that has a name. Nothing, where that is none or (by a
-    /// rounding of the sums) less.</summary>
+    /// every line that has a name. The amounts are whole numbers and their
+    /// sums exact, so this is exact too; nothing, where it is none.</summary>
     public static double Unnamed(IEnumerable<TargetTotal> list, double whole)
     {
         double rest = whole - list.Where(t => t.Name.Length > 0 && !double.IsNaN(t.Total)).Sum(t => t.Total);
-        return double.IsNaN(rest) || rest < 0.5 ? 0 : rest;
+        return double.IsNaN(rest) || rest <= 0 ? 0 : rest;
     }
+
+    /// <summary>
+    /// Why a rate is a dash while targets are isolated, wherever one is:
+    /// <paramref name="clock"/> is whose clock it would have been divided
+    /// by ("session’s", "whole run’s").
+    /// </summary>
+    public static string NoRate(string clock) =>
+        "No DPS while a target is isolated: the clock is the " + clock + ", not the time that target was fought";
 
     /// <summary>What a filter is handed: the names picked, or null for
     /// "every target" when none is.</summary>

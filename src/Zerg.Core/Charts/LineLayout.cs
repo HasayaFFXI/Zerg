@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Zerg.Core.Charts;
 
 /// <summary>One line of a cumulative chart, as the layout needs it.</summary>
@@ -175,7 +177,7 @@ public sealed class LineLayout
                 if (!series[i].Group && (l.Leader < 0 || LastValue(series[i].Values) >= LastValue(series[l.Leader].Values)))
                     l.Leader = i;
             }
-            Js.StableSort(named, (a, b) => LastValue(series[b].Values) - LastValue(series[a].Values));
+            named.SortByDescending(i => LastValue(series[i].Values));
             int room = (int)Math.Floor(plotH / LabelPitch) + 1;
             if (named.Count > room) named.RemoveRange(room, named.Count - room);
 
@@ -224,11 +226,11 @@ public sealed class LineLayout
         var yTicks = Ticks.Nice(0, vmax, plot.H < 200 ? 3 : 5);
         l.YTop = Math.Max(vmax, yTicks[^1]);
         foreach (var v in yTicks)
-            l.YTicks.Add(new AxisTick(v, Js.Round(l.Py(v)) + 0.5, Format.Compact(v)));
+            l.YTicks.Add(new AxisTick(v, Format.Round(l.Py(v)) + 0.5, Format.Compact(v)));
 
         l.XTicks = l.TimeTicks();
 
-        l.AxisY = Js.Round(plot.Y + plot.H) + 0.5;
+        l.AxisY = Format.Round(plot.Y + plot.H) + 0.5;
 
         for (int i = 0; i < series.Count; i++)
         {
@@ -245,7 +247,7 @@ public sealed class LineLayout
             // no more are named than the plot has pitches for.
             var floor = plot.Y + plot.H;
             var tags = named.Select(i => (Series: i, Y: l.Py(LastValue(series[i].Values)))).ToList();
-            Js.StableSort(tags, (a, b) => a.Y - b.Y);
+            tags.SortBy(t => t.Y);
             for (int i = 1; i < tags.Count; i++)
                 tags[i] = tags[i] with { Y = Math.Max(tags[i].Y, tags[i - 1].Y + LabelPitch) };
             if (tags.Count > 0 && tags[^1].Y > floor)
@@ -285,7 +287,7 @@ public sealed class LineLayout
                 // line stopped early.
                 labels.Add((i, l.Px(times[Math.Max(0, LastIndex(v))]), l.Py(LastValue(v)), Format.Compact(LastValue(v))));
             }
-            Js.StableSort(labels, (a, b) => a.Y - b.Y);
+            labels.SortBy(t => t.Y);
             bool collide = false;
             for (int i = 1; i < labels.Count; i++)
                 if (labels[i].Y - labels[i - 1].Y < LabelPitch) { collide = true; break; }
@@ -323,14 +325,16 @@ public sealed class LineLayout
         // left is 0:00.
         var ticks = new List<AxisTick>();
         foreach (var t in Ticks.Time(T0, T1, Math.Max(3, Math.Floor(Plot.W / TimeLabelRoom))))
-            ticks.Add(new AxisTick(t, Js.Round(Px(t)) + 0.5, Format.Elapsed(t)));
+            ticks.Add(new AxisTick(t, Format.Round(Px(t)) + 0.5, Format.Elapsed(t)));
         return ticks;
     }
 
     /// <summary>
     /// What the crosshair reads with the pointer at (<paramref name="mx"/>,
     /// <paramref name="my"/>), or null when the pointer is more than 8 px
-    /// outside the plot. The crosshair sits on the nearest grid time.
+    /// outside the plot. The crosshair sits on the nearest grid time, found
+    /// by time: the grid is even but for a live chart's last sample, which is
+    /// the edge, however near the bin before it.
     /// </summary>
     public LineHover? Hover(double mx, double my)
     {
@@ -338,10 +342,9 @@ public sealed class LineLayout
         var plot = Plot;
         if (mx < plot.X - 8 || mx > plot.X + plot.W + 8 || my < plot.Y - 8 || my > plot.Y + plot.H + 8) return null;
 
-        var frac = (mx - plot.X) / plot.W;
-        int idx = (int)Math.Max(0, Math.Min(times.Length - 1, Js.Round(frac * (times.Length - 1))));
+        int idx = Nearest(T0 + (mx - plot.X) / plot.W * (T1 - T0));
         var px = Px(times[idx]);
-        var x = Js.Round(px) + 0.5;
+        var x = Format.Round(px) + 0.5;
 
         var at = new List<int>();
         var dots = new List<EndMarker>();
@@ -352,7 +355,7 @@ public sealed class LineLayout
             at.Add(i);
             dots.Add(new EndMarker(i, x, Py(v)));
         }
-        Js.StableSort(at, (a, b) => series[b].Values[idx] - series[a].Values[idx]);
+        at.SortByDescending(i => series[i].Values[idx]);
 
         return new LineHover
         {
@@ -363,5 +366,38 @@ public sealed class LineLayout
             Rows = at.Select(i => new HoverRow(series[i].Name, Format.Int(series[i].Values[idx]), i)).ToList(),
             Dots = dots,
         };
+    }
+
+    /// <summary>
+    /// What the chart shows, in a sentence for a screen reader: "3 lines over
+    /// 00:24. Highest: Hasaya, 12,345". The time is the session clock at the
+    /// grid's end, as the readout over the chart prints it.
+    /// </summary>
+    public static string Summary(double[] times, IReadOnlyList<(string Name, double[] Values)> series)
+    {
+        if (times.Length == 0 || series.Count == 0) return "No data";
+        // The line that ends highest, and where it ends.
+        string? top = null;
+        double most = double.NegativeInfinity;
+        foreach (var (name, values) in series)
+        {
+            double last = double.NaN;
+            for (int i = values.Length - 1; i >= 0 && !double.IsFinite(last); i--) last = values[i];
+            if (double.IsFinite(last) && last > most) (top, most) = (name, last);
+        }
+        string lines = series.Count == 1 ? "1 line" : series.Count.ToString(CultureInfo.InvariantCulture) + " lines";
+        string over = lines + " over " + Format.Stopwatch(times[^1]);
+        return top is null ? over : $"{over}. Highest: {top}, {Format.Int(most)}";
+    }
+
+    /// <summary>The grid time nearest <paramref name="t"/>, by its index.</summary>
+    int Nearest(double t)
+    {
+        int i = Array.BinarySearch(times, t);
+        if (i >= 0) return i;
+        i = ~i;   // the first time past t
+        if (i == 0) return 0;
+        if (i >= times.Length) return times.Length - 1;
+        return t - times[i - 1] <= times[i] - t ? i - 1 : i;
     }
 }

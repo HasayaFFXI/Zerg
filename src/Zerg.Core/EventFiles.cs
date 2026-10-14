@@ -3,7 +3,9 @@ using System.Text;
 namespace Zerg.Core;
 
 /// <summary>The lines a poll returns, and where the next poll starts.</summary>
-public sealed record Tail(IReadOnlyList<string> Lines, long NextOffset, long Size, bool Truncated);
+/// <param name="Skipped">Bytes passed over without being read as lines: a
+/// whole <see cref="EventFiles.MaxTail"/> with no line break in it.</param>
+public sealed record Tail(IReadOnlyList<string> Lines, long NextOffset, long Size, bool Truncated, long Skipped = 0);
 
 /// <summary>
 /// Finds and tails the event files the VibeXI addon writes.
@@ -80,7 +82,16 @@ public static class EventFiles
 
         // Trim back to the last newline so we never emit a half-written line.
         int last = span.LastIndexOf((byte)'\n');
-        if (last < 0) return new Tail([], offset, length, truncated);
+        if (last < 0)
+        {
+            // A whole read with no line break in it is no line the addon
+            // writes, and waiting for its end would read the same bytes on
+            // every poll for good. It is passed over; what is left of it,
+            // up to the next break, then reads as one unreadable line.
+            return got == MaxTail
+                ? new Tail([], offset + got, length, truncated, Skipped: got)
+                : new Tail([], offset, length, truncated);
+        }
 
         // The addon escapes every non-ASCII byte as \uXXXX, so this is ASCII in
         // practice; UTF-8 with replacement is the safe superset.

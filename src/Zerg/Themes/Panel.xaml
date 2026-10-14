@@ -13,7 +13,7 @@
        theme's. Under the light theme, without this file, a card in a panel
        would take the application's values: dark ink on a black panel.
 
-       Only brushes, and only these keys (UI-REDESIGN-PLAN.md, section 4.3,
+       Only brushes, and only these keys (the panel's own set,
        and Bg1Brush since phase 2; ShadedDashBrush and the two overlays a
        table row asks for since phase 6). Bg0Brush is not here: a panel has
        no window surface of its own. Nor are the tags or the other

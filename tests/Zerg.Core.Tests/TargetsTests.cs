@@ -144,7 +144,7 @@ public class TargetsTests
         // Mage never touched Kirin, and can still be excluded.
         var t = Session(Lines.Hit(10, "Hasaya", 100, target: "Kirin"), Lines.Hit(12, "Mage", 80, target: "Genbu"));
         var c = t.Count(Nobody, true, 30_000, Only("Kirin"));
-        Assert.Equal(["Hasaya", "Mage"], c.Listed.Select(a => a.Name));
+        Assert.Equal(["Hasaya", "Mage"], c.Listed);
         Assert.Equal(["Hasaya"], c.Totals.Actors.Select(a => a.Name));
     }
 

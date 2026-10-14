@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Zerg.Core;
 
 namespace Zerg;
 
@@ -305,12 +306,35 @@ public sealed record StatTile(string Label, string Value)
     public override string ToString() => Value.Length > 0 ? Label + " " + Value : Label;
 }
 
-/// <summary>One hit in the drill-down's list, or one cast in the heal drill-down's.</summary>
-/// <param name="Offset">How far it fell from the average, out of the
-/// furthest any hit in the list fell: over it up to 1, under it down to -1.</param>
+/// <summary>
+/// One hit in the drill-down's list, or one cast in the heal drill-down's.
+/// Kept in the list from count to count (<see cref="DrillView"/>): what it
+/// was never changes, and how far it fell from the average moves with the
+/// average.
+/// </summary>
 /// <param name="Crit">A critical hit, marked with a spark beside the figure.</param>
-public sealed record HitRow(string Time, string Target, string Damage, string VsAvg, double Offset = 0, bool Crit = false)
+public sealed partial class HitRow(string time, string target, double amount, bool crit) : ObservableObject
 {
+    public string Time { get; } = time;
+    public string Target { get; } = target;
+    public double Amount { get; } = amount;
+    public string Damage { get; } = Format.Int(amount);
+    public bool Crit { get; } = crit;
+
+    /// <summary>"+120" or "−45": from the average.</summary>
+    [ObservableProperty] private string vsAvg = "";
+    /// <summary>How far it fell from the average, out of the furthest any
+    /// hit in the list fell: over it up to 1, under it down to -1.</summary>
+    [ObservableProperty] private double offset;
+
+    /// <summary>Measured again against the list's average and its furthest.</summary>
+    internal void Measure(double avg, double furthest)
+    {
+        var delta = Amount - avg;
+        VsAvg = (delta >= 0 ? "+" : "−") + Format.Int(Math.Abs(delta));
+        Offset = RowMarks.Offset(Amount, avg, furthest);
+    }
+
     /// <summary>What a screen reader calls the row: what it reads across,
     /// and that a hit was critical in a word, since the spark is a mark.</summary>
     public override string ToString() => $"{Time}, {Target}, {Damage}{(Crit ? " critical" : "")}, {VsAvg} against the average";

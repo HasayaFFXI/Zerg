@@ -145,15 +145,14 @@ public static class Compare
         new("mobtp", "Other"),
     ];
 
-    public const string UnknownJob = "Unknown job";
+    public const string UnknownJob = Cast.UnknownJob;
 
     /// <summary>A character's main job in this run, or <see cref="UnknownJob"/>.
     /// Never borrowed from the other run: someone missing from the party table
     /// in one run was often on a different job in it.</summary>
     static string MainJob(Roster roster, string name)
     {
-        var j = roster.JobOf(name);
-        return j != null && !string.IsNullOrEmpty(j.Main) && j.Main != "NON" ? j.Main : UnknownJob;
+        return roster.JobOf(name) is { HasMain: true } j ? j.Main : UnknownJob;
     }
 
     static void Add(OrderedDictionary<string, double> map, string key, double v) =>
@@ -250,27 +249,14 @@ public static class Compare
         foreach (var h in hl)
         {
             if (!h.IsPets) healEvents.Add(new CombatEvent { T = h.T, Hit = true, Dmg = h.Hp });
-            var spell = !string.IsNullOrEmpty(h.By) ? Slice(h.Action, h.By.Length + 2) : h.Action;
-            Add(healSpells, spell, h.Hp);
+            Add(healSpells, h.Spell, h.Hp);
             Add(healTargets, h.Target, h.Hp);
         }
 
-        // Party figures, summed from the per-row splits so they agree with the
-        // table by construction.
-        int autoTries = 0, autoHits = 0, wsTries = 0, wsHits = 0, scRows = 0;
-        double wsTotal = 0, scTotal = 0;
-        foreach (var a in agg.Actors)
-        {
-            var s = a.Split;
-            autoTries += s.AutoTries; autoHits += s.AutoHits;
-            wsTotal += s.WsTotal; wsTries += s.WsTries; wsHits += s.WsHits;
-            scTotal += s.ScTotal; scRows += s.ScRows;
-        }
-
-        BestHit? best = null;
-        foreach (var a in agg.Actors)
-            foreach (var act in a.ActionList)
-                if (best == null || act.Max > best.Max) best = new BestHit(act.Max, a.Name, act.Name);
+        // The party's figures are the Party line's (Aggregate.Party), summed
+        // from the same per-character splits: they agree with the table by
+        // construction.
+        var party = agg.Party;
 
         return new Measurement
         {
@@ -284,15 +270,15 @@ public static class Compare
             Total = agg.Total,
             Dps = only != null ? null : secs > 0 ? agg.Total / secs : 0,
             Isolated = only != null,
-            Accuracy = autoTries != 0 ? (double)autoHits / autoTries : null,
-            WsTotal = wsTries != 0 ? wsTotal : null,
-            WsCount = wsTries,
-            WsAvg = wsHits != 0 ? wsTotal / wsHits : null,
-            WsAcc = wsTries != 0 ? (double)wsHits / wsTries : null,
-            ScTotal = scRows != 0 ? scTotal : null,
-            ScCount = scRows,
+            Accuracy = party.AutoAcc,
+            WsTotal = party.WsTotal,
+            WsCount = agg.Split.WsTries,
+            WsAvg = party.WsAvg,
+            WsAcc = party.WsAcc,
+            ScTotal = party.ScTotal,
+            ScCount = agg.Split.ScRows,
             Characters = agg.Actors.Count(a => a.Total > 0),
-            Best = best,
+            Best = agg.Best,
             Kinds = kinds,
             Targets = byTarget,
             Heal = heal,
@@ -304,15 +290,12 @@ public static class Compare
         };
     }
 
-    /// <summary>String slice from <paramref name="start"/>, clamped like JavaScript's.</summary>
-    static string Slice(string s, int start) => start >= s.Length ? "" : s[start..];
-
     /// <summary>The keys of either map, A's first, each with what either side had.</summary>
     static List<(string Key, bool InA, T? A, bool InB, T? B)> PairUp<T>(
         OrderedDictionary<string, T> a, OrderedDictionary<string, T> b)
     {
-        var keys = Js.Keys(a.Keys.ToList()).ToList();
-        foreach (var k in Js.Keys(b.Keys.ToList())) if (!a.ContainsKey(k)) keys.Add(k);
+        var keys = a.Keys.ToList();
+        foreach (var k in b.Keys) if (!a.ContainsKey(k)) keys.Add(k);
         return keys.Select(k =>
         {
             bool inA = a.TryGetValue(k, out var va), inB = b.TryGetValue(k, out var vb);
@@ -338,7 +321,7 @@ public static class Compare
     static List<PairTotal> Totals(OrderedDictionary<string, double> a, OrderedDictionary<string, double> b)
     {
         var list = PairUp(a, b).Select(p => new PairTotal(p.Key, p.A, p.B)).ToList();
-        Js.StableSort(list, (x, y) => Math.Max(y.A, y.B) - Math.Max(x.A, x.B));
+        list.SortByDescending(x => Math.Max(x.A, x.B));
         return list;
     }
 
@@ -347,7 +330,7 @@ public static class Compare
     {
         var rows = Pairs(ByName(ma.Agg.Actors, x => x.Name), ByName(mb.Agg.Actors, x => x.Name))
             .Where(r => Size(r.A) > 0 || Size(r.B) > 0).ToList();
-        Js.StableSort(rows, (x, y) => Math.Max(Size(y.A), Size(y.B)) - Math.Max(Size(x.A), Size(x.B)));
+        rows.SortByDescending(x => Math.Max(Size(x.A), Size(x.B)));
 
         var kinds = new List<KindPair>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -365,8 +348,7 @@ public static class Compare
 
         var heals = Pairs(ByName(ma.Heal.Actors, x => x.Name), ByName(mb.Heal.Actors, x => x.Name))
             .Where(r => HealSize(r.A) > 0 || HealSize(r.B) > 0).ToList();
-        Js.StableSort(heals, (x, y) =>
-            Math.Max(HealSize(y.A), HealSize(y.B)) - Math.Max(HealSize(x.A), HealSize(x.B)));
+        heals.SortByDescending(x => Math.Max(HealSize(x.A), HealSize(x.B)));
 
         return new CompareRows
         {
@@ -389,7 +371,7 @@ public static class Compare
         var la = row.A != null ? ByName(row.A.ActionList, x => x.Name) : new(StringComparer.Ordinal);
         var lb = row.B != null ? ByName(row.B.ActionList, x => x.Name) : new(StringComparer.Ordinal);
         var list = Pairs(la, lb).Where(x => Size(x.A) > 0 || Size(x.B) > 0).ToList();
-        Js.StableSort(list, (x, y) => Math.Max(Size(y.A), Size(y.B)) - Math.Max(Size(x.A), Size(x.B)));
+        list.SortByDescending(x => Math.Max(Size(x.A), Size(x.B)));
         return list;
     }
 
@@ -471,7 +453,7 @@ public static class Compare
         var la = row.A != null ? ByName(row.A.ActionList, x => x.Name) : new(StringComparer.Ordinal);
         var lb = row.B != null ? ByName(row.B.ActionList, x => x.Name) : new(StringComparer.Ordinal);
         var list = Pairs(la, lb);
-        Js.StableSort(list, (x, y) => Math.Max(Size(y.A), Size(y.B)) - Math.Max(Size(x.A), Size(x.B)));
+        list.SortByDescending(x => Math.Max(Size(x.A), Size(x.B)));
         return list;
     }
 
@@ -509,7 +491,9 @@ public static class Compare
             for (int j = 0; j < n; j++)
             {
                 run += v[j];
-                v[j] = times[j] <= stop + step - 1 ? run : double.NaN;
+                // A sample belongs to the run while the bin it closes began
+                // before the run's end: the bin that holds the end is drawn.
+                v[j] = times[j] - step < stop ? run : double.NaN;
             }
             return v;
         }

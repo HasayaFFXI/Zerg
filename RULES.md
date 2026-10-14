@@ -39,7 +39,7 @@ Reading the file (`EventFiles`, `EventTail`):
 
 ## The event contract
 
-One line is one `(action, target, result)` row:
+One line is one `(action, target, result)` row. A field of the wrong JSON type (a string where a number goes, a number that is not finite, a time no clock can show) makes the line unreadable: it is skipped and counted, never coerced. A missing or null field is its type's empty value:
 
 ```json
 {"t":1785000000,"seq":3,"use":41207,"kind":"ws","actor":"Hasaya","actorKind":"player",
@@ -143,7 +143,7 @@ it. Two copies would let the clock start on a row that is then not drawn.
 ## The per-character table
 
 Every column but Job and DPS is one of the reference parser's columns, counted
-its way, with percentages to one decimal.
+its way, with percentages to one decimal. Every figure is rounded on its value, halves away from zero, and a figure that rounds to zero has no sign.
 
 | Column | What it is |
 |---|---|
@@ -313,11 +313,15 @@ The Target button counts only the damage dealt to the targets picked
   targets", with its share of the damage to every target under it.
 - **Healing is never isolated.** A heal's target is who it healed.
 - **Whoever acted keeps their chip**, whatever they acted on.
-- **What is picked is not a setting and is not kept.** It is emptied by
-  Start, by a new event file, and when the session and a saved parse change
-  places on screen; in Compare, when a slot is given another parse or
-  cleared. A filter kept for the next pull would count nothing, with nothing
-  listed to untick. It is not in an export: filters are the viewer's.
+- **What is picked is not a setting, and belongs to the parse it was
+  picked in.** The session and each parse open in View keep their own
+  while another is on screen, and get it back when they come on screen
+  again: switching tabs to look at another parse is not a new question
+  about this one. The session's is emptied by Start and by a new event
+  file, a parse's when its tab is closed; in Compare, when a slot is given
+  another parse or cleared. A filter kept for the next pull would count
+  nothing, with nothing listed to untick. It is not in an export: filters
+  are the viewer's.
 - **Compare isolates in both runs at once**, by name, and has a filter of its
   own: its targets are two files', not the session's. By target goes on
   listing every target, largest first, with the isolated ones marked.
@@ -329,8 +333,7 @@ Compare, counts only the damage of the types picked (`DamageTypes`, and one
 more line of `Counting.Counted`); in both, the rows of the By damage type
 table pick as well. It is the targets' rule along another cut, and what is
 said above of picking holds here: several, alphabetical by what each is
-called, a list that names them all, nothing kept (emptied when the targets
-are). The Damage section's table lists the types in the order Compare's
+called, a list that names them all, kept and emptied with the targets. The Damage section's table lists the types in the order Compare's
 has always had them (`DamageTypes.Listed`: melee, weaponskills,
 skillchains, magic, ...), not by size: they are the same few in every
 fight, and are found where they always are.
@@ -387,7 +390,10 @@ filter does, and credits a pet's heal to its owner.
 - **The file is the addon's own records, replayed.** Rows and job lines are
   stored in the wire format and read back through `EventReader.FeedRecord`,
   the same door a live line uses. With them go what the records cannot state:
-  the session, the spawn kinds and any manual override.
+  the session and the spawn kinds.
+- **Every export has an event list and a heal list**, each possibly empty: a
+  parse in which nobody healed has `"heals": []` and opens like any other.
+  A file without the heal list is refused.
 - **Only rows the session covers are written.** Filters are not: exclusions,
   the skillchain switch and Hide names are the viewer's.
 - **An import is locked** (no Start, no Pause) and takes nothing from the live
@@ -396,8 +402,9 @@ filter does, and credits a pet's heal to its owner.
   section is on screen. Damage and Healing are always the session; leaving
   View keeps the parse open for the way back.
 - **Exports are `.zerg`, never `.jsonl`** (`ParseFile.CanSaveAs`): the newest
-  `*.jsonl` in the events folder is what Zerg follows. Older `.json` exports
-  still import; detection is by content.
+  `*.jsonl` in the events folder is what Zerg follows. Detection is by
+  content. Files written by the browser build that came before Zerg (`.json`)
+  are not supported.
 - **The owner travels in the file**, so colour slot 0 and the one name Hide
   names keeps are the exporter's.
 - **A compared run is an import measured by the same pipeline**

@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Zerg.Core;
 
 /// <summary>
@@ -127,7 +129,7 @@ public sealed class Cast
         foreach (var n in SlotOrder())
         {
             var j = roster.JobOf(n);
-            if (j is null || string.IsNullOrEmpty(j.Main) || j.Main == "NON") continue;
+            if (j is not { HasMain: true }) continue;
             var k = used.GetValueOrDefault(j.Main);
             variants[n] = k;
             used[j.Main] = k + 1;
@@ -146,7 +148,7 @@ public sealed class Cast
             if (n == roster.Owner) continue;   // the one name that stays
             var label = roster.JobLabel(n) is { Length: > 0 } job ? job : UnknownJob;
             var k = used[label] = used.GetValueOrDefault(label) + 1;
-            aliases[n] = k > 1 ? label + " " + Js.NumberToString(k) : label;
+            aliases[n] = k > 1 ? label + " " + k.ToString(CultureInfo.InvariantCulture) : label;
         }
     }
 }

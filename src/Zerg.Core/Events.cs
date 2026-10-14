@@ -6,8 +6,7 @@ namespace Zerg.Core;
 /// Times are milliseconds. The file says seconds, and <see cref="EventReader"/>
 /// scales them once; nothing downstream scales again. Once
 /// <see cref="Counting.Filter"/> has put a row on a session clock, <see cref="T"/>
-/// is milliseconds since the session's zero and <see cref="Wall"/> keeps the
-/// time of day it happened.
+/// is milliseconds since the session's zero.
 ///
 /// Numbers stay doubles, as the file's JSON numbers are, so nothing read is
 /// rounded on the way in.
@@ -47,14 +46,10 @@ public sealed record CombatEvent
     /// <summary>Who actually acted, once a pet's row has been credited to its
     /// owner (<see cref="Counting.Credit"/>).</summary>
     public string? By { get; init; }
-    /// <summary>The time of day the row happened, once it is on a session clock.</summary>
-    public double? Wall { get; init; }
 
     /// <summary>On a folded use (<see cref="Counting.Collapse"/>): every target
     /// it reached, in order.</summary>
     public IReadOnlyList<string>? Targets { get; init; }
-    /// <summary>On a folded use: how many rows it was made of.</summary>
-    public int? Parts { get; init; }
 
     /// <summary>A pet's row (the owner field is set, and not empty).</summary>
     public bool IsPets => !string.IsNullOrEmpty(Owner);
@@ -66,6 +61,8 @@ public sealed record CombatEvent
 /// </summary>
 public sealed record HealEvent
 {
+    string? spell;
+
     public double T { get; init; }
     public double Seq { get; init; }
     public double? Use { get; init; }
@@ -83,7 +80,10 @@ public sealed record HealEvent
     public string? Owner { get; init; }
     public string? Pet { get; init; }
     public string? By { get; init; }
-    public double? Wall { get; init; }
+
+    /// <summary>The heal as its line names it: <see cref="Action"/> as it was
+    /// before crediting put the pet's name in front of it.</summary>
+    public string Spell { get => spell ?? Action; init => spell = value; }
 
     public bool IsPets => !string.IsNullOrEmpty(Owner);
 }
@@ -91,4 +91,14 @@ public sealed record HealEvent
 /// <summary>A party member's jobs, from the addon's job lines. <c>NON</c> is
 /// the game's "none".</summary>
 public sealed record JobInfo(string Main, double MainId, double MainLevel,
-                             string Sub, double SubId, double SubLevel);
+                             string Sub, double SubId, double SubLevel)
+{
+    /// <summary>The game's word for no job.</summary>
+    public const string None = "NON";
+
+    /// <summary>A main job was reported, and it is a job.</summary>
+    public bool HasMain => !string.IsNullOrEmpty(Main) && Main != None;
+
+    /// <summary>A sub-job was reported, and it is a job.</summary>
+    public bool HasSub => !string.IsNullOrEmpty(Sub) && Sub != None;
+}

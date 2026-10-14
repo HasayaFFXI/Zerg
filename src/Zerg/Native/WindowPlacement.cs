@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using static Zerg.Native.User32;
 
 namespace Zerg.Native;
 
@@ -75,7 +76,7 @@ static class WindowPlacement
     public static Placement? CaptureFrame(Window window) =>
         Frame(window) is { } f && FrameOnScreen(ToRect(f)) ? f : null;
 
-    static Rect ToRect(Placement p) =>
+    static Rect32 ToRect(Placement p) =>
         new() { Left = p.X, Top = p.Y, Right = p.X + p.Width, Bottom = p.Y + p.Height };
 
     /// <summary>Where the window is now, or null if that is nowhere useful.
@@ -103,17 +104,17 @@ static class WindowPlacement
     /// only when the taskbar is docked at the top or left. (A WS_EX_TOOLWINDOW
     /// window's placement is in plain screen coordinates instead.)
     /// </summary>
-    static bool OnScreen(Rect workspace)
+    static bool OnScreen(Rect32 workspace)
     {
         var primary = MonitorFromPoint(new Point32(), MONITOR_DEFAULTTOPRIMARY);
         var pi = new MonitorInfo { cbSize = Marshal.SizeOf<MonitorInfo>() };
         if (!GetMonitorInfo(primary, ref pi)) return false;
         int dx = pi.work.Left - pi.monitor.Left, dy = pi.work.Top - pi.monitor.Top;
-        return FrameOnScreen(new Rect { Left = workspace.Left + dx, Top = workspace.Top + dy, Right = workspace.Right + dx, Bottom = workspace.Bottom + dy });
+        return FrameOnScreen(new Rect32 { Left = workspace.Left + dx, Top = workspace.Top + dy, Right = workspace.Right + dx, Bottom = workspace.Bottom + dy });
     }
 
     /// <summary>The same test for a rectangle already in screen pixels.</summary>
-    static bool FrameOnScreen(Rect screen)
+    static bool FrameOnScreen(Rect32 screen)
     {
         var mon = MonitorFromRect(ref screen, MONITOR_DEFAULTTONULL);
         if (mon == 0) return false;
@@ -129,13 +130,6 @@ static class WindowPlacement
     const int SW_HIDE = 0, SW_SHOWMINIMIZED = 2, SW_SHOWMAXIMIZED = 3;
     const int WPF_RESTORETOMAXIMIZED = 2;
     const uint MONITOR_DEFAULTTONULL = 0, MONITOR_DEFAULTTOPRIMARY = 1;
-    const uint SWP_NOSIZE = 0x1, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct Rect { public int Left, Top, Right, Bottom; }
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct Point32 { public int X, Y; }
 
     [StructLayout(LayoutKind.Sequential)]
     struct Placement32
@@ -145,16 +139,7 @@ static class WindowPlacement
         public int showCmd;
         public Point32 minPosition;
         public Point32 maxPosition;
-        public Rect normal;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct MonitorInfo
-    {
-        public int cbSize;
-        public Rect monitor;
-        public Rect work;
-        public uint flags;
+        public Rect32 normal;
     }
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -166,20 +151,8 @@ static class WindowPlacement
     static extern bool SetWindowPlacement(nint hwnd, ref Placement32 placement);
 
     [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool GetWindowRect(nint hwnd, out Rect rect);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
-
-    [DllImport("user32.dll")]
-    static extern nint MonitorFromRect(ref Rect rect, uint flags);
+    static extern nint MonitorFromRect(ref Rect32 rect, uint flags);
 
     [DllImport("user32.dll")]
     static extern nint MonitorFromPoint(Point32 pt, uint flags);
-
-    [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool GetMonitorInfo(nint monitor, ref MonitorInfo info);
 }

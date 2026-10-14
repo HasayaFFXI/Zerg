@@ -56,6 +56,7 @@ sealed class Metronome : IDisposable
         WaitHandle[] either = [stop, timer];
         var clock = Stopwatch.StartNew();
         long due = 0;
+        bool coarse = false;
         while (true)
         {
             due += DrawRate.Interval(perSecond).Ticks;
@@ -63,16 +64,31 @@ sealed class Metronome : IDisposable
             if (wait > 0)
             {
                 // A negative time is from now, in 100 ns: a TimeSpan's own ticks.
-                if (!SetWaitableTimer(timer.SafeWaitHandle, -wait, 0, 0, 0, false)) break;
-                if (WaitHandle.WaitAny(either) == 0) break;
+                if (coarse || !SetWaitableTimer(timer.SafeWaitHandle, -wait, 0, 0, 0, false))
+                {
+                    // The timer would not be set. The beat goes on at the
+                    // clock's grain, approximate but going, rather than
+                    // stopping the clock and every rate with no word.
+                    if (!coarse)
+                    {
+                        Log.Write($"draw beat: the timer could not be set (error {Marshal.GetLastWin32Error()}); " +
+                                  "the draw frequency will be approximate");
+                        coarse = true;
+                    }
+                    if (stop.WaitOne(TimeSpan.FromTicks(wait))) break;
+                }
+                else if (WaitHandle.WaitAny(either) == 0) break;
             }
             // Too late for this one (the machine slept, or the rate rose):
             // counted again from now, with no burst of beats to catch up.
             else if (stop.WaitOne(0)) break;
             else due = now;
 
+            // At input's own priority, so a beat waits its turn behind a
+            // click or a key already waiting rather than going before it
+            // (Normal, Loaded and Render all outrank Input).
             if (Interlocked.Exchange(ref sent, 1) == 0)
-                dispatcher.BeginInvoke(DispatcherPriority.Normal, onBeat);
+                dispatcher.BeginInvoke(DispatcherPriority.Input, onBeat);
         }
     }
 

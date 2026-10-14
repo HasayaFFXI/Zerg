@@ -99,6 +99,12 @@ public partial class MainWindow : Window
             e.Handled = true;
         }));
         AddHandler(SplitPanel.NotedEvent, new EventHandler<NotedEventArgs>((_, e) => model.LayoutNote = e.Note));
+        // The parses' tabs in the title bar, put in another order.
+        AddHandler(TabStrip.MovedEvent, new EventHandler<TabMovedEventArgs>((_, e) =>
+        {
+            model.MoveParse(e.From, e.To, e.Done);
+            e.Handled = true;
+        }));
 
         menu = new TrayMenu(model, ComeForward, ShowSettings, Close);
         // Once the menu has gone and Windows has chosen who is in front.
@@ -370,11 +376,12 @@ public partial class MainWindow : Window
         // First, so each panel saves its frame as it closes, into the same
         // settings this window's placement is about to be written to.
         model.Panels.Leave();
-        if (WindowPlacement.Capture(this) is { } placement)
-        {
-            settings.Windows[PlacementKey] = placement;
-            settings.Save();
-        }
+        model.FlushSaves();
+        // A placement that is off every screen (a monitor unplugged) is not
+        // kept, and the file is written all the same: whatever else changed
+        // since the last save goes into it.
+        if (WindowPlacement.Capture(this) is { } placement) settings.Windows[PlacementKey] = placement;
+        settings.Save();
         base.OnClosing(e);
     }
 

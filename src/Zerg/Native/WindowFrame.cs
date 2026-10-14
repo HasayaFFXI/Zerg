@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
+using static Zerg.Native.User32;
 
 namespace Zerg.Native;
 
@@ -75,21 +76,6 @@ static class WindowFrame
     const int DWMWCP_ROUND = 2;
     const uint MONITOR_DEFAULTTONEAREST = 2;
 
-    [StructLayout(LayoutKind.Sequential)]
-    struct Rect { public int Left, Top, Right, Bottom; }
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct Point32 { public int X, Y; }
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct MonitorInfo
-    {
-        public int cbSize;
-        public Rect monitor;
-        public Rect work;
-        public uint flags;
-    }
-
     [DllImport("dwmapi.dll")]
     static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int size);
 
@@ -99,11 +85,7 @@ static class WindowFrame
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool GetClientRect(nint hwnd, out Rect rect);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool GetWindowRect(nint hwnd, out Rect rect);
+    static extern bool GetClientRect(nint hwnd, out Rect32 rect);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -111,8 +93,4 @@ static class WindowFrame
 
     [DllImport("user32.dll")]
     static extern nint MonitorFromWindow(nint hwnd, uint flags);
-
-    [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool GetMonitorInfo(nint monitor, ref MonitorInfo info);
 }

@@ -52,14 +52,7 @@ public sealed class HistogramChart : Chart
         }
         var plot = l.Plot;
 
-        var grid = Hairline(GridInk);
-        foreach (var t in l.YTicks)
-        {
-            var y = SnapLine(t.Pos);
-            dc.DrawLine(grid, new Point(plot.X, y), new Point(plot.Right, y));
-            var text = Text(t.Label, AxisSize, false, Muted);
-            Draw(dc, text, plot.X - HistogramLayout.YLabelGap - text.Width, y - text.Height / 2);
-        }
+        PaintValueAxis(dc, plot, l.YTicks);
 
         var foot = SnapEdge(plot.Bottom);
         if (l.Band is { } band)
@@ -69,26 +62,9 @@ public sealed class HistogramChart : Chart
         }
 
         var fill = Solid(Fill);
-        foreach (var c in l.Columns)
-        {
-            double left = SnapEdge(c.X), right = Math.Max(left + 1 / Scale, SnapEdge(c.X + c.W));
-            dc.DrawGeometry(fill, null, RoundedTop(left, c.Y, right - left, foot - c.Y, c.Radius));
-        }
+        foreach (var c in l.Columns) PaintColumn(dc, fill, c.X, c.Y, c.W, foot, c.Radius);
 
-        var baseline = SnapLine(l.BaselineY);
-        dc.DrawLine(Hairline(AxisInk), new Point(plot.X, baseline), new Point(plot.Right, baseline));
-
-        foreach (var x in l.XLabels)
-        {
-            var text = Text(x.Text, AxisSize, false, Muted);
-            double left = x.Align switch
-            {
-                LabelAlign.Left => x.X,
-                LabelAlign.Right => x.X - text.Width,
-                _ => x.X - text.Width / 2,
-            };
-            Draw(dc, text, left, plot.Bottom + HistogramLayout.XLabelGap);
-        }
+        PaintBinAxis(dc, plot, l.BaselineY, l.XLabels);
 
         if (l.Mean is { } mean)
         {

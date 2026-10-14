@@ -227,6 +227,29 @@
         </v:SettingRow>
       </Border>
 
+      <!-- Whether a .zerg file opened from Explorer opens here. Windows
+           holds it, not settings.json. -->
+      <Border Style="{StaticResource Row}">
+        <v:SettingRow>
+          <StackPanel>
+            <TextBlock Text="Parse files" Style="{StaticResource Name}"/>
+            <TextBlock Text="Open an exported parse (.zerg) from Explorer with a double-click, in the View section, and give such files Zerg's icon. A Zerg already running opens it, and the session goes on being measured underneath. Set for your Windows account only."
+                       Style="{StaticResource Words}"/>
+          </StackPanel>
+          <StackPanel>
+            <StackPanel Orientation="Horizontal">
+              <Button Content="Open .zerg files with Zerg" Command="{Binding OpenParsesHereCommand}"
+                      VerticalAlignment="Center" ToolTip="Tell Windows to open .zerg files in this Zerg"
+                      AutomationProperties.Name="Open parse files with Zerg"/>
+              <Button Content="Stop" Command="{Binding StopOpeningParsesCommand}" Margin="6,0,0,0"
+                      VerticalAlignment="Center" ToolTip="Leave .zerg files to whatever Windows picks"
+                      ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Stop opening parse files with Zerg"/>
+            </StackPanel>
+            <TextBlock Text="{Binding ParseFilesNote}" Style="{StaticResource Quiet}" Margin="0,7,0,0"/>
+          </StackPanel>
+        </v:SettingRow>
+      </Border>
+
       <!-- The keys that switch click-through. -->
       <Border Style="{StaticResource Row}">
         <v:SettingRow>

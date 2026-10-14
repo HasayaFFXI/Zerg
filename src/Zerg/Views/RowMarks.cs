@@ -23,7 +23,6 @@ namespace Zerg.Views;
 /// made once, and whole pixels.</summary>
 static class MarkInk
 {
-    static readonly Dictionary<(Color, int), SolidColorBrush> Brushes = [];
     static readonly Dictionary<(Color, int, double), Pen> Pens = [];
 
     /// <summary>A brush's colour at a strength, 0 to 1, in whole percent.
@@ -32,11 +31,7 @@ static class MarkInk
     {
         if (brush is not SolidColorBrush solid) return strength >= 1 ? brush : null;
         int percent = (int)Math.Round(Math.Clamp(strength * solid.Opacity, 0, 1) * 100);
-        if (percent <= 0) return null;
-        if (Brushes.TryGetValue((solid.Color, percent), out var made)) return made;
-        made = new SolidColorBrush(solid.Color) { Opacity = percent / 100.0 };
-        made.Freeze();
-        return Brushes[(solid.Color, percent)] = made;
+        return percent <= 0 ? null : Inks.At(solid.Color, percent);
     }
 
     public static Pen? PenAt(Brush? brush, double strength, double thickness)
@@ -44,6 +39,8 @@ static class MarkInk
         if (At(brush, strength) is not SolidColorBrush ink) return null;
         int percent = (int)Math.Round(ink.Opacity * 100);
         if (Pens.TryGetValue((ink.Color, percent, thickness), out var pen)) return pen;
+        // Bounded as Inks is: every colour tried in the picker would stay.
+        if (Pens.Count >= 1024) Pens.Clear();
         pen = new Pen(ink, thickness);
         pen.Freeze();
         return Pens[(ink.Color, percent, thickness)] = pen;

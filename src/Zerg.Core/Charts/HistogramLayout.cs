@@ -111,7 +111,7 @@ public sealed class HistogramLayout
         double By(double c) => plot.Y + plot.H - c / cmax * plot.H;
 
         foreach (var v in yTicks)
-            l.YTicks.Add(new AxisTick(v, Js.Round(By(v)) + 0.5, Format.Int(v)));
+            l.YTicks.Add(new AxisTick(v, Format.Round(By(v)) + 0.5, Format.Int(v)));
 
         // A column fills its bin: its width is the bin's interval, which is
         // data, so a categorical bar's thickness cap must not apply. Only a
@@ -127,11 +127,11 @@ public sealed class HistogramLayout
                                               Math.Max(0, Math.Min(ColumnRadius, Math.Min(h / 2, bw / 2)))));
         }
 
-        l.BaselineY = Js.Round(plot.Y + plot.H) + 0.5;
+        l.BaselineY = Format.Round(plot.Y + plot.H) + 0.5;
 
         l.XLabels.AddRange(ValueLabels(plot, lo, hi));
 
-        var mx = Js.Round(Bx(avg)) + 0.5;
+        var mx = Format.Round(Bx(avg)) + 0.5;
         if (mx >= plot.X && mx <= plot.X + plot.W)
         {
             // The label flips to the rule's left near the right edge.
@@ -151,7 +151,7 @@ public sealed class HistogramLayout
 
         if (median is double m && double.IsFinite(m))
         {
-            var x = Js.Round(Bx(m)) + 0.5;
+            var x = Format.Round(Bx(m)) + 0.5;
             if (x >= plot.X && x <= plot.X + plot.W)
                 l.Median = new MedianTick(x, plot.Y + plot.H - MedianAbove, plot.Y + plot.H + MedianBelow);
         }

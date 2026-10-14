@@ -34,7 +34,7 @@
     <!-- Segoe Fluent Icons ships with Windows 11; MDL2 has the same code points. -->
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
-    <!-- Measures (UI-REDESIGN-PLAN.md, section 4.6), in device-independent
+    <!-- Measures, in device-independent
          units. Heights of the window's bands, then of rows, then the rest. -->
     <sys:Double x:Key="TitleBarHeight">36</sys:Double>
     <sys:Double x:Key="CommandBarHeight">40</sys:Double>
@@ -69,7 +69,7 @@
     <local:EqualsConverter x:Key="Equals"/>
 
     <!-- ================================================================ type
-         The scale (UI-REDESIGN-PLAN.md, section 4.5): 22, 18, 16, 15, 14, 13,
+         The scale: 22, 18, 16, 15, 14, 13,
          12.5, 12, 11.5, 11, 10.5, 9.5, 9. Ink is the window's (Text1) unless
          a style says otherwise. -->
 

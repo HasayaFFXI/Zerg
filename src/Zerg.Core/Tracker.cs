@@ -8,11 +8,12 @@ namespace Zerg.Core;
 /// </summary>
 /// <param name="Events">The rows that count, credited and on the session clock.</param>
 /// <param name="Totals">The party, over those rows.</param>
-/// <param name="Listed">Every character who acted in the session, largest
-/// first, whether or not they are excluded: the ones a filter chip is shown for.</param>
+/// <param name="Listed">Every character who acted in the session, by name,
+/// largest first, whether or not they are excluded: the ones a filter chip is
+/// shown for.</param>
 /// <param name="Elapsed">The session clock when this was counted, in milliseconds.</param>
 /// <param name="Latched">An armed session found its zero during this count.</param>
-public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Totals, IReadOnlyList<ActorTotals> Listed,
+public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Totals, IReadOnlyList<string> Listed,
                            double Elapsed, bool Latched)
 {
     /// <summary>The heals that count: in the session, the party's, nobody
@@ -66,17 +67,7 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     public IReadOnlyList<HealerTotals> Healers { get; init; } = [];
 
     /// <summary>The biggest hit of any action; the first found wins a tie.</summary>
-    public BestHit? Best
-    {
-        get
-        {
-            BestHit? best = null;
-            foreach (var a in Totals.Actors)
-                foreach (var act in a.ActionList)
-                    if (best == null || act.Max > best.Max) best = new BestHit(act.Max, a.Name, act.Name);
-            return best;
-        }
-    }
+    public BestHit? Best => Totals.Best;
 
     /// <summary>The biggest heal: what one target got from one action, a
     /// pet's included. The earliest wins a tie.</summary>
@@ -138,6 +129,17 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
 /// <para>The session is never saved. A clock restored after a restart would
 /// be measuring time the player was not in a fight for.</para>
 ///
+/// <para><b>An idle session keeps no rows.</b> It can never count them: Start
+/// drops whatever was read before it. A window left open all evening keeps
+/// the roster and the colour slots of what it read, and nothing else.</para>
+///
+/// <para><b>What the session covers is kept between counts.</b> The rows
+/// only ever grow at the end, and whether one of them is in the session
+/// (and where it is on its clock) does not depend on any other, so a count
+/// reads only what arrived since the last one. Whatever would change that
+/// answer for a row already read (the zero, a pause, the snapped end, the
+/// skillchain switch, a name found to be ours or not) starts it over.</para>
+///
 /// <para><b>An imported parse is a tracker too</b> (<see cref="Of"/>), so it is
 /// counted, coloured and drawn by the same code as the session, and nothing
 /// downstream can tell the two apart. It is a finished recording: its clock
@@ -187,7 +189,7 @@ public sealed class Tracker
     {
         if (Imported) return;
         File = file;
-        Reader = new EventReader(EventReader.ParseFilename(file).Owner);
+        Reader = new EventReader(EventReader.OwnerOf(file));
         Cast = new Cast();
         Session = Session.Idle();
         Lines = 0;
@@ -208,11 +210,25 @@ public sealed class Tracker
         AskedAt = null;
     }
 
-    public void Feed(IReadOnlyList<string> lines)
+    /// <summary>Lines of the file, read here.</summary>
+    public void Feed(IReadOnlyList<string> lines) => Feed(lines.Select(EventRecord.Parse).ToList());
+
+    /// <summary>Lines of the file, already read (<see cref="EventRecord.Parse"/>),
+    /// one record or null (a blank line) to a line.</summary>
+    public void Feed(IReadOnlyList<EventRecord?> records)
     {
         if (Imported) return;
-        foreach (var line in lines) Reader.Feed(line);
-        Lines += lines.Count;
+        foreach (var r in records) Reader.Feed(r);
+        Lines += records.Count;
+        if (Session.ArmedAt == null && Session.StartedAt == null)
+        {
+            // Idle: the slots are given now, in the order the names were
+            // met, as a count would have; the rows themselves go.
+            Cast.Assign(Reader.Events, Reader.Roster);
+            Reader.DropRows();
+            Cast.Rewind();
+            return;
+        }
         // A row from before the press can be read after it: the end is
         // worked out from the rows' own times, like everything else.
         if (Session.PausedAt != null) Snap(Session);
@@ -333,15 +349,13 @@ public sealed class Tracker
     ///
     /// <para>The file ends where the parse does: at its last party damage
     /// row, not at the press (<see cref="Snap"/>). The session on screen
-    /// already does. A parse imported from a file that predates this is
-    /// shown with the clock it was saved with, and exported again it is
-    /// snapped like any other.</para>
+    /// already does.</para>
     /// </summary>
     public string? Export(double? now = null)
     {
         if (!CanExport) return null;
         var ended = Snap(Session.Clone());
-        return ParseFile.Stringify(ParseFile.Export(Reader, ended, t => ended.At(t) != null, File, now));
+        return ParseFile.Export(Reader, ended, t => ended.At(t) != null, File, now);
     }
 
     /// <summary>
@@ -382,8 +396,9 @@ public sealed class Tracker
 
         // The one call that knows the time of day: it drops what the session
         // does not cover and puts the rest on its clock.
-        var scoped = Counting.Filter(all, new FilterOptions { Session = Session, Roster = roster, Skillchains = skillchains });
-        // No session here: these rows are on its clock already.
+        var scoped = Scoped(skillchains);
+        // No session here: these rows are on its clock already. Always a new
+        // list: the one kept between counts grows, and a snapshot must not.
         var shown = Counting.Filter(scoped, new FilterOptions { Actors = actors });
 
         // What each target took and what each type came to, each before
@@ -403,19 +418,20 @@ public sealed class Tracker
         // party's figure and each character's cannot differ by a moment.
         var elapsed = Session.Elapsed(now);
         var totals = Counting.Aggregate(shown, elapsed / 1000);
-        // Whoever acted has a chip, whatever they acted on.
-        var listed = shown.Count == scoped.Count ? totals : Counting.Aggregate(scoped, elapsed / 1000);
+        // Whoever acted has a chip, whatever they acted on. A chip needs
+        // only the name and the order.
+        var listed = shown.Count == scoped.Count ? totals.Actors.Select(a => a.Name).ToList() : Counting.Ranked(scoped);
 
         // Healing, over the same window and the same exclusions. Heals are
         // kept apart from the damage rows, so nothing above can see one, and
         // none of them can start the clock: only a counted hit does that, and
         // a cure cast before the first swing falls before the zero.
-        var healScoped = Healing.Filter(Reader.Heals, new FilterOptions { Session = Session, Roster = roster });
+        var healScoped = HealScoped();
         var healShown = Healing.Filter(healScoped, new FilterOptions { Actors = actors });
         var healing = Healing.Totals(healShown);
         var healers = healShown.Count == healScoped.Count ? healing : Healing.Totals(healScoped);
 
-        return new Snapshot(shown, totals, listed.Actors, elapsed, latched)
+        return new Snapshot(shown, totals, listed, elapsed, latched)
         {
             Heals = healShown, Healing = healing, Healers = healers.Actors,
             Isolated = only != null ? Targets.Sorted(only) : [],
@@ -426,5 +442,63 @@ public sealed class Tracker
             AllTypes = byType.Values.Sum(),
             Whole = whole,
         };
+    }
+
+    // ------------------------------------------------- kept between counts
+
+    /// <summary>Everything a row's place in the session depends on but the
+    /// row: while this stays the same, a row read once is read for good.</summary>
+    readonly record struct Scope(EventReader Reader, Session Session, double? Started, int Spans, double? Paused,
+                                 double? Ended, int Roster, bool Skillchains);
+
+    Scope Now(bool skillchains) => new(Reader, Session, Session.StartedAt, Session.Spans.Count, Session.PausedAt,
+                                       Session.EndedAt, Reader.Roster.Version, skillchains);
+
+    Scope? rowsScope, healsScope;
+    readonly List<CombatEvent> rowsKept = [];
+    readonly List<HealEvent> healsKept = [];
+    int rowsRead, healsRead;
+
+    /// <summary>The rows the session covers, credited and on its clock, with
+    /// skillchains as asked: <see cref="Counting.Filter"/> with the session,
+    /// over only what is new since the last count.</summary>
+    List<CombatEvent> Scoped(bool skillchains)
+    {
+        var scope = Now(skillchains);
+        var all = Reader.Events;
+        if (rowsScope != scope || rowsRead > all.Count)
+        {
+            rowsScope = scope;
+            rowsKept.Clear();
+            rowsRead = 0;
+        }
+        if (rowsRead < all.Count)
+        {
+            var fresh = rowsRead == 0 ? all : all.GetRange(rowsRead, all.Count - rowsRead);
+            rowsKept.AddRange(Counting.Filter(fresh,
+                new FilterOptions { Session = Session, Roster = Reader.Roster, Skillchains = skillchains }));
+            rowsRead = all.Count;
+        }
+        return rowsKept;
+    }
+
+    /// <summary>The same for the heals (<see cref="Healing.Filter"/>).</summary>
+    List<HealEvent> HealScoped()
+    {
+        var scope = Now(true);
+        var all = Reader.Heals;
+        if (healsScope != scope || healsRead > all.Count)
+        {
+            healsScope = scope;
+            healsKept.Clear();
+            healsRead = 0;
+        }
+        if (healsRead < all.Count)
+        {
+            var fresh = healsRead == 0 ? all : all.GetRange(healsRead, all.Count - healsRead);
+            healsKept.AddRange(Healing.Filter(fresh, new FilterOptions { Session = Session, Roster = Reader.Roster }));
+            healsRead = all.Count;
+        }
+        return healsKept;
     }
 }

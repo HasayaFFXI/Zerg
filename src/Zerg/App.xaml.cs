@@ -16,16 +16,43 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        // Before the log, the options and the settings: they are the first
-        // one's, and a second launch touches none of them.
+        // Read, not yet acted on: a second launch needs the parse it was
+        // handed, and only the first says what was wrong with the rest.
+        Options? options = null;
+        string? wrong = null;
+        try
+        {
+            options = Options.Parse(e.Args);
+        }
+        catch (ArgumentException x)
+        {
+            wrong = x.Message;
+        }
+
+        // Before the log and the settings: they are the first one's, and a
+        // second launch touches neither.
         if (!SingleInstance.Claim())
         {
             second = true;
-            SingleInstance.Signal();
+            SingleInstance.Signal(options?.Open ?? []);
             Shutdown(0);
             return;
         }
         Log.Start();
+        // Listened for at once: Explorer opening several files starts a
+        // launch per file, together, and each gives up if nobody answers.
+        // What they ask is acted on once this start is done (the dispatcher
+        // runs it after OnStartup), in the order they came.
+        MainViewModel? model = null;
+        MainWindow? window = null;
+        SingleInstance.Listen(parses => Dispatcher.BeginInvoke(() =>
+        {
+            if (model is null || window is null) return;
+            Log.Write(parses.Count == 0 ? "launched again: brought forward"
+                                        : "launched again to open " + string.Join(", ", parses));
+            window.ComeForward();
+            foreach (var parse in parses) model.Open(parse);
+        }));
         DispatcherUnhandledException += OnDispatcherException;
         AppDomain.CurrentDomain.UnhandledException += (_, x) => Crash(x.ExceptionObject as Exception, fatal: true);
         TaskScheduler.UnobservedTaskException += (_, x) =>
@@ -34,14 +61,9 @@ public partial class App : Application
             x.SetObserved();
         };
 
-        Options options;
-        try
+        if (options is null)
         {
-            options = Options.Parse(e.Args);
-        }
-        catch (ArgumentException x)
-        {
-            TaskDialog.Show("Zerg can't start with those options", x.Message + "\n\n" + Options.Usage,
+            TaskDialog.Show("Zerg can't start with those options", wrong + "\n\n" + Options.Usage,
                             TaskDialog.Icon.Warning);
             Shutdown(2);
             return;
@@ -56,19 +78,19 @@ public partial class App : Application
         Log.Write($"events dir {eventsDir}{(options.EventsDir != null ? " (--events-dir)" : "")}; theme {settings.Theme}");
 
         feed = new EventFeed(eventsDir);
-        var window = new MainWindow(new MainViewModel(settings, feed), settings);
+        model = new MainViewModel(settings, feed);
+        window = new MainWindow(model, settings);
         MainWindow = window;
         window.Show();
         started = true;
         // The panels that were out last time, now there is a window to open them beside.
         window.Reopen();
         feed.Start();
-
-        SingleInstance.Listen(() => Dispatcher.BeginInvoke(() =>
+        foreach (var parse in options.Open)
         {
-            Log.Write("launched again: brought forward");
-            window.ComeForward();
-        }));
+            Log.Write($"started to open {parse}");
+            model.Open(parse);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

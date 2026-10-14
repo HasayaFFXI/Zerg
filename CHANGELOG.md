@@ -7,6 +7,51 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 0.3.0 — 2026-10-14
+
+- A `.zerg` parse opens from Explorer with a double-click, in the View
+  section, and such files carry Zerg's icon, once "Open .zerg files with
+  Zerg" is pressed on the Settings page (Parse files). A Zerg already
+  running opens the parse and comes forward. `Zerg.exe <file>.zerg` does
+  the same from a command line.
+- More than one parse can be open at once. Each parse opened (Import, the
+  View band's Open another…, a dropped file, a file from Explorer) gets a
+  tab of its own in the title bar, named by the parse, with a mark that
+  closes it; a click on a tab shows that parse. Opening a file that is
+  already open brings its tab forward. Each tab keeps its own Damage |
+  Healing side, and a new one opens on the side picked last. The band's
+  Replace… is gone; its Close closes the tab on screen, and the tab beside
+  it comes forward. When the tabs outgrow the title bar their names are
+  cut short to fit. Each tab, and the session, keeps its own drill-downs
+  and isolated targets and types: switching away and back finds them as
+  they were left.
+- Several `.zerg` files selected in Explorer and opened together (Enter,
+  or Open) each open in a tab of their own, whether Zerg was running or
+  not. A file that will not open is named in the View band. `Zerg.exe`
+  takes several files on its command line too.
+- A parse's tab can be dragged along the title bar to put the tabs in
+  another order: the others step aside as it passes, and the tab dragged
+  becomes the one shown. Esc while dragging puts it back. With a tab
+  focused, Ctrl+Shift+Left and Right move it one place.
+
+## 0.2.3 — 2026-10-14
+
+- Zerg comes as a download for players: one `Zerg.exe` that needs no .NET
+  installed, in a zip with a README (`tools/package.py` makes it).
+- Parses saved by the browser build that came before Zerg (`.json`) no
+  longer open, and the Open dialog offers `.zerg` only. A parse in which
+  nobody healed still opens. An export no longer carries the unused
+  `manual` key; a `.zerg` that has it opens as before.
+- Figures follow one rounding rule (halves away from zero, on the value):
+  1.005 is 1.00 to two places, and nothing prints as "-0".
+- An event line whose fields are of the wrong JSON type is skipped and
+  counted ("· 3 unreadable" on the status line), never read as damage.
+- Compare colours a change only when its printed figure moved ("±0.0%" is
+  flat).
+- Faster counting in long sessions; the drill-down's hit list keeps its
+  scroll position as hits arrive; a hand-edited settings file loses only the
+  value that is wrong.
+
 ## 0.2.2 — 2026-10-09
 
 - Two more panes in the Damage section, and so in the View section's

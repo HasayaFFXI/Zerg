@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:v="clr-namespace:Zerg.Views">
 
-  <!-- Zerg's own look for every stock control (UI-REDESIGN-PLAN.md, phase 2;
+  <!-- Zerg's own look for every stock control (the redesign's phase 2;
        drawn on apps/zerg-mockup/08-kit.svg). Merged in App.xaml. No theme of
        Windows' is loaded (ThemeMode="None"), so a control type that is not
        styled here is drawn as WPF draws it unasked: pale, square, and in

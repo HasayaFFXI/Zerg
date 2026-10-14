@@ -24,7 +24,7 @@ public static class DrawRate
     public static int Clamp(double value, int fallback = Initial)
     {
         if (!double.IsFinite(value)) return fallback;
-        var v = Js.Round(value);
+        var v = Format.Round(value);
         return v == 0 ? fallback : (int)Math.Clamp(v, Min, Max);
     }
 

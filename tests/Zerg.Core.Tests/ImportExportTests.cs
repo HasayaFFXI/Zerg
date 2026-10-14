@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 namespace Zerg.Core.Tests;
@@ -162,23 +164,43 @@ public class ImportExportTests
     }
 
     [Fact]
-    public void An_older_export_keeps_its_clock_until_it_is_exported_again()
+    public void A_parse_without_a_heal_list_is_refused()
     {
-        var live = Paused();
-        // As a Zerg from before the clock was snapped wrote it: paused at the press.
-        var old = live.Session.Clone();
-        old.EndedAt = null;
-        var shown = Tracker.Of(ParseFile.Import(ParseFile.Stringify(
-            ParseFile.Export(live.Reader, old, t => old.At(t) != null, live.File, 40_000))));
+        var t = Paused();
+        var doc = JsonNode.Parse(ParseFile.Export(t.Reader, t.Session, now: 40_000))!.AsObject();
+        doc.Remove("heals");
 
-        Assert.Equal(40_000, shown.Session.PausedAt);
-        Assert.Equal(20_000, shown.Count(Nobody, true).Elapsed);
+        var e = Assert.Throws<ParseImportException>(() => ParseFile.Import(doc.ToJsonString()));
+        Assert.Equal(ImportError.NoEvents, e.Reason);
+        Assert.Equal("That parse has no heal list.", e.Message);
+    }
 
-        var again = ParseFile.Import(shown.Export(77_000)!);
-        Assert.Equal(33_000, again.Session.PausedAt);
-        Assert.Equal(13_000, Tracker.Of(again).Count(Nobody, true).Elapsed);
-        // Saving it changed the file, not what is on screen.
-        Assert.Equal(20_000, shown.Count(Nobody, true).Elapsed);
+    [Fact]
+    public void A_parse_with_no_healing_in_it_imports()
+    {
+        var t = new Tracker();
+        t.Follow("Hasaya_2026.07.30.jsonl");
+        t.Start(8_000);
+        t.Feed([Lines.Hit(10, "Hasaya", 100), Lines.Hit(12, "Hasaya", 300)]);
+        t.Count(Nobody, true, 20_000);
+        t.TogglePause(20_000);
+
+        var text = t.Export(20_000)!;
+        Assert.Contains("\"heals\": []", text);
+
+        var shown = Tracker.Of(ParseFile.Import(text)).Count(Nobody, true);
+        Assert.Equal(400, shown.Totals.Total);
+        Assert.Equal(0, shown.Healing.Total);
+    }
+
+    [Fact]
+    public void An_export_has_no_manual_overrides()
+    {
+        var t = Paused();
+        var doc = JsonNode.Parse(ParseFile.Export(t.Reader, t.Session, now: 40_000))!.AsObject();
+
+        Assert.False(doc.ContainsKey("manual"));
+        Assert.True(doc.ContainsKey("heals"));
     }
 
     // ------------------------------------------------------------- wording
@@ -189,8 +211,9 @@ public class ImportExportTests
         var shown = Tracker.Of(ParseFile.Import(Paused().Export(40_000)!));
         var began = DateTimeOffset.FromUnixTimeMilliseconds(10_000).ToLocalTime();
 
-        Assert.Equal("started " + began.ToString("yyyy-MM-dd HH:mm:ss"), SessionText.Status(shown.Session, imported: true));
-        Assert.Equal("started " + began.ToString("HH:mm:ss"), SessionText.Status(shown.Session));
+        Assert.Equal("started " + began.ToString("yyyy'-'MM'-'dd HH':'mm':'ss", CultureInfo.InvariantCulture),
+                     SessionText.Status(shown.Session, imported: true));
+        Assert.Equal("started " + began.ToString("HH':'mm':'ss", CultureInfo.InvariantCulture), SessionText.Status(shown.Session));
 
         var view = SessionView.Of(shown.Session, imported: true);
         Assert.False(view.StartEnabled);

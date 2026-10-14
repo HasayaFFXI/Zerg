@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 namespace Zerg.Core;
@@ -49,41 +48,45 @@ public sealed class EventReader
     /// <summary>How many records have been fed, blank and unreadable lines included.</summary>
     public int LineNo { get; private set; }
 
+    /// <summary>How many of them were not records the contract allows
+    /// (<see cref="EventRecord.Malformed"/>), or were damage rows or heals
+    /// with no time: read past, and counted here so the log can say so.</summary>
+    public int Unreadable { get; private set; }
+
     /// <summary>One line of the file. Returns the damage row it made, or null
-    /// (blank, not JSON, or a line that is not a damage row).</summary>
-    public CombatEvent? Feed(string? line)
-    {
-        LineNo++;
-        if (string.IsNullOrEmpty(line)) return null;
-        return Js.TryParse(line, out var raw) ? Ingest(raw) : null;
-    }
+    /// (blank, unreadable, or a line that is not a damage row).</summary>
+    public CombatEvent? Feed(string? line) => Feed(EventRecord.Parse(line));
 
     /// <summary>
-    /// One record that is already parsed. An imported export comes in through
-    /// here, the same door <see cref="Feed"/> uses, so a record read back from
-    /// an export cannot be read differently from the line it started as.
+    /// One record that is already read: a line parsed off the UI thread, or a
+    /// record of an imported export. Both come in through here, so a record
+    /// read back from an export cannot be read differently from the line it
+    /// started as. Null is a blank line.
     /// </summary>
-    public CombatEvent? FeedRecord(JsonNode? raw)
+    public CombatEvent? Feed(EventRecord? record)
     {
         LineNo++;
-        return Ingest(raw);
+        return record is null ? null : Ingest(record);
     }
 
-    CombatEvent? Ingest(JsonNode? node)
+    CombatEvent? Ingest(EventRecord raw)
     {
-        if (node is not JsonObject raw) return null;
-        var kind = raw["kind"];
-
         // The addon's own notices (its startup probe, and message ids it did
-        // not recognise). Not events; they stay in the file for anyone searching it.
-        if (Js.AsString(kind) == "meta") return null;
+        // not recognise). Not events; they stay in the file for anyone
+        // searching it, and what else they hold is theirs to shape.
+        if (raw.Kind == "meta") return null;
+        if (raw.Malformed)
+        {
+            Unreadable++;
+            return null;
+        }
 
         // A job line is a fact about a character, not an event: no damage, no
         // target, no use. As a row it would put a zero-damage line into every
         // count, so it goes on the roster instead.
-        if (Js.AsString(kind) == "job")
+        if (raw.Kind == "job")
         {
-            var who = Js.Str(raw["actor"]);
+            var who = raw.Actor;
             if (who.Length > 0)
             {
                 // It comes off a party slot, so it is also proof the name is
@@ -91,13 +94,18 @@ public sealed class EventReader
                 // proof there is; without it the healer reads as a stranger.
                 Roster.Note(who, "player");
                 Roster.NoteJob(who, new JobInfo(
-                    Main: Or(Js.Str(raw["main"]), "NON"),
-                    MainId: Js.Num(raw["mainId"]),
-                    MainLevel: Js.Num(raw["mainLvl"]),
-                    Sub: Or(Js.Str(raw["sub"]), "NON"),
-                    SubId: Js.Num(raw["subId"]),
-                    SubLevel: Js.Num(raw["subLvl"])));
+                    Main: Or(raw.Main, JobInfo.None), MainId: raw.MainId, MainLevel: raw.MainLevel,
+                    Sub: Or(raw.Sub, JobInfo.None), SubId: raw.SubId, SubLevel: raw.SubLevel));
             }
+            return null;
+        }
+
+        // Everything after this is on the clock, and a row with no time
+        // cannot be put on it.
+        if (raw.Kind.Length == 0 || raw.Actor.Length == 0) return null;
+        if (raw.T is not double t)
+        {
+            Unreadable++;
             return null;
         }
 
@@ -105,65 +113,61 @@ public sealed class EventReader
         // count runs over Events, where a heal would be a miss and could start
         // the session clock. Which actions are heals, and the amount, are the
         // addon's decision; this only files the line.
-        if (Js.AsString(kind) == "heal")
+        if (raw.Kind == "heal")
         {
-            var healer = Js.Str(raw["actor"]);
-            if (healer.Length == 0) return null;
-            Roster.Note(healer, Js.Str(raw["actorKind"]));
-            Roster.Note(Js.Str(raw["target"]), Js.Str(raw["targetKind"]));
+            Roster.Note(raw.Actor, raw.ActorKind);
+            Roster.Note(raw.Target, raw.TargetKind);
             Heals.Add(new HealEvent
             {
-                T = Js.Num(raw["t"]) * 1000,
-                Seq = Js.Num(raw["seq"]),
-                Use = raw["use"] is null ? null : Js.Num(raw["use"]),
-                Via = Js.Str(raw["via"]),
-                Actor = healer,
-                ActorKind = Js.Str(raw["actorKind"]),
-                Action = Js.Str(raw["action"]),
-                ActionId = Js.Num(raw["actionId"]),
-                Target = Js.Str(raw["target"]),
-                TargetKind = Js.Str(raw["targetKind"]),
-                Hp = Js.Num(raw["hp"]),
-                Msg = Js.Num(raw["msg"]),
+                T = t * 1000,
+                Seq = raw.Seq,
+                Use = raw.Use,
+                Via = raw.Via,
+                Actor = raw.Actor,
+                ActorKind = raw.ActorKind,
+                Action = raw.Action,
+                ActionId = raw.ActionId,
+                Target = raw.Target,
+                TargetKind = raw.TargetKind,
+                Hp = raw.Hp,
+                Msg = raw.Msg,
                 Line = LineNo,
-                Owner = Js.Truthy(raw["owner"]) ? Js.Str(raw["owner"]) : null,
-                Pet = Js.Truthy(raw["pet"]) ? Js.Str(raw["pet"]) : null,
+                Owner = NullIfEmpty(raw.Owner),
+                Pet = NullIfEmpty(raw.Pet),
             });
             return null;
         }
 
-        var actor = Js.Str(raw["actor"]);
-        var target = Js.Str(raw["target"]);
-        if (!Js.Truthy(kind) || actor.Length == 0) return null;
-
-        Roster.Note(actor, Js.Str(raw["actorKind"]));
-        Roster.Note(target, Js.Str(raw["targetKind"]));
+        Roster.Note(raw.Actor, raw.ActorKind);
+        Roster.Note(raw.Target, raw.TargetKind);
 
         var e = new CombatEvent
         {
-            T = Js.Num(raw["t"]) * 1000,
-            Seq = Js.Num(raw["seq"]),
-            Use = raw["use"] is null ? null : Js.Num(raw["use"]),
-            Kind = Js.Str(kind),
-            Actor = actor,
-            ActorKind = Js.Str(raw["actorKind"]),
-            Action = Or(Js.Str(raw["action"]), AdditionalEffect),
-            ActionId = Js.Num(raw["actionId"]),
-            Target = target,
-            TargetKind = Js.Str(raw["targetKind"]),
-            Dmg = Js.Num(raw["dmg"]),
-            Hit = Js.AsBool(raw["hit"]),
-            Crit = Js.AsBool(raw["crit"]),
-            Burst = Js.AsBool(raw["burst"]),
-            Msg = Js.Num(raw["msg"]),
+            T = t * 1000,
+            Seq = raw.Seq,
+            Use = raw.Use,
+            Kind = raw.Kind,
+            Actor = raw.Actor,
+            ActorKind = raw.ActorKind,
+            Action = Or(raw.Action, AdditionalEffect),
+            ActionId = raw.ActionId,
+            Target = raw.Target,
+            TargetKind = raw.TargetKind,
+            Dmg = raw.Dmg,
+            Hit = raw.Hit,
+            Crit = raw.Crit,
+            Burst = raw.Burst,
+            Msg = raw.Msg,
             Line = LineNo,
             // Only on a pet's own rows, so they stay off every other row.
-            Owner = Js.Truthy(raw["owner"]) ? Js.Str(raw["owner"]) : null,
-            Pet = Js.Truthy(raw["pet"]) ? Js.Str(raw["pet"]) : null,
+            Owner = NullIfEmpty(raw.Owner),
+            Pet = NullIfEmpty(raw.Pet),
         };
         Events.Add(e);
         return e;
     }
+
+    static string? NullIfEmpty(string s) => s.Length > 0 ? s : null;
 
     static string Or(string s, string fallback) => s.Length > 0 ? s : fallback;
 
@@ -178,14 +182,26 @@ public sealed class EventReader
         Events.Clear();
         Heals.Clear();
         LineNo = 0;
+        Unreadable = 0;
+        dropped = 0;
     }
 
-    /// <summary>Every line, in one call.</summary>
-    public static EventReader ParseAll(IEnumerable<string?> lines, string? owner = null)
+    int dropped;
+
+    /// <summary>Damage rows read since the last <see cref="Reset"/>, the
+    /// dropped ones included.</summary>
+    public int Rows => dropped + Events.Count;
+
+    /// <summary>
+    /// Lets go of the rows and heals read so far, and keeps everything else:
+    /// the roster, the line count, <see cref="Rows"/>. For rows nothing can
+    /// ever count (an idle session's).
+    /// </summary>
+    public void DropRows()
     {
-        var r = new EventReader(owner);
-        foreach (var l in lines) r.Feed(l);
-        return r;
+        dropped += Events.Count;
+        Events.Clear();
+        Heals.Clear();
     }
 
     // ------------------------------------------------------------ file names
@@ -193,52 +209,28 @@ public sealed class EventReader
     // [0-9] rather than \d, which in .NET also matches other scripts' digits;
     // and "." never matches a line break of any kind (Zl and Zp are U+2028 and U+2029).
     static readonly Regex DailyName = new(
-        @"^([^\n\r\p{Zl}\p{Zp}]*?)_([0-9]{4})\.([0-9]{2})\.([0-9]{2})\.jsonl$",
+        @"^([^\n\r\p{Zl}\p{Zp}]*?)_[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.jsonl$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     // What the addon writes now: one file per load, named for the local date
     // and time it was loaded (YYYYMMDDHHMMSS).
     static readonly Regex LoadName = new(
-        @"^([^\n\r\p{Zl}\p{Zp}]*?)-([0-9]{4})([0-9]{2})([0-9]{2})[0-9]{6}\.jsonl$",
+        @"^([^\n\r\p{Zl}\p{Zp}]*?)-[0-9]{14}\.jsonl$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-    static readonly Regex AnyDate = new(@"([0-9]{4})[.\-_]([0-9]{2})[.\-_]([0-9]{2})", RegexOptions.CultureInvariant);
     static readonly Regex LeadingName = new(@"^([A-Za-z]+)[_\-]", RegexOptions.CultureInvariant);
 
     /// <summary>
-    /// "Hasaya-20260730213045.jsonl" → ("Hasaya", 2026-07-30): the addon's
-    /// file, one per load. "Hasaya_2026.07.30.jsonl" → the same: the file it
-    /// wrote before, one per day, still read. Any other name is
-    /// searched for a date and a leading name separately; either may be null.
-    /// An out-of-range month or day rolls over into the next (month 13 is
-    /// January of the next year), and a two-digit year is in the 1900s.
+    /// Whose event file this is, from its name: "Hasaya-20260730213045.jsonl"
+    /// (the addon's file, one per load) and "Hasaya_2026.07.30.jsonl" (the
+    /// file it wrote before, one per day) are Hasaya's. Any other name is
+    /// searched for a leading name. Null when there is none.
     /// </summary>
-    public static (string? Owner, DateOnly? Date) ParseFilename(string? name)
+    public static string? OwnerOf(string? name)
     {
-        if (string.IsNullOrEmpty(name)) return (null, null);
+        if (string.IsNullOrEmpty(name)) return null;
         var m = DailyName.Match(name);
-        if (m.Success)
-            return (m.Groups[1].Value.Length > 0 ? m.Groups[1].Value : null,
-                    MakeDate(m.Groups[2].Value, m.Groups[3].Value, m.Groups[4].Value));
-        m = LoadName.Match(name);
-        if (m.Success)
-            return (m.Groups[1].Value.Length > 0 ? m.Groups[1].Value : null,
-                    MakeDate(m.Groups[2].Value, m.Groups[3].Value, m.Groups[4].Value));
-        DateOnly? date = null;
-        string? owner = null;
-        var d = AnyDate.Match(name);
-        if (d.Success) date = MakeDate(d.Groups[1].Value, d.Groups[2].Value, d.Groups[3].Value);
+        if (!m.Success) m = LoadName.Match(name);
+        if (m.Success) return m.Groups[1].Value.Length > 0 ? m.Groups[1].Value : null;
         var o = LeadingName.Match(name);
-        if (o.Success) owner = o.Groups[1].Value;
-        return (owner, date);
-    }
-
-    static DateOnly? MakeDate(string y, string m, string d)
-    {
-        int year = int.Parse(y), month = int.Parse(m), day = int.Parse(d);
-        if (year is >= 0 and <= 99) year += 1900;
-        try
-        {
-            return new DateOnly(year, 1, 1).AddMonths(month - 1).AddDays(day - 1);
-        }
-        catch (ArgumentOutOfRangeException) { return null; }   // past year 9999
+        return o.Success ? o.Groups[1].Value : null;
     }
 }

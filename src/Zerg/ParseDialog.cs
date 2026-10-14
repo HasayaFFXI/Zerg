@@ -5,16 +5,32 @@ using Microsoft.Win32;
 
 namespace Zerg;
 
-/// <summary>A parse file as it was read: what it was called, and its text.</summary>
-public sealed record ParseText(string Name, string Text);
+/// <summary>
+/// A parse to be opened: what it is called, and its text, or the file it
+/// is in. A file is read by whoever opens it (<see cref="Read"/>), off the
+/// UI thread, so the window does not stop while a large one is.
+/// </summary>
+public sealed record ParseText(string Name, string? Path = null, string? Text = null)
+{
+    /// <summary>The text. A file larger than any parse Zerg writes is
+    /// refused unread (<see cref="Zerg.Core.ParseFile.MaxSize"/>).</summary>
+    /// <exception cref="Zerg.Core.ParseImportException">Too large to be a parse.</exception>
+    /// <exception cref="IOException">The file could not be read.</exception>
+    /// <exception cref="UnauthorizedAccessException">The file could not be read.</exception>
+    public string Read()
+    {
+        if (Text is not null) return Text;
+        if (new FileInfo(Path!).Length > Zerg.Core.ParseFile.MaxSize) throw Zerg.Core.ParseFile.TooLarge();
+        return File.ReadAllText(Path!);
+    }
+}
 
 /// <summary>
 /// Picking an exported parse off the disk, and where to save one. One Open
 /// dialog for everything that opens a parse, and one remembered folder for
 /// opening and saving alike.
 ///
-/// <para>Zerg saves parses as <c>.zerg</c>; exports made before that are
-/// <c>.json</c> and are offered beside them. Neither extension is trusted:
+/// <para>Zerg saves parses as <c>.zerg</c>. The extension is not trusted:
 /// what a file is, is decided by reading it.</para>
 /// </summary>
 static class ParseDialog
@@ -22,15 +38,13 @@ static class ParseDialog
     /// <summary>Windows remembers a dialog's last folder under this.</summary>
     static readonly Guid Place = new("5f0c1f3e-7a59-4e0b-9d0a-2c41b7c3a6d2");
 
-    /// <summary>The file the player picked, read; null if they cancelled.</summary>
-    /// <exception cref="IOException">The file could not be read.</exception>
-    /// <exception cref="UnauthorizedAccessException">The file could not be read.</exception>
+    /// <summary>The file the player picked, to be read; null if they cancelled.</summary>
     public static ParseText? Open(Window owner)
     {
         var dialog = new OpenFileDialog
         {
             Title = "Open an exported parse",
-            Filter = "Zerg parses (*.zerg, *.json)|*.zerg;*.json|All files (*.*)|*.*",
+            Filter = "Zerg parses (*.zerg)|*.zerg|All files (*.*)|*.*",
             CheckFileExists = true,
             ClientGuid = Place,
         };
@@ -55,10 +69,11 @@ static class ParseDialog
         return dialog.ShowDialog(owner) == true ? dialog.FileName : null;
     }
 
-    public static ParseText Read(string path) => new(Path.GetFileName(path), File.ReadAllText(path));
+    /// <summary>A file, to be read.</summary>
+    public static ParseText Read(string path) => new(Path.GetFileName(path), path);
 
     /// <summary>A parse's name without the extension it was saved under.</summary>
     public static string Title(string fileName) => Extension.Replace(fileName, "");
 
-    static readonly Regex Extension = new(@"\.(zerg|json)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    static readonly Regex Extension = new(@"\.zerg$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 }

@@ -4,9 +4,10 @@ using System.Windows.Controls;
 namespace Zerg.Views;
 
 /// <summary>
-/// The View section's band, under the command bar: the place to open one
-/// exported parse, and, once it is open, one line saying what it is, with
-/// the Damage | Healing switch over the figures and cards below. Its data
+/// The View section's band, under the command bar: the place to open an
+/// exported parse, and, once one is open, one line saying what the parse
+/// whose tab is picked is, with the Damage | Healing switch over the
+/// figures and cards below. Its data
 /// context is the <see cref="MainViewModel"/>, which draws the parse with
 /// the band of figures and the cards that draw the session.
 /// </summary>

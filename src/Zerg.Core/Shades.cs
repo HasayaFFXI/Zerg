@@ -30,7 +30,7 @@ public static class Shades
         double mix = Math.Min(Furthest, level * StepSize);
         double end = darker ? 0 : 255;
 
-        byte Move(byte c) => (byte)Js.Round(c + (end - c) * mix);
+        byte Move(byte c) => (byte)Format.Round(c + (end - c) * mix);
         return (Move(colour.R), Move(colour.G), Move(colour.B));
     }
 }

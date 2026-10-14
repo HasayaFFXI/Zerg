@@ -79,21 +79,9 @@ public sealed partial class MainViewModel
                .Select(a => new ShareSlice(a.Total, SwatchOf(a.Name))).ToList());
 
         HasTopHealer = c.TopHealer != null;
-        if (c.TopHealer is { } top)
-        {
-            var job = JobBadge(top.Name);
-            TopHealerSwatch = SwatchOf(top.Name);
-            TopHealerName = NameOf(top.Name);
-            TopHealerTip = Roster.JobTitle(top.Name) is { Length: > 0 } title ? title : NameOf(top.Name);
-            TopHealerNote = (job.Length > 0 ? job + Dot : "") + Format.Num((top.Share ?? 0) * 100, 1) + "% of " +
-                            Format.Int(h.Total) + " healing";
-        }
-        else
-        {
-            TopHealerSwatch = Brushes.Transparent;
-            TopHealerName = TopHealerNote = None;
-            TopHealerTip = null;
-        }
+        (TopHealerSwatch, TopHealerName, TopHealerTip, TopHealerNote) = c.TopHealer is { } top
+            ? Leader(top.Name, top.Share ?? 0, h.Total, "healing")
+            : NoLeader;
 
         var best = c.BestHeal;
         BigHealText = best != null ? Format.Int(best.Max) : "0";
@@ -150,12 +138,7 @@ public sealed partial class MainViewModel
         // is not in it, as it is not in Healing.
         double top = RowMarks.Largest(actors.Select(a => a.Total));
 
-        string Tip(HealerTotals a)
-        {
-            var full = Aliased(a.Name) ? "" : Roster.JobTitle(a.Name);
-            return NameOf(a.Name) + (full.Length > 0 ? Dot + full : "") +
-                   (a.Avg is double avg ? Dot + Format.Int(avg) + " avg per cast" : "");
-        }
+        string Tip(HealerTotals a) => RowTip(a.Name, a.Avg is double avg ? Format.Int(avg) + " avg per cast" : null);
 
         HasHealers = actors.Count > 0;
         Rows.Sync(Healers, actors, a => a.Name, a => new HealerRow(a.Name), (row, a) =>
@@ -288,18 +271,9 @@ public sealed partial class MainViewModel
     /// <summary>The heal drill-down just opened: the window brings it into view.</summary>
     public event Action? HealDrillOpened;
 
-    [ObservableProperty] private bool healDrillOpen;
-    [ObservableProperty] private string healDrillTitle = "";
-    [ObservableProperty] private string healDrillNote = "";
-    /// <summary>Whose heal it is, as a swatch before the note.</summary>
-    [ObservableProperty] private Brush? healDrillSwatch;
-    [ObservableProperty] private IReadOnlyList<StatTile> healDrillTiles = [];
-    [ObservableProperty] private HistogramModel? healHistogram;
-    [ObservableProperty] private Color healHistogramFill = Colors.Gray;
-    /// <summary>The same, in a floating panel's colours.</summary>
-    [ObservableProperty] private Color panelHealHistogramFill = Colors.Gray;
-    [ObservableProperty] private string healDrillCaption = "";
-    [ObservableProperty] private IReadOnlyList<HitRow> healDrillHits = [];
+    /// <summary>What the heal drill-down's card draws: the drill-down card,
+    /// over the heals (Views/DrillCard).</summary>
+    public DrillView HealingDrill { get; }
 
     /// <summary>Selecting a heal opens its drill-down; selecting it again closes it.</summary>
     [RelayCommand]
@@ -327,7 +301,7 @@ public sealed partial class MainViewModel
     {
         if (healDrill is not { } on)
         {
-            HealDrillOpen = false;
+            HealingDrill.Close();
             return;
         }
 
@@ -335,52 +309,11 @@ public sealed partial class MainViewModel
         // on five is one figure, as an area attack is in the damage
         // drill-down. A pet's heals are here too, under the pet's name.
         var d = Counting.Distribution(Healing.AsEvents(c.Heals), on.Actor, on.Action);
-        HealDrillOpen = true;
-        HealDrillTitle = on.Action;
-        HealDrillSwatch = SwatchOf(on.Actor);
-        HealDrillNote = NameOf(on.Actor) + Dot + Format.Int(d.Count) + " cast" + (d.Count == 1 ? "" : "s") +
-                        Dot + Format.Int(d.Total) + " healed";
-
-        if (d.Count == 0)
-        {
-            HealDrillTiles = [new StatTile("No casts in range", "")];
-            HealHistogram = null;
-            HealDrillCaption = "";
-            HealDrillHits = [];
-            return;
-        }
-
-        HealDrillTiles =
-        [
-            new("Min", Format.Int(d.Min)),
-            new("Average", Format.Int(d.Avg)),
-            new("Max", Format.Int(d.Max)),
-            new("Median", Format.Int(d.Median)),
-            new("Std dev", Format.Int(d.Stdev)),
-            // Not accuracy: a heal cannot miss.
-            new("Casts", Format.Int(d.Count)),
-        ];
-
-        HealHistogram = HistogramModel.From(d);
-        HealHistogramFill = ColorOf(on.Actor);
-        PanelHealHistogramFill = PanelColorOf(on.Actor);
-        HealDrillCaption = "Healed per cast" + Dot + d.Bins.Count.ToString(CultureInfo.InvariantCulture) + " bins" + Dot +
-                           "IQR " + Format.Int(d.Q1) + "–" + Format.Int(d.Q3) + Dot +
-                           "90th percentile " + Format.Int(d.P90);
-
-        // Newest first, each with how far it fell from the average.
-        double furthest = RowMarks.Furthest(d.Events.Select(e => e.Dmg), d.Avg);
-        var hits = new List<HitRow>(d.Events.Count);
-        for (int i = d.Events.Count - 1; i >= 0; i--)
-        {
-            var e = d.Events[i];
-            var delta = e.Dmg - d.Avg;
-            hits.Add(new HitRow(Format.Elapsed(e.T),
-                                e.Target.Length > 0 ? NameOf(e.Target) : None,
-                                Format.Int(e.Dmg),
-                                (delta >= 0 ? "+" : "−") + Format.Int(Math.Abs(delta)),
-                                RowMarks.Offset(e.Dmg, d.Avg, furthest)));
-        }
-        HealDrillHits = hits;
+        var note = NameOf(on.Actor) + Dot + Format.Int(d.Count) + " cast" + (d.Count == 1 ? "" : "s") +
+                   Dot + Format.Int(d.Total) + " healed";
+        // Not accuracy: a heal cannot miss.
+        var tiles = DrillTiles(d, new StatTile("Casts", Format.Int(d.Count)));
+        HealingDrill.Show(DrillKey(on), on.Action, note, SwatchOf(on.Actor), d, tiles,
+                          DrillCaption("Healed per cast", d), ColorOf(on.Actor), PanelColorOf(on.Actor), NameOf);
     }
 }

@@ -48,7 +48,10 @@ public static class PanelFit
 
     /// <summary>How many pixels a length in units takes on a screen at
     /// <paramref name="scale"/> (1 at 100%, 1.5 at 150%): whole pixels,
-    /// rounded up, and never none.</summary>
+    /// rounded up, and never none. A length that is a whole number of
+    /// pixels in figures (20 units at 150% is 30) can come out a hair over
+    /// it in a double; the hair is taken off before rounding up, or it
+    /// would be a pixel.</summary>
     public static int Pixels(double units, double scale) =>
         units <= 0 ? 0 : Math.Max(1, (int)Math.Ceiling(units * Clean(scale) - 1e-9));
 

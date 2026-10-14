@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Numerics;
-using System.Text;
 
 namespace Zerg.Core;
 
@@ -8,56 +6,36 @@ namespace Zerg.Core;
 /// How Zerg spells its numbers and times. US-style grouping (1,234,567)
 /// whatever the machine's culture, so a figure reads the same on every
 /// player's screen and in every screenshot.
+///
+/// <para><b>One rounding rule</b>: a figure is rounded on its value, halves
+/// away from zero, to the places it is printed with. A figure that rounds to
+/// zero is printed without a sign. Not a number is a dash, as an empty cell
+/// is.</para>
 /// </summary>
 public static class Format
 {
-    /// <summary>Rounded (halves up) and grouped: 1,234,568.</summary>
-    public static string Int(double n) => Grouped(Js.Round(n), 0);
+    static readonly CultureInfo Us = CultureInfo.InvariantCulture;
+
+    /// <summary>Rounded and grouped: 1,234,568.</summary>
+    public static string Int(double n) => Num(n, 0);
 
     /// <summary>Grouped, with exactly <paramref name="dp"/> decimals: 1,234.6.</summary>
-    public static string Num(double n, int dp = 1) => Grouped(n, dp);
+    public static string Num(double n, int dp = 1)
+    {
+        if (double.IsNaN(n)) return "—";
+        if (double.IsInfinity(n)) return n > 0 ? "∞" : "-∞";
+        var r = Round(n, dp);
+        if (r == 0) r = 0;   // no "-0"
+        return r.ToString("N" + dp.ToString(Us), Us);
+    }
 
     /// <summary>
-    /// Rounds the number as it is written (its shortest decimal form, so 2.675
-    /// is 2.675 and rounds to 2.68 even though the double is a hair under), with
-    /// halves away from zero, then groups the thousands. A negative number keeps
-    /// its sign even when it rounds to zero ("-0.0"). This is how browsers
-    /// format numbers for US English; .NET's own "N" format rounds the binary
-    /// value instead, and sends exact halves to even, so it is not used.
+    /// Halves away from zero, on the value. <see cref="Math.Round(double, int, MidpointRounding)"/>
+    /// takes no more than 15 places; past them a double holds no fraction
+    /// worth rounding.
     /// </summary>
-    static string Grouped(double n, int dp)
-    {
-        if (double.IsNaN(n)) return "NaN";
-        if (double.IsInfinity(n)) return n > 0 ? "∞" : "-∞";
-        bool neg = n < 0 || (n == 0 && double.IsNegative(n));
-
-        BigInteger scaled = BigInteger.Zero;   // |n| × 10^dp, rounded
-        if (n != 0)
-        {
-            var (digits, exp) = Js.ShortestDigits(n);
-            var value = BigInteger.Parse(digits, CultureInfo.InvariantCulture);
-            int shift = exp - digits.Length + dp;   // |n| × 10^dp = value × 10^shift
-            if (shift >= 0) scaled = value * BigInteger.Pow(10, shift);
-            else
-            {
-                var den = BigInteger.Pow(10, -shift);
-                scaled = BigInteger.DivRem(value, den, out var rem);
-                if (rem * 2 >= den) scaled += 1;
-            }
-        }
-
-        var all = scaled.ToString(CultureInfo.InvariantCulture).PadLeft(dp + 1, '0');
-        var whole = all[..^dp];
-        var sb = new StringBuilder(all.Length + all.Length / 3 + 2);
-        if (neg) sb.Append('-');
-        for (int i = 0; i < whole.Length; i++)
-        {
-            if (i > 0 && (whole.Length - i) % 3 == 0) sb.Append(',');
-            sb.Append(whole[i]);
-        }
-        if (dp > 0) sb.Append('.').Append(all, all.Length - dp, dp);
-        return sb.ToString();
-    }
+    public static double Round(double n, int dp = 0) =>
+        Math.Round(n, Math.Clamp(dp, 0, 15), MidpointRounding.AwayFromZero);
 
     /// <summary>1.2M, 45.6K, or the whole number under 10,000.</summary>
     public static string Compact(double n)
@@ -68,14 +46,34 @@ public static class Format
         return Int(n);
     }
 
+    /// <summary>
+    /// Unix milliseconds as a local date and time, if it is one a
+    /// <see cref="DateTimeOffset"/> can hold: the one way in from a time of
+    /// the world, so a time read from a damaged file cannot throw.
+    /// </summary>
+    public static bool TryLocal(double ms, out DateTimeOffset local)
+    {
+        local = default;
+        if (!double.IsFinite(ms)) return false;
+        var t = Math.Truncate(ms);
+        if (t < DateTimeOffset.MinValue.ToUnixTimeMilliseconds() || t > DateTimeOffset.MaxValue.ToUnixTimeMilliseconds())
+            return false;
+        try
+        {
+            local = DateTimeOffset.FromUnixTimeMilliseconds((long)t).ToLocalTime();
+            return true;
+        }
+        catch (ArgumentOutOfRangeException) { return false; }   // the offset pushed it past the end
+    }
+
     /// <summary>A time of day, local: 21:07:45. Only for when something happened
     /// in the world; a measurement is drawn with <see cref="Elapsed"/>.</summary>
-    public static string Clock(double ms)
-    {
-        if (!double.IsFinite(ms) || Math.Abs(ms) > 8.64e15) return "NaN:NaN:NaN";   // not a date
-        var d = DateTimeOffset.FromUnixTimeMilliseconds((long)Math.Truncate(ms)).ToLocalTime();
-        return d.ToString("HH':'mm':'ss", CultureInfo.InvariantCulture);
-    }
+    public static string Clock(double ms) =>
+        TryLocal(ms, out var d) ? d.ToString("HH':'mm':'ss", Us) : "—";
+
+    /// <summary>A local date: 2026-07-30.</summary>
+    public static string Day(double ms) =>
+        TryLocal(ms, out var d) ? d.ToString("yyyy'-'MM'-'dd", Us) : "—";
 
     /// <summary>
     /// Milliseconds since the zero → the label Zerg reads time in: <c>m:ss</c>
@@ -84,15 +82,12 @@ public static class Format
     /// </summary>
     public static string Elapsed(double ms)
     {
-        bool neg = ms < 0;
-        var sec = Math.Max(0, Math.Floor(Math.Abs(ms) / 1000));
-        var h = Math.Floor(sec / 3600);
-        var m = Math.Floor(sec % 3600 / 60);
-        var s = sec % 60;
-        var output = Truthy(h)
-            ? Js.NumberToString(h) + ":" + Pad2(m) + ":" + Pad2(s)
-            : Js.NumberToString(m) + ":" + Pad2(s);
-        return neg ? "-" + output : output;
+        if (!double.IsFinite(ms)) return "—";
+        var (h, m, s) = Parts(ms);
+        var text = h > 0
+            ? string.Create(Us, $"{h}:{m:00}:{s:00}")
+            : string.Create(Us, $"{m}:{s:00}");
+        return ms <= -1000 ? "-" + text : text;
     }
 
     /// <summary>
@@ -102,29 +97,25 @@ public static class Format
     /// </summary>
     public static string Stopwatch(double ms)
     {
-        var sec = Math.Max(0, Math.Floor(Math.Abs(ms) / 1000));
-        var h = Math.Floor(sec / 3600);
-        var mmss = Pad2(Math.Floor(sec % 3600 / 60)) + ":" + Pad2(sec % 60);
-        return Truthy(h) ? Js.NumberToString(h) + ":" + mmss : mmss;
+        if (!double.IsFinite(ms)) return "—";
+        var (h, m, s) = Parts(ms);
+        return h > 0 ? string.Create(Us, $"{h}:{m:00}:{s:00}") : string.Create(Us, $"{m:00}:{s:00}");
+    }
+
+    /// <summary>Whole hours, minutes and seconds in |<paramref name="ms"/>|.</summary>
+    static (long H, long M, long S) Parts(double ms)
+    {
+        var sec = (long)Math.Min(Math.Floor(Math.Abs(ms) / 1000), long.MaxValue / 2);
+        return (sec / 3600, sec % 3600 / 60, sec % 60);
     }
 
     /// <summary>Seconds → "1h 5m", "4m 07s" or "42s".</summary>
     public static string Duration(double sec)
     {
-        sec = Math.Max(0, Js.Round(sec));
-        var h = Math.Floor(sec / 3600);
-        var m = Math.Floor(sec % 3600 / 60);
-        var s = sec % 60;
-        if (Truthy(h)) return Js.NumberToString(h) + "h " + Js.NumberToString(m) + "m";
-        if (Truthy(m)) return Js.NumberToString(m) + "m " + Pad2(s) + "s";
-        return Js.NumberToString(s) + "s";
-    }
-
-    static bool Truthy(double v) => v != 0 && !double.IsNaN(v);
-
-    static string Pad2(double v)
-    {
-        var s = Js.NumberToString(v);
-        return s.Length < 2 ? new string('0', 2 - s.Length) + s : s;
+        if (!double.IsFinite(sec)) return "—";
+        var (h, m, s) = Parts(Math.Max(0, Round(sec)) * 1000);
+        if (h > 0) return string.Create(Us, $"{h}h {m}m");
+        if (m > 0) return string.Create(Us, $"{m}m {s:00}s");
+        return string.Create(Us, $"{s}s");
     }
 }

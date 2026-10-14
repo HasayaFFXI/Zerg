@@ -94,7 +94,7 @@
          picked and thrown away when it is not. -->
     <DataTemplate x:Key="Nothing"/>
     <DataTemplate x:Key="Detail">
-      <v:HealDrillCard Margin="40,0,0,12" Loaded="OnDetailLoaded"/>
+      <v:DrillCard DataContext="{Binding HealingDrill}" Margin="40,0,0,12" Loaded="OnDetailLoaded"/>
     </DataTemplate>
     <Style x:Key="Under" TargetType="ContentControl">
       <Setter Property="Focusable" Value="False"/>

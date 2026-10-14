@@ -76,7 +76,7 @@ public sealed partial class PanelSet : ObservableObject
     /// <summary>The same panels in the order they are listed: damage, then healing.</summary>
     readonly List<PanelInfo> listed = [];
     readonly Dictionary<string, Window> open = [];
-    readonly DispatcherTimer saver;
+    readonly Debouncer saver;
     /// <summary>The values are being brought into line with the rules, not moved by a slider.</summary>
     bool syncing;
     /// <summary>Panels are opening or closing because Zerg is, not because
@@ -103,8 +103,7 @@ public sealed partial class PanelSet : ObservableObject
         Add(HealActions, "Heals");
 
         // A slider reports every step of a drag; the file is written once it settles.
-        saver = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(400) };
-        saver.Tick += (_, _) => Save();
+        saver = new Debouncer(Save);
     }
 
     void Add(string key, string title)
@@ -201,7 +200,7 @@ public sealed partial class PanelSet : ObservableObject
     {
         keeping = true;
         foreach (var window in open.Values.ToList()) window.Close();
-        if (saver.IsEnabled) Save();
+        saver.Flush();
     }
 
     // -------------------------------------------------------- click-through
@@ -247,8 +246,7 @@ public sealed partial class PanelSet : ObservableObject
         DefaultOpacity = v;
         foreach (var p in panels.Values) p.Opacity = opacities.Of(p.Key);
         syncing = false;
-        saver.Stop();
-        saver.Start();
+        saver.Poke();
     }
 
     internal void OwnChanged(PanelInfo panel, int value)
@@ -258,13 +256,11 @@ public sealed partial class PanelSet : ObservableObject
         syncing = true;
         panel.Opacity = v;
         syncing = false;
-        saver.Stop();
-        saver.Start();
+        saver.Poke();
     }
 
     void Save()
     {
-        saver.Stop();
         settings.PanelOpacity = opacities.Default;
         settings.PanelOpacities = new Dictionary<string, int>(opacities.Own);
         settings.Save();

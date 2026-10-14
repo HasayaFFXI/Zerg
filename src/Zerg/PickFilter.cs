@@ -192,8 +192,13 @@ public sealed partial class PickFilter : ObservableObject
     /// <param name="pick">What a press does while nothing is isolated
     /// (<see cref="PickTip"/>); null for a line that cannot be picked.</param>
     public string RowTip(string name, bool isolated, bool dimmed, string? pick) =>
-        pick is null ? words.Rest
-        : isolated ? "Isolated: only this is counted. Press to let it go"
+        pick is null ? words.Rest : TipOf(name, isolated, dimmed, pick);
+
+    /// <summary>What the pointer is told of a row that can be picked, in
+    /// any table of any section: <paramref name="pick"/> while nothing is
+    /// isolated, and what a press does now while something is.</summary>
+    public static string TipOf(string name, bool isolated, bool dimmed, string pick) =>
+        isolated ? "Isolated: only this is counted. Press to let it go"
         : dimmed ? "Isolate " + name + " as well"
         : pick;
 
@@ -268,6 +273,19 @@ public sealed partial class PickFilter : ObservableObject
         picked.Clear();
         Said();
         return true;
+    }
+
+    /// <summary>
+    /// Puts back what was picked when this list was last on screen, without
+    /// saying so: for the owner, which is about to count again anyway. Keys
+    /// the next count does not list stay picked, as a pick that came to
+    /// nothing does.
+    /// </summary>
+    public void Set(IEnumerable<string> keys)
+    {
+        picked.Clear();
+        picked.UnionWith(keys);
+        Said();
     }
 
     void Said()

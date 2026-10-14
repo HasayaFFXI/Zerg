@@ -30,10 +30,6 @@ public sealed class EventFeed : IDisposable
 
     public string Directory => tail.Directory;
 
-    /// <summary>Polls made, and how many of them the watcher brought forward.</summary>
-    public long Polls { get; private set; }
-    public long EarlyPolls { get; private set; }
-
     public EventFeed(string directory)
     {
         tail = new EventTail(directory);
@@ -70,22 +66,39 @@ public sealed class EventFeed : IDisposable
             return;
         }
         polling = true;
-        Polls++;
         // What this poll reads, which Watch may replace before it is back.
         var followed = tail;
+        TailUpdate? update = null;
         try
         {
             EnsureWatcher();
-            var update = await Task.Run(followed.Poll);
-            if (!disposed && followed == tail) Updated?.Invoke(update);
+            update = await Task.Run(followed.Poll);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        catch (Exception e)
         {
+            // Whatever went wrong reading, the next poll tries the same bytes
+            // again; a fault that is not the disk's is logged as well, so it
+            // is not taken for one.
+            if (e is not (IOException or UnauthorizedAccessException)) Log.Write("poll: " + e);
             if (!disposed && followed == tail) Failed?.Invoke(e);
         }
         finally
         {
             polling = false;
+        }
+        // Outside the reading's own try: a fault in what is done with the
+        // lines is not "can't read the event file". Nor is it let out of an
+        // async void, where it would come back as a crash on every poll.
+        if (update is not null && !disposed && followed == tail)
+        {
+            try
+            {
+                Updated?.Invoke(update);
+            }
+            catch (Exception e)
+            {
+                Log.Write("update: " + e);
+            }
         }
         if (pollAgain)
         {
@@ -110,11 +123,13 @@ public sealed class EventFeed : IDisposable
             w.Renamed += OnChange;
             w.Deleted += OnChange;
             // The folder went away, or the change buffer overflowed: drop it
-            // and let a later poll make a new one.
+            // and let a later poll make a new one. Only this one: a watcher
+            // that Watch has replaced since must not take the new one with it.
             w.Error += (_, e) => dispatcher.BeginInvoke(() =>
             {
                 Log.Write("watcher: " + e.GetException().Message);
-                DropWatcher();
+                if (watcher == w) DropWatcher();
+                else w.Dispose();
             });
             w.EnableRaisingEvents = true;
             watcher = w;
@@ -136,7 +151,6 @@ public sealed class EventFeed : IDisposable
         dispatcher.BeginInvoke(() =>
         {
             lock (gate) earlyQueued = false;
-            EarlyPolls++;
             Poll();
         });
     }

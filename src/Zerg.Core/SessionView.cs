@@ -46,8 +46,7 @@ public enum SessionTag { Idle, Armed, Live, Held, Saved }
 /// the pair stays open for the answer.</param>
 public sealed record SessionView(
     string StartText, string StartTip, StartLook StartLook, bool StartEnabled, bool StartAsks,
-    string SecondText, string SecondTip, SecondLook SecondLook, bool SecondEnabled,
-    bool SecondPressed, bool SecondIsToggle, SessionLight Light)
+    string SecondText, string SecondTip, SecondLook SecondLook, bool SecondEnabled, SessionLight Light)
 {
     const string Dash = " — ";
 
@@ -82,7 +81,7 @@ public sealed record SessionView(
         {
             const string why = "Viewing a saved parse. Switch to Damage or Healing to measure your own.";
             return new SessionView("Start", why, StartLook.Locked, false, false,
-                                   "Pause", why, SecondLook.Off, false, false, false, SessionLight.Held)
+                                   "Pause", why, SecondLook.Off, false, SessionLight.Held)
             {
                 Tag = SessionTag.Saved,
             };
@@ -97,7 +96,7 @@ public sealed record SessionView(
                            "Left alone for a few seconds, the pull is kept.",
                 StartLook.Confirm, true, false,
                 "Cancel", "Cancel" + Dash + "keep this pull. Nothing is dropped.",
-                SecondLook.Cancel, true, false, false,
+                SecondLook.Cancel, true,
                 paused ? SessionLight.Held : SessionLight.Live)
             {
                 Tag = paused ? SessionTag.Held : SessionTag.Live,
@@ -123,8 +122,6 @@ public sealed record SessionView(
                        "and the paused time is not divided into DPS.",
             SecondLook: armed ? SecondLook.Cancel : !started ? SecondLook.Off : paused ? SecondLook.Held : SecondLook.Live,
             SecondEnabled: armed || started,
-            SecondPressed: paused,
-            SecondIsToggle: !armed,
 
             Light: light)
         {
@@ -179,13 +176,9 @@ public static class SessionText
     /// <summary>The session's part of the status line. An import can be
     /// from any day, so it carries the date as well.</summary>
     public static string Status(Session s, bool imported = false) =>
-        s.StartedAt is double start ? "started " + (imported ? Day(start) + " " : "") + Format.Clock(start)
+        s.StartedAt is double start ? "started " + (imported ? Format.Day(start) + " " : "") + Format.Clock(start)
         : s.Armed ? "armed, waiting for the first hit"
         : "not started";
-
-    static string Day(double ms) =>
-        DateTimeOffset.FromUnixTimeMilliseconds((long)Math.Truncate(ms)).ToLocalTime()
-                      .ToString("yyyy'-'MM'-'dd", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>The clock as it is watched: fixed width, and zero before a start.</summary>
     public static string Stopwatch(Session s, double? now = null) =>

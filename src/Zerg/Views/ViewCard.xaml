@@ -95,8 +95,9 @@
       </StackPanel>
     </Border>
 
-    <!-- A parse: its name, which side of it is on screen below, when it was
-         and how long, and the way to put another in its place or close it.
+    <!-- The parse whose tab is picked: its name, which side of it is on
+         screen below (each tab keeps its own), when it was and how long,
+         and the way to open another beside it or close it.
          An amber edge at the left says this band is not the session. In a
          window too narrow for the line, it wraps group by group and the
          band grows. -->
@@ -106,16 +107,16 @@
       <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
       <DockPanel Margin="14,7,12,7">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,1,0,0">
-          <Button Style="{StaticResource BandButton}" Content="Replace…" Command="{Binding OpenParseCommand}"
-                  ToolTip="Open another parse in this one's place"
+          <Button Style="{StaticResource BandButton}" Content="Open another…" Command="{Binding OpenParseCommand}"
+                  ToolTip="Open another parse in a tab of its own. This one stays open in its tab"
                   AutomationProperties.Name="Open another parse to view"/>
           <Button Style="{StaticResource BandButton}" Content="Close" Command="{Binding CloseParseCommand}"
-                  ToolTip="Close this parse and empty the section" Margin="7,0,0,0"
+                  ToolTip="Close this parse and its tab" Margin="7,0,0,0"
                   AutomationProperties.Name="Close the viewed parse"/>
         </StackPanel>
 
         <v:BarWrap>
-          <TextBlock Text="{Binding ViewedName}" ToolTip="{Binding ViewedTip}" Style="{StaticResource SlotTitle}"
+          <TextBlock Text="{Binding Viewed.Name}" ToolTip="{Binding Viewed.Tip}" Style="{StaticResource SlotTitle}"
                      TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Background="Transparent" MaxWidth="360"
                      Margin="0,0,18,0"/>
           <StackPanel Orientation="Horizontal" Margin="0,0,18,0"
@@ -134,18 +135,18 @@
           </StackPanel>
           <StackPanel Orientation="Horizontal" MinHeight="24">
             <TextBlock Text="Started" Style="{StaticResource Fact}"/>
-            <TextBlock Text="{Binding ViewedStarted}" Style="{StaticResource FactValue}"/>
+            <TextBlock Text="{Binding Viewed.Started}" Style="{StaticResource FactValue}"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal" MinHeight="24">
             <TextBlock Text="Length" Style="{StaticResource Fact}"/>
-            <TextBlock Text="{Binding ViewedLength}" Style="{StaticResource FactValue}"/>
+            <TextBlock Text="{Binding Viewed.Length}" Style="{StaticResource FactValue}"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal" MinHeight="24">
             <TextBlock Text="Party" Style="{StaticResource Fact}"/>
-            <TextBlock Text="{Binding ViewedParty}" Style="{StaticResource FactValue}"/>
+            <TextBlock Text="{Binding Viewed.Party}" Style="{StaticResource FactValue}"/>
           </StackPanel>
           <!-- What of the file was not understood, when anything was not. -->
-          <TextBlock Text="{Binding ViewedSkipped}" Style="{StaticResource Quiet}" Margin="0,0,16,0"/>
+          <TextBlock Text="{Binding Viewed.Skipped}" Style="{StaticResource Quiet}" Margin="0,0,16,0"/>
           <DockPanel Style="{StaticResource Refusal}" MinHeight="24">
             <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" FontSize="11"
                        Foreground="{DynamicResource CritBrush}" VerticalAlignment="Center" Margin="0,1,7,0"/>

@@ -25,8 +25,8 @@ public sealed class HealerTotals
     public double PetTotal { get; set; }
     public int Casts { get; set; }
     public double Max { get; set; }
+    /// <summary>Heals by name, in order of first cast.</summary>
     public OrderedDictionary<string, HealAction> Actions { get; set; } = new(StringComparer.Ordinal);
-    public List<string> ActionOrder { get; set; } = [];
     /// <summary>Total over casts, or null with no casts.</summary>
     public double? Avg { get; set; }
     /// <summary>Part of the party's healing, 0..1, or null when the party healed nothing.</summary>
@@ -90,13 +90,10 @@ public static class Healing
             }
             if (opts.Roster != null && opts.Roster.IsMob(h.Actor)) continue;
             var c = h;
-            if (!string.IsNullOrEmpty(h.Owner) && h.Actor != h.Owner)
-            {
-                var by = !string.IsNullOrEmpty(h.Pet) ? h.Pet : h.Actor;
-                c = c with { Actor = h.Owner, By = by, Action = by + ": " + h.Action };
-            }
+            if (Counting.Credited(h.Owner, h.Actor, h.Pet) is { } by)
+                c = c with { Actor = h.Owner!, By = by, Action = Counting.Credited(by, h.Action), Spell = h.Spell };
             if (opts.Actors != null && opts.Actors.TryGetValue(c.Actor, out var on) && !on) continue;
-            if (el is double t) c = c with { Wall = h.T, T = t };
+            if (el is double t) c = c with { T = t };
             output.Add(c);
         }
         return output;
@@ -117,24 +114,17 @@ public static class Healing
     /// <summary>Heals (already filtered) → per character, per action. Largest first.</summary>
     public static HealTotals Totals(IReadOnlyList<HealEvent> heals)
     {
-        var by = new Dictionary<string, HealerTotals>(StringComparer.Ordinal);
-        var order = new List<string>();
+        // In the order they first healed, which is the order a tie keeps.
+        var by = new OrderedDictionary<string, HealerTotals>(StringComparer.Ordinal);
         double total = 0, petTotal = 0, max = 0;
         int casts = 0;
 
         foreach (var h in heals)
         {
             bool pet = h.IsPets;
-            if (!by.TryGetValue(h.Actor, out var a))
-            {
-                by[h.Actor] = a = new HealerTotals { Name = h.Actor };
-                order.Add(h.Actor);
-            }
+            if (!by.TryGetValue(h.Actor, out var a)) by[h.Actor] = a = new HealerTotals { Name = h.Actor };
             if (!a.Actions.TryGetValue(h.Action, out var act))
-            {
                 a.Actions[h.Action] = act = new HealAction { Name = h.Action, Via = h.Via, Pet = pet };
-                a.ActionOrder.Add(h.Action);
-            }
 
             var v = h.Hp == 0 || double.IsNaN(h.Hp) ? 0 : h.Hp;
             bool newCast = h.Use is not double use || act.Uses.Add(use);
@@ -160,21 +150,16 @@ public static class Healing
             }
         }
 
-        var actors = order.Select(n =>
+        var actors = by.Values.Select(x =>
         {
-            var x = by[n];
             x.Avg = x.Casts != 0 ? x.Total / x.Casts : null;
             x.Share = total != 0 ? x.Total / total : null;
-            x.ActionList = x.ActionOrder.Select(k =>
-            {
-                var y = x.Actions[k];
-                y.Avg = y.Casts != 0 ? y.Total / y.Casts : 0;
-                return y;
-            }).ToList();
-            Js.StableSort(x.ActionList, (p, q) => q.Total - p.Total);
+            x.ActionList = x.Actions.Values.ToList();
+            foreach (var y in x.ActionList) y.Avg = y.Casts != 0 ? y.Total / y.Casts : 0;
+            x.ActionList.SortByDescending(p => p.Total);
             return x;
         }).ToList();
-        Js.StableSort(actors, (p, q) => (q.Total + q.PetTotal) - (p.Total + p.PetTotal));
+        actors.SortByDescending(p => p.Total + p.PetTotal);
 
         return new HealTotals
         {

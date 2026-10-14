@@ -46,7 +46,6 @@ public abstract class Chart : FrameworkElement
     protected const double AxisSize = 10, LabelSize = 10.5;
 
     static readonly FontFamily Fallback = new("Segoe UI Variable Text, Segoe UI");
-    static readonly Dictionary<Color, SolidColorBrush> Solids = [];
 
     /// <summary>
     /// The hover card's shadow: black, soft, falling 4 units below the card.
@@ -260,13 +259,7 @@ public abstract class Chart : FrameworkElement
 
     protected double Scale => VisualTreeHelper.GetDpi(this).DpiScaleX;
 
-    protected static SolidColorBrush Solid(Color c)
-    {
-        if (Solids.TryGetValue(c, out var b)) return b;
-        b = new SolidColorBrush(c);
-        b.Freeze();
-        return Solids[c] = b;
-    }
+    protected static SolidColorBrush Solid(Color c) => Inks.Solid(c);
 
     Typeface Face(bool bold) => bold
         ? semiBold ??= new Typeface(FontFamily, FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal)
@@ -341,6 +334,52 @@ public abstract class Chart : FrameworkElement
         var hair = Hair;
         return new Pen(brush, hair) { DashStyle = new DashStyle([2 / hair, 2 / hair], 0) };
     });
+
+    // ------------------------------------------------------------- histograms
+    //
+    // What the two histograms (one run's, both runs') draw alike: the value
+    // axis with its grid, a column, and the baseline with the bins' labels
+    // under it. What each draws over them (the mean, the band of the middle
+    // half, the median; each run's mean) is its own.
+
+    /// <summary>A grid line at each tick, its value to the left of the plot.</summary>
+    protected void PaintValueAxis(DrawingContext dc, Box plot, IEnumerable<AxisTick> ticks)
+    {
+        var grid = Hairline(GridInk);
+        foreach (var t in ticks)
+        {
+            var y = SnapLine(t.Pos);
+            dc.DrawLine(grid, new Point(plot.X, y), new Point(plot.Right, y));
+            var text = Text(t.Label, AxisSize, false, Muted);
+            Draw(dc, text, plot.X - HistogramLayout.YLabelGap - text.Width, y - text.Height / 2);
+        }
+    }
+
+    /// <summary>One column, on whole pixels and never narrower than one,
+    /// standing on <paramref name="foot"/> with its top corners rounded.</summary>
+    protected void PaintColumn(DrawingContext dc, Brush fill, double x, double y, double w, double foot, double radius)
+    {
+        double left = SnapEdge(x), right = Math.Max(left + 1 / Scale, SnapEdge(x + w));
+        dc.DrawGeometry(fill, null, RoundedTop(left, y, right - left, foot - y, radius));
+    }
+
+    /// <summary>The baseline, and each bin's label under it.</summary>
+    protected void PaintBinAxis(DrawingContext dc, Box plot, double baselineY, IEnumerable<HistogramLabel> labels)
+    {
+        var baseline = SnapLine(baselineY);
+        dc.DrawLine(Hairline(AxisInk), new Point(plot.X, baseline), new Point(plot.Right, baseline));
+        foreach (var x in labels)
+        {
+            var text = Text(x.Text, AxisSize, false, Muted);
+            double left = x.Align switch
+            {
+                LabelAlign.Left => x.X,
+                LabelAlign.Right => x.X - text.Width,
+                _ => x.X - text.Width / 2,
+            };
+            Draw(dc, text, left, plot.Bottom + HistogramLayout.XLabelGap);
+        }
+    }
 
     /// <summary>A hairline in a brush at part strength: the rule at a live chart's edge.</summary>
     protected Pen FaintHairline(Brush brush, double strength) => CachedPen(brush, 7, () =>

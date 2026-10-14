@@ -52,7 +52,6 @@ public sealed partial class MainViewModel
     /// panel says.</summary>
     [ObservableProperty] private string layoutNote = "";
 
-    DispatcherTimer? layoutSaver;
     /// <summary>What was last done to an arrangement, for the log.</summary>
     string layoutWhat = "";
     /// <summary>The trees are being read from the settings, not changed by anyone.</summary>
@@ -126,11 +125,7 @@ public sealed partial class MainViewModel
     {
         if (readingLayouts) return;
         settings.Layouts = PaneLayouts.Write(DamageLayout, HealingLayout, CompareLayout);
-        Settle(ref layoutSaver, () =>
-        {
-            settings.Save();
-            Log.Write("layout " + layoutWhat);
-        });
+        layoutSaver.Poke();
     }
 
     partial void OnLayoutLockedChanged(bool value)

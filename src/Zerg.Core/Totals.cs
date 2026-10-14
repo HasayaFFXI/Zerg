@@ -1,6 +1,24 @@
 namespace Zerg.Core;
 
 /// <summary>
+/// One use, folded from its rows as <see cref="Counting.Collapse"/> folds it
+/// (damage summed; hit, crit and burst any; the earliest time; the rest the
+/// first row's), but with no row copied: <see cref="Counting.Aggregate"/>
+/// folds a whole session through this on every count.
+/// </summary>
+internal readonly record struct Use(CombatEvent Row, double Dmg, bool Hit, bool Crit, bool Burst, double T)
+{
+    public Use(CombatEvent e) : this(e, e.Dmg, e.Hit, e.Crit, e.Burst, e.T) { }
+
+    public Use With(CombatEvent e) =>
+        new(Row, Dmg + e.Dmg, Hit || e.Hit, Crit || e.Crit, Burst || e.Burst, e.T < T ? e.T : T);
+
+    public string Kind => Row.Kind;
+    public bool IsPets => Row.IsPets;
+    public bool? Connects => Counting.Connects(Row.Kind, Dmg, Row.Msg, Hit);
+}
+
+/// <summary>
 /// Totals over a set of uses: one character's, or one action's inside a
 /// character. Counts are per use, not per damage row (<see cref="Counting.Collapse"/>).
 /// </summary>
@@ -28,13 +46,12 @@ public class Bucket
 
     public int Swings { get; set; }
     public double Avg { get; set; }
-    public double AvgPerSwing { get; set; }
     /// <summary>Lands / tries, or 0 with no tries.</summary>
     public double Accuracy { get; set; }
 
     internal double FirstRaw = double.PositiveInfinity, LastRaw = double.NegativeInfinity;
 
-    internal void Add(CombatEvent e)
+    internal void Add(in Use e)
     {
         if (e.Hit)
         {
@@ -49,7 +66,7 @@ public class Bucket
         else Misses++;
         // Counted apart from Hits: those feed the total, the average and the
         // histogram, and a swing into shadows is not a hit there.
-        if (Counting.Connects(e) is bool o) { Tries++; if (o) Lands++; }
+        if (e.Connects is bool o) { Tries++; if (o) Lands++; }
         if (e.T < FirstRaw) FirstRaw = e.T;
         if (e.T > LastRaw) LastRaw = e.T;
     }
@@ -58,7 +75,6 @@ public class Bucket
     {
         Swings = Hits + Misses;
         Avg = Hits != 0 ? Total / Hits : 0;
-        AvgPerSwing = Swings != 0 ? Total / Swings : 0;
         Accuracy = Tries != 0 ? (double)Lands / Tries : 0;
         if (double.IsPositiveInfinity(Min)) Min = 0;
         if (double.IsPositiveInfinity(FirstRaw)) { First = null; Last = null; }
@@ -102,10 +118,10 @@ public sealed class Split
     public int PetTries { get; set; }
     public int PetHits { get; set; }
 
-    internal void Add(CombatEvent e)
+    internal void Add(in Use e)
     {
         var dmg = e.Hit ? e.Dmg : 0;
-        var o = Counting.Connects(e);
+        var o = e.Connects;
         if (e.IsPets)
         {
             PetRows++;
@@ -187,14 +203,12 @@ public sealed class ActorTotals : Bucket
 {
     /// <summary>Actions by name, in order of first use.</summary>
     public OrderedDictionary<string, ActionTotals> Actions { get; set; } = new(StringComparer.Ordinal);
-    public List<string> ActionOrder { get; set; } = [];
     /// <summary>The actions, largest total first.</summary>
     public List<ActionTotals> ActionList { get; set; } = [];
     public Split Split { get; set; } = new();
 
-    /// <summary>First to last use, in seconds: shown as a span, not divided by.</summary>
-    public double Window { get; set; }
-    /// <summary>What DPS is divided by, in seconds: the session clock when one was given.</summary>
+    /// <summary>What DPS is divided by, in seconds: the session clock when one was given,
+    /// otherwise this character's first use to their last.</summary>
     public double Duration { get; set; }
     public double Dps { get; set; }
     /// <summary>This character's part of the party's damage, 0..1.</summary>
@@ -226,22 +240,13 @@ public sealed class ActorTotals : Bucket
     }
 }
 
-/// <summary>The party: every character, largest first, and the span they cover.</summary>
+/// <summary>The party: every character, largest first.</summary>
 public sealed class Aggregate
 {
     public List<ActorTotals> Actors { get; set; } = [];
     public double Total { get; set; }
-    /// <summary>The first and last use's time, or null with none.</summary>
-    public double? Start { get; set; }
-    public double? End { get; set; }
-    /// <summary>First to last use, in seconds.</summary>
-    public double Window { get; set; }
     /// <summary>The DPS denominator, in seconds.</summary>
     public double Duration { get; set; }
-    /// <summary>Damage rows in.</summary>
-    public int Events { get; set; }
-    /// <summary>The uses they folded to.</summary>
-    public int Uses { get; set; }
 
     /// <summary>The party's own split: every character's counts added up,
     /// the ones at zero included.</summary>
@@ -255,6 +260,19 @@ public sealed class Aggregate
     /// measure.
     /// </summary>
     public SplitFigures Party { get; set; }
+
+    /// <summary>The biggest hit of any action; the first found wins a tie.</summary>
+    public BestHit? Best
+    {
+        get
+        {
+            BestHit? best = null;
+            foreach (var a in Actors)
+                foreach (var act in a.ActionList)
+                    if (best == null || act.Max > best.Max) best = new BestHit(act.Max, a.Name, act.Name);
+            return best;
+        }
+    }
 }
 
 /// <summary>One line of a cumulative chart: a running total per grid time.</summary>
@@ -292,9 +310,9 @@ public sealed class Distribution
     public string Actor { get; set; } = "";
     /// <summary>The action, or null for all of them.</summary>
     public string? Action { get; set; }
-    /// <summary>The uses that hit, folded.</summary>
+    /// <summary>The uses that hit, folded, in order.</summary>
     public List<CombatEvent> Events { get; set; } = [];
-    public List<double> Values { get; set; } = [];
+    /// <summary>What each of them dealt, smallest first.</summary>
     public List<double> Sorted { get; set; } = [];
     public List<Bin> Bins { get; set; } = [];
     public int Count { get; set; }

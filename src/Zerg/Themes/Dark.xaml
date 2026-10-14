@@ -55,7 +55,7 @@
   <Color x:Key="JobPUP">#827AAB</Color>
 
   <!-- ============================================================ tokens
-       The redesign's named values (UI-REDESIGN-PLAN.md, section 4). Each
+       The redesign's named values. Each
        colour is a Color under its name and a brush under that name plus
        "Brush". Both theme files define the same keys, and Themes/Panel.xaml
        defines some of them again for a floating panel, so a token is

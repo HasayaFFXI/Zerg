@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using static Zerg.Native.User32;
 
 namespace Zerg.Native;
 
@@ -32,8 +33,4 @@ static class InFront
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool IsWindow(nint hwnd);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool SetForegroundWindow(nint hwnd);
 }

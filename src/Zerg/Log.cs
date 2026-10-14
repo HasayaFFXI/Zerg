@@ -13,17 +13,19 @@ static class Log
     public static string FilePath => Path.Combine(AppInfo.LogDir, "zerg.log");
     const long MaxBytes = 1024 * 1024;
 
-    /// <summary>Starts a fresh log once it passes 1 MB, keeping one old copy,
-    /// so a player who never closes Zerg doesn't grow a file without end.</summary>
+    /// <summary>How many lines are written between two looks at the file's size.</summary>
+    const int CheckEvery = 200;
+    static int sinceCheck;
+
+    /// <summary>Starts the log, and a fresh one if it has passed 1 MB.</summary>
     public static void Start()
     {
         try
         {
             Directory.CreateDirectory(AppInfo.LogDir);
-            var f = new FileInfo(FilePath);
-            if (f.Exists && f.Length > MaxBytes) File.Move(FilePath, FilePath + ".old", overwrite: true);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        lock (Gate) Rotate();
         Write($"---- {AppInfo.Name} {AppInfo.Version} starting, pid {Environment.ProcessId}");
     }
 
@@ -31,8 +33,23 @@ static class Log
     {
         lock (Gate)
         {
+            // Looked at as it is written to, not only at a start, so a player
+            // who never closes Zerg doesn't grow a file without end.
+            if (++sinceCheck >= CheckEvery) Rotate();
             try { File.AppendAllText(FilePath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}  {message}{Environment.NewLine}"); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
+    }
+
+    /// <summary>Past 1 MB the log starts again, keeping one old copy.</summary>
+    static void Rotate()
+    {
+        sinceCheck = 0;
+        try
+        {
+            var f = new FileInfo(FilePath);
+            if (f.Exists && f.Length > MaxBytes) File.Move(FilePath, FilePath + ".old", overwrite: true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 }

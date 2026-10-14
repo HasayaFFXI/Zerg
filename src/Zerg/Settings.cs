@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Zerg.Core;
 
 namespace Zerg;
 
@@ -12,6 +13,12 @@ public sealed record Placement(int X, int Y, int Width, int Height, bool Maximiz
 /// Everything Zerg remembers between runs, in
 /// %LOCALAPPDATA%\VibeXI\zerg\settings.json. Best effort both ways: a missing
 /// or unreadable file means defaults, and a failed save is logged and dropped.
+///
+/// <para><b>The file is the player's</b>, and may have been edited by hand or
+/// written by another version. A value of the wrong shape costs that one
+/// setting, which goes back to its default (<see cref="LenientJson"/>); a
+/// <c>null</c> where a list or a word goes is the empty list or the default
+/// word (<see cref="Normal"/>). Nothing in it can stop Zerg starting.</para>
 /// </summary>
 public sealed class Settings
 {
@@ -157,31 +164,69 @@ public sealed class Settings
 
     static string FilePath => Path.Combine(AppInfo.DataDir, "settings.json");
 
-    static readonly JsonSerializerOptions Json = new()
+    static readonly JsonSerializerOptions Json = LenientJson.Options(new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         // The file is for a person to read: "Ctrl+Alt+Z" is written as
         // that, not with its plus signs escaped.
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
+    });
 
     public static Settings Load()
     {
+        string text;
         try
         {
-            return JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath), Json) ?? new Settings();
+            text = File.ReadAllText(FilePath);
         }
-        catch (FileNotFoundException) { }
-        catch (DirectoryNotFoundException) { }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        catch (FileNotFoundException) { return new Settings(); }
+        catch (DirectoryNotFoundException) { return new Settings(); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             Log.Write($"settings: can't read {FilePath} ({e.Message}); using defaults");
-            // Kept for a bug report: the next save overwrites the original.
-            try { File.Copy(FilePath, FilePath + ".bad", overwrite: true); }
-            catch (Exception e2) when (e2 is IOException or UnauthorizedAccessException) { }
+            return new Settings();
         }
-        return new Settings();
+
+        bool lost = false;
+        var settings = LenientJson.Read<Settings>(text, Json, (key, why) =>
+        {
+            Log.Write($"settings: {key} could not be read ({why}); it is back to its default");
+            lost = true;
+        });
+        if (settings is null)
+        {
+            Log.Write($"settings: {FilePath} is not a settings file; using defaults");
+            lost = true;
+        }
+        // Kept for a bug report: the next save overwrites the original.
+        if (lost)
+        {
+            try { File.Copy(FilePath, FilePath + ".bad", overwrite: true); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        return (settings ?? new Settings()).Normal();
+    }
+
+    /// <summary>
+    /// Every list and word there, whatever the file said: JSON's <c>null</c>
+    /// is read into a list or a string as null, and nothing downstream
+    /// expects one. Null entries inside a list go too.
+    /// </summary>
+    internal Settings Normal()
+    {
+        var installed = new Settings();
+        Theme ??= installed.Theme;
+        Section ??= installed.Section;
+        ViewMode ??= installed.ViewMode;
+        CompareBy ??= installed.CompareBy;
+        CompareMode ??= installed.CompareMode;
+        ClickThroughKey ??= installed.ClickThroughKey;
+        Excluded = Excluded?.Where(n => n is not null).ToList() ?? [];
+        OpenPanels = OpenPanels?.Where(n => n is not null).ToList() ?? [];
+        PanelOpacities ??= [];
+        Windows = Windows?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value) ?? [];
+        return this;
     }
 
     /// <summary>Written to a temporary file and moved into place, so a crash or

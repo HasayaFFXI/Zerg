@@ -97,7 +97,7 @@
          context is the view model, as the docked card's is. -->
     <DataTemplate x:Key="Nothing"/>
     <DataTemplate x:Key="Detail">
-      <v:DrillCard Margin="40,0,0,12" Loaded="OnDetailLoaded"/>
+      <v:DrillCard DataContext="{Binding DamageDrill}" Margin="40,0,0,12" Loaded="OnDetailLoaded"/>
     </DataTemplate>
     <Style x:Key="Under" TargetType="ContentControl">
       <Setter Property="Focusable" Value="False"/>

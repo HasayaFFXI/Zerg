@@ -69,7 +69,7 @@ public sealed class PairedHistogramLayout
         foreach (var (run, avg, count) in new[] { (0, avgA, countA), (1, avgB, countB) })
         {
             if (avg is not double v || count == 0) continue;
-            var x = Js.Round(Bx(v)) + 0.5;
+            var x = Format.Round(Bx(v)) + 0.5;
             if (x < padLeft || x > padLeft + plotW) continue;
             var text = (run == 0 ? "A" : "B") + " avg " + Format.Int(v);
             marks.Add(new Mark(run, x, text, SwatchRoom + textWidth(text)));
@@ -87,7 +87,7 @@ public sealed class PairedHistogramLayout
         double By(double share) => plot.Y + plot.H - share / smax * plot.H;
 
         foreach (var v in Ticks.Nice(0, smax * 100, 4))
-            l.YTicks.Add(new AxisTick(v, Js.Round(By(v / 100)) + 0.5, Js.NumberToString(v) + "%"));
+            l.YTicks.Add(new AxisTick(v, Format.Round(By(v / 100)) + 0.5, v.ToString(CultureInfo.InvariantCulture) + "%"));
 
         // A bin's two columns fill it between them, as one column fills a
         // single histogram's bin: 2 px to the next bin, 1 px between the pair.
@@ -106,7 +106,7 @@ public sealed class PairedHistogramLayout
             }
         }
 
-        l.BaselineY = Js.Round(plot.Y + plot.H) + 0.5;
+        l.BaselineY = Format.Round(plot.Y + plot.H) + 0.5;
         l.XLabels.AddRange(HistogramLayout.ValueLabels(plot, lo, hi));
         return l;
     }

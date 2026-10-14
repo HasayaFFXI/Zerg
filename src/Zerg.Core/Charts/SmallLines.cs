@@ -26,5 +26,5 @@ public static class SmallLines
     }
 
     /// <summary>What the folded line is called.</summary>
-    public static string Name(int count) => Js.NumberToString(count) + " others";
+    public static string Name(int count) => count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " others";
 }
