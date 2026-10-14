@@ -1,0 +1,17 @@
+# Generated test fixture (tools/gen-test-events.py writes here)
+tools/events/
+
+# .NET build output
+**/bin/
+**/obj/
+dist/
+*.csproj.user
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# OS / OneDrive noise
+desktop.ini
+Thumbs.db
+.DS_Store
