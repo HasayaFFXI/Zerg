@@ -7,6 +7,25 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 1.0.0 — 2026-10-18
+
+- Zerg comes with an installer, `Zerg-<version>-setup.exe`, beside the
+  zip. It installs for the signed-in user alone, with no administrator
+  asked for, in `%LOCALAPPDATA%\Programs\Zerg` unless another folder is
+  picked. It makes a Start menu shortcut, and offers a desktop shortcut
+  and opening `.zerg` files with Zerg, both ticked. Its last page says the
+  VibeXI addon is needed and links to it. Zerg is uninstalled from
+  Windows' Installed apps, which asks whether to remove the settings and
+  logs too (no by default) and takes back the `.zerg` association while
+  it opens that Zerg. `tools/package.py` makes both downloads.
+- Damage by character narrows with its pane, as By damage type does,
+  instead of scrolling sideways under 900 units. Its columns give up room
+  down to what their figures need; past that the table drops columns a
+  group at a time from the right: Pet and Skillchain first, then
+  Weaponskill and Accuracy, leaving Character, Job, Damage, Damage % and
+  DPS. It scrolls only in a pane too narrow even for those five.
+- The Settings page's samples name their second character PlayerB.
+
 ## 0.3.0 — 2026-10-14
 
 - A `.zerg` parse opens from Explorer with a double-click, in the View

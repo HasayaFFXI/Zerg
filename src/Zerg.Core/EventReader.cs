@@ -219,9 +219,9 @@ public sealed class EventReader
     static readonly Regex LeadingName = new(@"^([A-Za-z]+)[_\-]", RegexOptions.CultureInvariant);
 
     /// <summary>
-    /// Whose event file this is, from its name: "Hasaya-20260730213045.jsonl"
-    /// (the addon's file, one per load) and "Hasaya_2026.07.30.jsonl" (the
-    /// file it wrote before, one per day) are Hasaya's. Any other name is
+    /// Whose event file this is, from its name: "Player-20260730213045.jsonl"
+    /// (the addon's file, one per load) and "Player_2026.07.30.jsonl" (the
+    /// file it wrote before, one per day) are Player's. Any other name is
     /// searched for a leading name. Null when there is none.
     /// </summary>
     public static string? OwnerOf(string? name)

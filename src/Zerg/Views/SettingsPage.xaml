@@ -392,7 +392,7 @@
                     <Grid Margin="4,23,4,0" Height="15" VerticalAlignment="Top">
                       <Rectangle Width="146.6" RadiusX="2" RadiusY="2" HorizontalAlignment="Left" Fill="{Binding SampleStrip2}"/>
                       <Rectangle Width="3" RadiusX="1.5" RadiusY="1.5" HorizontalAlignment="Left" Fill="{Binding SampleEdge2}"/>
-                      <TextBlock Text="Brannoch" FontSize="10.5" Margin="8,0,0,0" VerticalAlignment="Center"
+                      <TextBlock Text="PlayerB" FontSize="10.5" Margin="8,0,0,0" VerticalAlignment="Center"
                                  Foreground="{DynamicResource Text1Brush}"/>
                       <TextBlock Text="31,927" FontSize="10.5" FontWeight="SemiBold" Margin="0,0,4,0" HorizontalAlignment="Right"
                                  VerticalAlignment="Center" Foreground="{DynamicResource Text1Brush}"
@@ -495,7 +495,7 @@
                       <Rectangle Grid.ColumnSpan="3" Style="{StaticResource RowRule}"/>
                       <DockPanel Margin="8,0,0,1" VerticalAlignment="Center">
                         <Rectangle Style="{StaticResource Swatch}" Fill="{Binding SampleSwatch2}" Margin="0,0,6,0"/>
-                        <TextBlock Text="Brannoch" FontSize="12" VerticalAlignment="Center"/>
+                        <TextBlock Text="PlayerB" FontSize="12" VerticalAlignment="Center"/>
                       </DockPanel>
                       <TextBlock Grid.Column="1" Text="31,927" Style="{StaticResource Cell}" FontWeight="SemiBold" Padding="0"/>
                       <v:SmallBar Grid.Column="2" For="Character" Length="36" Inset="12" Value="0.785" Fill="{Binding SampleSwatch2}">

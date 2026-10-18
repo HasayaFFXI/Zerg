@@ -548,7 +548,7 @@ public abstract class Chart : FrameworkElement
     // ------------------------------------------------------- to a screen reader
 
     /// <summary>One line about what the chart shows now: "3 lines over
-    /// 00:24. Highest: Hasaya, 73,210". Empty when it shows nothing.
+    /// 00:24. Highest: Player, 73,210". Empty when it shows nothing.
     /// Asked for by a screen reader, never by a draw.</summary>
     protected abstract string Summary();
 

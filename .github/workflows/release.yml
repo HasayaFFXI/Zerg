@@ -1,0 +1,121 @@
+# Publishes a GitHub Release of Zerg with the installer and the zip attached:
+# Zerg-<version>-setup.exe and Zerg-<version>-win-x64.zip, both made by
+# tools/package.py. The names change with every release, so the README links
+# the latest release page rather than a direct download.
+#
+# <Version> in Directory.Build.props is the one place the version lives. To
+# release, cut the version on main (CLAUDE.md, "Versions": the number, and
+# CHANGELOG.md's section for it) in a PR like any other change. When
+# Directory.Build.props lands on main, this workflow reads the version and,
+# if no release has it yet, runs the tests, builds both downloads, tags that
+# commit zerg-v<version> and publishes the release with the changelog's
+# section as its notes. A version that is already released is left alone, so
+# other edits to Directory.Build.props publish nothing. The workflow never
+# writes to the repo, and nobody tags by hand: the release creates the tag.
+# Running it from the Actions tab does the same for the head of main.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [Directory.Build.props]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+
+jobs:
+  release:
+    # WPF builds only on Windows, and Inno Setup is a Windows program.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read <Version>
+        run: |
+          version=$(sed -n -E 's|.*<Version>([^<]*)</Version>.*|\1|p' Directory.Build.props)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || { echo "::error::<Version> in Directory.Build.props must look like 1.2.3, got '$version'"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=zerg-v$version" >> "$GITHUB_ENV"
+          if gh release view "zerg-v$version" >/dev/null 2>&1; then
+            echo "::notice::$version is already released; nothing to do."
+          else
+            echo "PUBLISH=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Take the notes from CHANGELOG.md
+        if: env.PUBLISH == '1'
+        run: |
+          # The section under "## <version> — <date>", up to the next heading.
+          awk -v v="$VERSION" '
+            index($0, "## " v " ") == 1 || $0 == "## " v { on = 1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > changes.md
+          grep -q '[^[:space:]]' changes.md \
+            || { echo "::error::CHANGELOG.md has no section for $VERSION: cut the version there first (CLAUDE.md, \"Versions\")"; exit 1; }
+
+      - uses: actions/setup-dotnet@v4
+        if: env.PUBLISH == '1'
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/setup-python@v5
+        if: env.PUBLISH == '1'
+        with:
+          python-version: '3.x'
+
+      - name: Install Inno Setup
+        if: env.PUBLISH == '1'
+        run: |
+          # Some runner images carry it already; tools/package.py finds it either way.
+          if [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then
+            choco install innosetup --yes --no-progress
+          fi
+
+      - name: Test
+        if: env.PUBLISH == '1'
+        run: dotnet test Zerg.slnx
+
+      - name: Build the installer and the zip
+        if: env.PUBLISH == '1'
+        run: python tools/package.py
+
+      - name: Publish the release
+        if: env.PUBLISH == '1'
+        run: |
+          setup="dist/package/Zerg-$VERSION-setup.exe"
+          zip="dist/package/Zerg-$VERSION-win-x64.zip"
+          {
+            cat changes.md
+            echo
+            echo "---"
+            echo
+            echo "**Zerg needs the [VibeXI](https://github.com/HasayaFFXI/VibeXI) addon** running in FFXI;"
+            echo "install it by following the instructions there."
+            echo
+            echo "Download \`Zerg-$VERSION-setup.exe\` to install Zerg, or \`Zerg-$VERSION-win-x64.zip\`"
+            echo "to run it from a folder of your own. Zerg is not signed, so Windows may say it"
+            echo "\"protected your PC\": choose More info, then Run anyway."
+            echo
+            echo "| File | SHA-256 |"
+            echo "| --- | --- |"
+            for f in "$setup" "$zip"; do
+              echo "| \`$(basename "$f")\` | \`$(sha256sum "$f" | cut -d' ' -f1)\` |"
+            done
+          } > notes.md
+          gh release create "$TAG" "$setup" "$zip" --target "$GITHUB_SHA" \
+            --title "Zerg $VERSION" --notes-file notes.md

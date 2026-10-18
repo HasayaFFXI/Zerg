@@ -42,7 +42,7 @@ Reading the file (`EventFiles`, `EventTail`):
 One line is one `(action, target, result)` row. A field of the wrong JSON type (a string where a number goes, a number that is not finite, a time no clock can show) makes the line unreadable: it is skipped and counted, never coerced. A missing or null field is its type's empty value:
 
 ```json
-{"t":1785000000,"seq":3,"use":41207,"kind":"ws","actor":"Hasaya","actorKind":"player",
+{"t":1785000000,"seq":3,"use":41207,"kind":"ws","actor":"Player","actorKind":"player",
  "action":"Tachi: Jinpu","actionId":32,"target":"Goblin Pathfinder","targetKind":"mob",
  "dmg":723,"hit":true,"crit":false,"burst":false,"msg":185}
 ```
@@ -68,7 +68,7 @@ Three kinds of line are not rows, and `EventReader` files each elsewhere:
   the rows: a zero-damage row would land in every count.
 
   ```json
-  {"kind":"job","t":1785000000,"actor":"Hasaya","main":"SAM","mainId":12,"mainLvl":75,
+  {"kind":"job","t":1785000000,"actor":"Player","main":"SAM","mainId":12,"mainLvl":75,
    "sub":"WAR","subId":1,"subLvl":37}
   ```
 
@@ -84,7 +84,7 @@ Three kinds of line are not rows, and `EventReader` files each elsewhere:
 
   ```json
   {"kind":"heal","t":1785000000,"seq":2,"use":7,"via":"magic","actor":"Catpirate",
-   "actorKind":"player","action":"Curaga II","actionId":8,"target":"Hasaya",
+   "actorKind":"player","action":"Curaga II","actionId":8,"target":"Player",
    "targetKind":"player","hp":190,"msg":367}
   ```
 

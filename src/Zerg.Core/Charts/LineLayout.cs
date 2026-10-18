@@ -370,7 +370,7 @@ public sealed class LineLayout
 
     /// <summary>
     /// What the chart shows, in a sentence for a screen reader: "3 lines over
-    /// 00:24. Highest: Hasaya, 12,345". The time is the session clock at the
+    /// 00:24. Highest: Player, 12,345". The time is the session clock at the
     /// grid's end, as the readout over the chart prints it.
     /// </summary>
     public static string Summary(double[] times, IReadOnlyList<(string Name, double[] Values)> series)

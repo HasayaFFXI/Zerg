@@ -5,7 +5,7 @@
        the exe. CHANGELOG.md says what each version was; CLAUDE.md, "Versions",
        says when the number moves. -->
   <PropertyGroup>
-    <Version>0.3.0</Version>
+    <Version>1.0.0</Version>
     <!-- The version string is shown to players; keep the git hash out of it. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
@@ -17,6 +17,14 @@
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <!-- A release build names its sources and symbols from /_/, not from the
+       folder it was built in: a dll or pdb that leaves this machine carries
+       no user's path, in its symbols or in their source-link map. Debug
+       builds keep the real one, so a debugger still finds the sources. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
   </PropertyGroup>
 
 </Project>

@@ -62,6 +62,10 @@ bridge is one-way. Zerg shares no code with it or its calculators.
   loses backslashes, and a Bash command over ~8,000 characters is cut short.
   A `\u` escape written through the editor arrives as the raw character
   (write `(char)0x2028`).
+- **Inno Setup 6** (6.7.3, for the user alone, `%LOCALAPPDATA%\Programs\Inno
+  Setup 6\ISCC.exe`) makes the installer; `tools/package.py` finds it. Its
+  help decompiles with `hh.exe -decompile <dir> ISetup.chm`; script classes
+  are in `topic_scriptclasses.htm`.
 - **OneDrive holds the repo.** A folder delete can fail mid-sync: retry.
 - PowerShell screen grabs and window moves are DPI-unaware; use `tools/drive.cs`.
 
@@ -80,8 +84,9 @@ dotnet run --project src/Zerg -- --events-dir <dir>
 # the build the user's shortcut runs (close their Zerg first; empty dist/Zerg first)
 dotnet publish src/Zerg -c Release -r win-x64 --self-contained false -o dist/Zerg
 
-# the players' download: dist/package/Zerg-<version>-win-x64.zip (self-contained single
-# exe + packaging/README.txt; unsigned; prints the SHA-256)
+# the players' downloads, in dist/package: Zerg-<version>-win-x64.zip (self-contained
+# single exe + packaging/README.txt) and Zerg-<version>-setup.exe (the same, installed
+# by packaging/Zerg.iss); unsigned; prints the SHA-256s
 python tools/package.py
 
 # play a fixture into the file Zerg is following (press Start first)
@@ -101,7 +106,9 @@ Explorer are several launches at once: the first to claim the mutex listens
 straight away; opens are serialised (`MainViewModel.opening`) and a file asked
 for twice is read once.
 
-**Build notes.** Warnings are errors (`Directory.Build.props`). After scripted
+**Build notes.** Warnings are errors (`Directory.Build.props`). Release builds
+name their sources from `/_/` (`DeterministicSourcePaths`), so a stack trace in
+the log of a published Zerg reads `/_/src/...`. After scripted
 builds run `dotnet build-server shutdown` (a lingering node has held locks). A
 running `Zerg.exe` locks its build output: beside one, build the test project
 alone, or the app into another folder (`dotnet build src/Zerg/Zerg.csproj -o
@@ -111,7 +118,7 @@ alone, or the app into another folder (`dotnet build src/Zerg/Zerg.csproj -o
 
 The version lives in one place: `<Version>` in `Directory.Build.props`, applied
 to every assembly. `AppInfo.Version` reads it back (log's first line, the
-status line's `v0.3.0`). Never keep a copy anywhere else.
+status line's `v1.0.0`). Never keep a copy anywhere else.
 
 `major.minor.patch`; while major is 0: **minor** for anything a player would
 notice (a feature, layout, counting rule, settings key, `.zerg` format),
@@ -127,13 +134,19 @@ older Zerg couldn't read the file), `assemblyIdentity version` in
 **Cutting a version** (git steps are the user's): change `<Version>`; in
 `CHANGELOG.md` turn "Unreleased" into `## <version> — <date>` with a new empty
 "Unreleased" above (changes are logged there when made, not at the cut);
-`dotnet test Zerg.slnx`; commit and tag `zerg-v<version>`; publish over
-`dist/Zerg` only if asked.
+`dotnet test Zerg.slnx`; commit; publish over `dist/Zerg` only if asked.
+**Merging it to main releases it**: `.github/workflows/release.yml` runs when
+`Directory.Build.props` changes on main and, if no release has that version,
+tests, runs `tools/package.py` on a Windows runner, and publishes the GitHub
+Release `zerg-v<version>` (which makes the tag; never tag by hand) with the
+setup exe and the zip, the changelog's section as its notes. A version with no
+`CHANGELOG.md` section fails it. It can also be run from the Actions tab.
 
 ## Layout
 
 ```
 Directory.Build.props   the version, for every project
+.github/workflows/release.yml   a new version on main → a GitHub Release
 src/Zerg.Core/          net10.0, no UI: everything testable
   EventFiles, EventTail, EventRecord   find and follow the newest *.jsonl; typed, strict reading
   EventReader, Roster, Events          records → damage rows, heals, roster
@@ -167,8 +180,11 @@ src/Zerg/               net10.0-windows WPF exe
                         FileAssociation, HotKey, TrayIcon, Metronome, WindowFrame, InFront
 tests/Zerg.Core.Tests/  xUnit, Zerg.Core only (SavedParseTests pins a real 55-minute parse)
 tools/drive.cs          drive the windows (dotnet run --file tools/drive.cs -- ...)
-tools/replay.py, gen-test-events.py, package.py, make-icon.ps1
+tools/replay.py, gen-test-events.py, package.py, make-icon.ps1,
+  make-wizard-images.ps1 (the installer's pictures, from assets/zerg-1024.png)
 packaging/README.txt    what a player reads first
+packaging/Zerg.iss      the installer (per user; writes FileAssociation's keys, keep them alike)
+packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; checked in)
 ```
 
 ## How it works
@@ -402,12 +418,17 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
 
 ## Status and what's next
 
-- **Current: 0.3.0** (2026-10-14): `.zerg` files opened from Explorer, a View
-  tab per parse, several files at once, tabs reorderable. `dist/Zerg` is 0.3.0.
-  `.zerg` was not associated with any Zerg on this machine that day.
-- **Packaging** works (`tools/package.py`). Not done: a start on a clean machine
-  (no .NET, no VibeXI folder), signing (SmartScreen warns; the README explains),
-  a place to publish the zip.
+- **Current: 1.0.0** (2026-10-18): the first version for distribution, with an
+  installer (`Zerg-1.0.0-setup.exe`) beside the zip. `dist/Zerg` is 0.3.0.
+- **Packaging** works (`tools/package.py`: zip and installer). The installer is
+  per user (`%LOCALAPPDATA%\Programs\Zerg`, HKCU uninstall entry), ticks the
+  desktop shortcut and the `.zerg` association by default, and its finish page
+  links VibeXI (that page's box is ticked unless `%LOCALAPPDATA%\VibeXI\events`
+  exists). Uninstall asks about `%LOCALAPPDATA%\VibeXI\zerg` (No by default) and
+  removes the association only while it opens the uninstalled exe. Testing it
+  writes the user's HKCU `.zerg` keys: save and restore them. Not done: a start
+  on a clean machine (no .NET, no VibeXI folder), signing (SmartScreen warns;
+  the README explains), a place to publish the downloads.
 - **Never tested:** a saved main-window placement on a second monitor of
   another scale; most of the UI at 100 % scale; the light theme for the newer
   features (side tables, View tabs).

@@ -17,9 +17,13 @@ not repeat them.
 
 ## Getting Zerg
 
-Zerg comes as a zip with one `Zerg.exe` in it (Windows 10 or 11, 64-bit;
-nothing else to install) and a `README.txt` that says how to start. It is
-made with `python tools/package.py`.
+Download Zerg from the [latest release](https://github.com/HasayaFFXI/Zerg/releases/latest):
+an installer, `Zerg-<version>-setup.exe`, or a zip with one `Zerg.exe` in
+it (Windows 10 or 11, 64-bit; nothing else to install) and a `README.txt`
+that says how to start. Both are made with `python tools/package.py` (the
+installer needs Inno Setup 6: `winget install JRSoftware.InnoSetup`); a new
+version merged to main is built and released by
+`.github/workflows/release.yml`.
 
 ## Building from source
 

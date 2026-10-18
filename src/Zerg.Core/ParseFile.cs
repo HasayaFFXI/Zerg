@@ -84,7 +84,7 @@ public static class ParseFile
 
     /// <summary>
     /// The name an export is offered under: whose parse, and when the pull
-    /// began, in local time: "Hasaya_parse_2026.07.30_2130.zerg".
+    /// began, in local time: "Player_parse_2026.07.30_2130.zerg".
     /// </summary>
     public static string SuggestedName(string? owner, double startedAt)
     {

@@ -114,7 +114,7 @@ public abstract partial class CompareRow(string key, Action<string, bool> flippe
 /// healer. It opens onto how its hits, or its casts, are spread in each run.
 /// </summary>
 /// <param name="key">The action under its row's key: an action's name alone is not one.</param>
-/// <param name="label">Whose it is, for a screen reader: "Hasaya, Tachi: Gekko".</param>
+/// <param name="label">Whose it is, for a screen reader: "Player, Tachi: Gekko".</param>
 /// <param name="measure">Works the spread out. Only called once the row is opened.</param>
 public abstract partial class CompareSpreadRow(string key, string name, string label, Action<string, bool> flipped,
                                                Func<ActionSpread> measure) : CompareRow(key, flipped)

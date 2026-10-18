@@ -363,6 +363,49 @@
         </Trigger>
       </Style.Triggers>
     </Style>
+    <!-- The same, for a character's row and the Party line. -->
+    <Style x:Key="FigSheds" TargetType="TextBlock" BasedOn="{StaticResource Fig}">
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Narrow" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="FigQuietSheds" TargetType="TextBlock" BasedOn="{StaticResource FigQuiet}">
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Narrow" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="SubFigSheds" TargetType="TextBlock" BasedOn="{StaticResource SubFig}">
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Narrow" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="FigShedsLate" TargetType="TextBlock" BasedOn="{StaticResource Fig}">
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Tight" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="FigQuietShedsLate" TargetType="TextBlock" BasedOn="{StaticResource FigQuiet}">
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Tight" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="SubFigShedsLate" TargetType="TextBlock" BasedOn="{StaticResource SubFig}">
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Tight" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
 
     <!-- A character's share, as the row's own background: from the row's
          left edge to the share's length (Views/Grow scales it, so nothing

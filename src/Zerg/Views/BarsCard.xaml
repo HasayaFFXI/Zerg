@@ -9,15 +9,22 @@
          its pane and in proportion in any other. The heading and every row
          share them. (DPS has four units more than the design draws, from
          the name: a party's rate runs to four figures before the point.)
-         The columns that can hold the longest figures (the damages, DPS)
-         give them their whole width: a total past a million is cut short
-         otherwise. -->
-    <sys:String x:Key="Columns">134*,70*,68*,64*,58*,62*,68*,52*,54*,58*,64*,54*,66*,58*</sys:String>
+         Each has the least it may be: a figure column its longest figure
+         (seven figures of damage, 100.0%) or its heading, whichever is
+         wider; the name enough for eight letters. -->
+    <sys:String x:Key="Columns">134*90,70*62,68*64,64*62,58*58,62*56,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56</sys:String>
     <!-- With "shade characters" off the share is a small bar beside the
-         Damage % figure, which needs the room: the name gives it up. The
-         first six columns come to the same either way, so the groups over
-         the others stay where they are. -->
-    <sys:String x:Key="BarColumns">94*,70*,68*,104*,58*,62*,68*,52*,54*,58*,64*,54*,66*,58*</sys:String>
+         Damage % figure, which needs the room: the name gives it up. -->
+    <sys:String x:Key="BarColumns">94*90,70*62,68*64,104*100,58*58,62*56,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56</sys:String>
+    <!-- When even the leasts do not fit, the table drops columns, a group
+         at a time from the right (v:Shed, on the docked form below): Pet
+         and Skillchain first; then, when what is left (these) does not fit
+         either, Weaponskill and Accuracy, leaving the name, the job and the
+         three that say who did the most. Under those the table scrolls.
+         Worked out with the Job column there: with names hidden it goes a
+         little early. -->
+    <sys:String x:Key="LessColumns">134*90,70*62,68*64,64*62,58*58,62*56,68*62,52*52,54*56,58*56</sys:String>
+    <sys:String x:Key="LessBarColumns">94*90,70*62,68*64,104*100,58*58,62*56,68*62,52*52,54*56,58*56</sys:String>
     <Style x:Key="Table" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource Columns}"/>
       <Style.Triggers>
@@ -26,16 +33,16 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-    <!-- What lies over the columns: nothing over the first six, then
-         WEAPONSKILL over four, SKILLCHAIN over two and PET over two. With
-         names hidden the Job column is gone, and the first is that much
-         narrower. -->
-    <Style x:Key="Groups" TargetType="v:Cells">
-      <Setter Property="Widths" Value="456*,232*,118*,124*"/>
+    <!-- The docked form says whether its columns fit (v:Shed.Full, and
+         v:Shed.Less for the second step). -->
+    <Style x:Key="TableRoom" TargetType="Grid">
+      <Setter Property="v:Shed.Full" Value="{StaticResource Columns}"/>
+      <Setter Property="v:Shed.Less" Value="{StaticResource LessColumns}"/>
       <Style.Triggers>
-        <DataTrigger Binding="{Binding ShowJob}" Value="False">
-          <Setter Property="Widths" Value="386*,232*,118*,124*"/>
-        </DataTrigger>
+        <Trigger Property="v:Shading.Characters" Value="False">
+          <Setter Property="v:Shed.Full" Value="{StaticResource BarColumns}"/>
+          <Setter Property="v:Shed.Less" Value="{StaticResource LessBarColumns}"/>
+        </Trigger>
       </Style.Triggers>
     </Style>
     <!-- A group's name between two hairlines, over its columns. -->
@@ -57,12 +64,46 @@
         </Grid>
       </Grid>
     </ControlTemplate>
+    <!-- A group goes with its columns: Weaponskill second, the other two
+         first. -->
+    <Style x:Key="GroupShedsLate" TargetType="ContentControl">
+      <Setter Property="Template" Value="{StaticResource Group}"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Tight" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="GroupSheds" TargetType="ContentControl">
+      <Setter Property="Template" Value="{StaticResource Group}"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Narrow" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
     <!-- The same rule carried through the Party line. -->
     <Style x:Key="PartyRule" TargetType="Border">
       <Setter Property="BorderBrush" Value="{DynamicResource Line2Brush}"/>
       <Setter Property="BorderThickness" Value="1,0,0,0"/>
       <Setter Property="Margin" Value="1,0,0,0"/>
       <Setter Property="SnapsToDevicePixels" Value="True"/>
+    </Style>
+    <Style x:Key="PartyRuleShedsLate" TargetType="Border" BasedOn="{StaticResource PartyRule}">
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Tight" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="PartyRuleSheds" TargetType="Border" BasedOn="{StaticResource PartyRule}">
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Narrow" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <!-- The strip: Character, then Damage, % and Acc%, each wide enough for
@@ -214,19 +255,25 @@
       </StackPanel>
 
       <!-- The docked form: not in a floating panel. -->
-      <Grid Visibility="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}, Converter={StaticResource Hidden}}">
+      <Grid Style="{StaticResource TableRoom}"
+            Visibility="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}, Converter={StaticResource Hidden}}">
         <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Label}" FontSize="12" Margin="0,18,0,8"
                    HorizontalAlignment="Center" VerticalAlignment="Top"
                    Visibility="{Binding HasActors, Converter={StaticResource Hidden}}"/>
 
-        <!-- Sideways, the table scrolls only in a pane too narrow for its
-             fourteen columns. -->
+        <!-- Sideways, the table scrolls only in a pane too narrow for the
+             five columns it keeps last: their leasts and the 14 units kept
+             clear at the right. -->
         <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                       v:WheelChain.On="True" Visibility="{Binding HasActors, Converter={StaticResource Visible}}">
-          <Grid MinWidth="900" Width="{Binding ViewportWidth, ElementName=Scroller}">
+          <Grid Width="{Binding ViewportWidth, ElementName=Scroller}">
             <Grid.Style>
               <Style TargetType="Grid">
+                <Setter Property="MinWidth" Value="350"/>
                 <Style.Triggers>
+                  <Trigger Property="v:Shading.Characters" Value="False">
+                    <Setter Property="MinWidth" Value="388"/>
+                  </Trigger>
                   <!-- Room for the scroll bar a narrow pane brings: it is
                        drawn over the content, and would lie on the Party
                        line. -->
@@ -247,15 +294,22 @@
                  of the headings, the rows' cells and the Party line: the
                  room the rows' scroll bar is drawn in. -->
             <Grid Height="{StaticResource GroupedHeadHeight}">
-              <v:Cells Style="{StaticResource Groups}" Margin="0,0,14,1">
+              <!-- In the table's own columns, so each group stands over
+                   its four or two at any width: nothing over the first
+                   six (the Job column and Accuracy each a cell of their
+                   own, to go as theirs do), then the three groups. -->
+              <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1">
                 <Border/>
-                <ContentControl Template="{StaticResource Group}" Focusable="False">
+                <Border Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
+                <Border v:Cells.Span="3"/>
+                <Border Style="{StaticResource ShedsLate}"/>
+                <ContentControl v:Cells.Span="4" Style="{StaticResource GroupShedsLate}">
                   <v:Caps Text="Weaponskill" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
-                <ContentControl Template="{StaticResource Group}" Focusable="False">
+                <ContentControl v:Cells.Span="2" Style="{StaticResource GroupSheds}">
                   <v:Caps Text="Skillchain" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
-                <ContentControl Template="{StaticResource Group}" Focusable="False">
+                <ContentControl v:Cells.Span="2" Style="{StaticResource GroupSheds}">
                   <v:Caps Text="Pet" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
               </v:Cells>
@@ -268,23 +322,23 @@
                 <TextBlock Text="Damage %" Style="{StaticResource Head}" Padding="0,0,8,0"
                            ToolTip="This character's damage out of the whole party's"/>
                 <TextBlock Text="DPS" Style="{StaticResource Head}" Padding="0,0,8,0" ToolTip="Damage divided by the session clock"/>
-                <TextBlock Text="Accuracy" Style="{StaticResource Head}" Padding="0,0,8,0"
+                <TextBlock Text="Accuracy" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
                            ToolTip="Melee and ranged attacks that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted. Weaponskills, job abilities and the pet are not included"/>
-                <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
+                <TextBlock Text="Damage" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
                            ToolTip="Total weaponskill damage. Skillchain damage is not part of it"/>
-                <TextBlock Text="Avg" Style="{StaticResource Head}" Padding="0,0,8,0"
+                <TextBlock Text="Avg" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
                            ToolTip="Average damage of the weaponskills that dealt damage"/>
-                <TextBlock Text="%" Style="{StaticResource Head}" Padding="0,0,8,0"
+                <TextBlock Text="%" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
                            ToolTip="Weaponskill damage out of this character's damage"/>
-                <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
+                <TextBlock Text="Acc" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
                            ToolTip="Weaponskills that dealt damage, out of all used"/>
-                <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
+                <TextBlock Text="Damage" Style="{StaticResource HeadSheds}" Padding="0,0,8,0"
                            ToolTip="Total damage of the skillchains this character closed. Empty while Include Skillchains is off"/>
-                <TextBlock Text="%" Style="{StaticResource Head}" Padding="0,0,8,0"
+                <TextBlock Text="%" Style="{StaticResource HeadSheds}" Padding="0,0,8,0"
                            ToolTip="Skillchain damage out of this character's damage"/>
-                <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
+                <TextBlock Text="Damage" Style="{StaticResource HeadSheds}" Padding="0,0,8,0"
                            ToolTip="Everything this character's pet dealt. Already part of Damage"/>
-                <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
+                <TextBlock Text="Acc" Style="{StaticResource HeadSheds}" Padding="0,0,8,0"
                            ToolTip="The pet's melee attacks that connected, out of all attempted"/>
               </v:Cells>
               <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
@@ -320,19 +374,19 @@
                           <TextBlock Text="{Binding Share}" Style="{StaticResource Cell}"/>
                         </v:SmallBar>
                         <TextBlock Text="{Binding Dps}" Style="{StaticResource Cell}" Padding="2,0,8,0"/>
-                        <v:LowMark Rate="{Binding AccuracyRate}">
+                        <v:LowMark Rate="{Binding AccuracyRate}" Style="{StaticResource ShedsLate}">
                           <TextBlock Text="{Binding Accuracy}" Style="{StaticResource Fig}"/>
                         </v:LowMark>
-                        <TextBlock Text="{Binding WsDamage}" Style="{StaticResource Fig}" Padding="2,0,8,0"/>
-                        <TextBlock Text="{Binding WsAvg}" Style="{StaticResource FigQuiet}"/>
-                        <TextBlock Text="{Binding WsShare}" Style="{StaticResource FigQuiet}"/>
-                        <v:LowMark Rate="{Binding WsAccuracyRate}">
+                        <TextBlock Text="{Binding WsDamage}" Style="{StaticResource FigShedsLate}" Padding="2,0,8,0"/>
+                        <TextBlock Text="{Binding WsAvg}" Style="{StaticResource FigQuietShedsLate}"/>
+                        <TextBlock Text="{Binding WsShare}" Style="{StaticResource FigQuietShedsLate}"/>
+                        <v:LowMark Rate="{Binding WsAccuracyRate}" Style="{StaticResource ShedsLate}">
                           <TextBlock Text="{Binding WsAccuracy}" Style="{StaticResource Fig}"/>
                         </v:LowMark>
-                        <TextBlock Text="{Binding ScDamage}" Style="{StaticResource Fig}" Padding="2,0,8,0"/>
-                        <TextBlock Text="{Binding ScShare}" Style="{StaticResource FigQuiet}"/>
-                        <TextBlock Text="{Binding PetDamage}" Style="{StaticResource Fig}" Padding="2,0,8,0"/>
-                        <v:LowMark Rate="{Binding PetAccuracyRate}">
+                        <TextBlock Text="{Binding ScDamage}" Style="{StaticResource FigSheds}" Padding="2,0,8,0"/>
+                        <TextBlock Text="{Binding ScShare}" Style="{StaticResource FigQuietSheds}"/>
+                        <TextBlock Text="{Binding PetDamage}" Style="{StaticResource FigSheds}" Padding="2,0,8,0"/>
+                        <v:LowMark Rate="{Binding PetAccuracyRate}" Style="{StaticResource Sheds}">
                           <TextBlock Text="{Binding PetAccuracy}" Style="{StaticResource Fig}"/>
                         </v:LowMark>
                       </v:Cells>
@@ -356,11 +410,14 @@
                  the rows. Its DPS is the party's, rewritten with the rows'. -->
             <Grid Grid.Row="2" Height="{StaticResource PartyRowHeight}" Background="{DynamicResource Bg2Brush}">
               <Rectangle Height="1" VerticalAlignment="Top" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
-              <v:Cells Style="{StaticResource Groups}" Margin="0,1,14,0">
+              <v:Cells Style="{StaticResource Table}" Margin="0,1,14,0">
                 <Border/>
-                <Border Style="{StaticResource PartyRule}"/>
-                <Border Style="{StaticResource PartyRule}"/>
-                <Border Style="{StaticResource PartyRule}"/>
+                <Border Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
+                <Border v:Cells.Span="3"/>
+                <Border Style="{StaticResource ShedsLate}"/>
+                <Border v:Cells.Span="4" Style="{StaticResource PartyRuleShedsLate}"/>
+                <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
+                <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
               </v:Cells>
               <v:Cells Style="{StaticResource Table}" Margin="0,1,14,0">
                 <TextBlock Text="Party" Style="{StaticResource CellText}" Padding="12,0,8,0" FontWeight="SemiBold"/>
@@ -371,15 +428,15 @@
                 <TextBlock Text="{Binding Party.Damage}" Style="{StaticResource Cell}" FontWeight="SemiBold" Padding="2,0,8,0"/>
                 <TextBlock Text="{Binding Party.Share}" Style="{StaticResource Cell}" Foreground="{DynamicResource Text2Brush}"/>
                 <TextBlock Text="{Binding Party.Dps}" Style="{StaticResource Cell}" FontWeight="SemiBold" Padding="2,0,8,0"/>
-                <TextBlock Text="{Binding Party.Accuracy}" Style="{StaticResource SubFig}"/>
-                <TextBlock Text="{Binding Party.WsDamage}" Style="{StaticResource SubFig}" Padding="2,0,8,0"/>
-                <TextBlock Text="{Binding Party.WsAvg}" Style="{StaticResource SubFigQuiet}"/>
-                <TextBlock Text="{Binding Party.WsShare}" Style="{StaticResource SubFigQuiet}"/>
-                <TextBlock Text="{Binding Party.WsAccuracy}" Style="{StaticResource SubFig}"/>
-                <TextBlock Text="{Binding Party.ScDamage}" Style="{StaticResource SubFig}" Padding="2,0,8,0"/>
-                <TextBlock Text="{Binding Party.ScShare}" Style="{StaticResource SubFigQuiet}"/>
-                <TextBlock Text="{Binding Party.PetDamage}" Style="{StaticResource SubFig}" Padding="2,0,8,0"/>
-                <TextBlock Text="{Binding Party.PetAccuracy}" Style="{StaticResource SubFig}"/>
+                <TextBlock Text="{Binding Party.Accuracy}" Style="{StaticResource SubFigShedsLate}"/>
+                <TextBlock Text="{Binding Party.WsDamage}" Style="{StaticResource SubFigShedsLate}" Padding="2,0,8,0"/>
+                <TextBlock Text="{Binding Party.WsAvg}" Style="{StaticResource SubFigQuietShedsLate}"/>
+                <TextBlock Text="{Binding Party.WsShare}" Style="{StaticResource SubFigQuietShedsLate}"/>
+                <TextBlock Text="{Binding Party.WsAccuracy}" Style="{StaticResource SubFigShedsLate}"/>
+                <TextBlock Text="{Binding Party.ScDamage}" Style="{StaticResource SubFigSheds}" Padding="2,0,8,0"/>
+                <TextBlock Text="{Binding Party.ScShare}" Style="{StaticResource SubFigQuietSheds}"/>
+                <TextBlock Text="{Binding Party.PetDamage}" Style="{StaticResource SubFigSheds}" Padding="2,0,8,0"/>
+                <TextBlock Text="{Binding Party.PetAccuracy}" Style="{StaticResource SubFigSheds}"/>
               </v:Cells>
             </Grid>
           </Grid>
