@@ -58,3 +58,12 @@ Settings (Apps > Installed apps); it asks whether to remove the settings
 too. To remove one from the zip, close it, press "Stop" under Parse files
 on the Settings page if you set that up, delete its folder, and delete
 %LOCALAPPDATA%\VibeXI\zerg if you want the settings gone too.
+
+
+LICENSE
+-------
+
+Zerg is free software under the GNU General Public License, version 3:
+you may share and change it under that license's terms. It comes with no
+warranty. The full text is in LICENSE.txt, beside this file, and Zerg's
+source is at https://github.com/HasayaFFXI/Zerg

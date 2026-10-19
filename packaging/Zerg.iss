@@ -2,7 +2,8 @@
 ; Inno Setup 6 (winget install JRSoftware.InnoSetup), which passes:
 ;
 ;   /DAppVersion=<version>   the <Version> in Directory.Build.props
-;   /DSourceDir=<folder>     the folder holding the published Zerg.exe and README.txt
+;   /DSourceDir=<folder>     the folder holding the published Zerg.exe, README.txt
+;                            and LICENSE.txt
 ;   /O<folder>               where the setup exe is written
 ;
 ; Installed for the signed-in user alone, so it asks for no administrator:
@@ -42,6 +43,9 @@ DefaultGroupName=Zerg
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
+; Setup shows the license on a page of its own, to read, not to accept: the
+; GPL asks no one to accept it to receive or run Zerg (its section 9).
+InfoBeforeFile={#SourceDir}\LICENSE.txt
 
 ; A running Zerg holds this mutex (Native/SingleInstance): setup and the
 ; uninstaller ask for it to be closed first.
@@ -67,6 +71,9 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 
 [Messages]
+; The license page (InfoBeforeFile), headed "Information" unless named.
+WizardInfoBefore=License
+InfoBeforeLabel=Zerg is free software under the GNU General Public License, version 3.
 FinishedLabel=Setup has finished installing Zerg on your computer.%n%nZerg needs the VibeXI addon, running in FFXI. It is where every number comes from: without it Zerg has nothing to show. Install it by following the instructions at:
 
 [Tasks]
@@ -76,6 +83,7 @@ Name: associate; Description: "Open .zerg parse files with Zerg"; GroupDescripti
 [Files]
 Source: "{#SourceDir}\Zerg.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\README.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\Zerg"; Filename: "{app}\Zerg.exe"

@@ -4,8 +4,9 @@
                                  .NET to install, the native libraries packed
                                  inside it and unpacked on first run), and
                                  README.txt from packaging/README.txt with the
-                                 version filled in
-    Zerg-<version>-setup.exe     the same two files in an installer
+                                 version filled in, and LICENSE.txt from
+                                 LICENSE
+    Zerg-<version>-setup.exe     the same three files in an installer
                                  (packaging/Zerg.iss), made with Inno Setup 6:
                                  winget install JRSoftware.InnoSetup
 
@@ -29,6 +30,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+LICENSE = ROOT / 'LICENSE'
 
 
 def version():
@@ -72,6 +74,11 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def write_text(path, text):
+    """Notepad and every other Windows reader take CRLF without a second look."""
+    path.write_bytes(text.replace('\r\n', '\n').replace('\n', '\r\n').encode('utf-8'))
+
+
 def main():
     v = version()
     name = f'Zerg-{v}'
@@ -80,6 +87,8 @@ def main():
     archive = out / f'{name}-win-x64.zip'
     setup = out / f'{name}-setup.exe'
     compiler = iscc()
+    if not LICENSE.exists():
+        sys.exit(f'no {LICENSE.name} at the top of the repository: the downloads carry it')
     remove(folder)
     remove(archive)
     remove(setup)
@@ -107,9 +116,9 @@ def main():
         sys.exit(f'expected Zerg.exe alone in {folder}, found {files}')
 
     readme = (ROOT / 'packaging' / 'README.txt').read_text(encoding='utf-8')
-    readme = readme.replace('{version}', v)
-    # Notepad and every other Windows reader take CRLF without a second look.
-    (folder / 'README.txt').write_bytes(readme.replace('\r\n', '\n').replace('\n', '\r\n').encode('utf-8'))
+    write_text(folder / 'README.txt', readme.replace('{version}', v))
+    # .txt, as the README: a player opens it with a double-click.
+    write_text(folder / 'LICENSE.txt', LICENSE.read_text(encoding='utf-8'))
 
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for f in sorted(folder.iterdir()):

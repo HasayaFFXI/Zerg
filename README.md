@@ -36,3 +36,9 @@ dotnet run --project src/Zerg
 `CLAUDE.md` has the full development notes, `RULES.md` the event contract and
 the reason behind every number Zerg prints, and `CHANGELOG.md` what each
 version changed.
+
+## License
+
+Zerg is free software under the GNU General Public License, version 3: you
+may share and change it under that license's terms. It comes with no
+warranty. The full text is in [`LICENSE`](LICENSE).

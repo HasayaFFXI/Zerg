@@ -146,6 +146,7 @@ setup exe and the zip, the changelog's section as its notes. A version with no
 
 ```
 Directory.Build.props   the version, for every project
+LICENSE                 the license (GPL-3.0); the downloads carry it as LICENSE.txt
 .github/workflows/release.yml   a new version on main → a GitHub Release
 src/Zerg.Core/          net10.0, no UI: everything testable
   EventFiles, EventTail, EventRecord   find and follow the newest *.jsonl; typed, strict reading

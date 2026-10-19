@@ -7,6 +7,11 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- Zerg is free software under the GNU General Public License, version 3
+  (`LICENSE`). The zip and the installer carry it as
+  `LICENSE.txt` beside `Zerg.exe` and `README.txt`, and setup shows it on a
+  page of its own, to read before going on (nothing to accept).
+
 ## 1.0.0 — 2026-10-18
 
 - Zerg comes with an installer, `Zerg-<version>-setup.exe`, beside the
