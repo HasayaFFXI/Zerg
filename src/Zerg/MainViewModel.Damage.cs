@@ -354,6 +354,7 @@ public sealed partial class MainViewModel
             foreach (var act in a.ActionList) items.Add((a, act, most));
         }
         HasActions = items.Count > 0;
+        var fills = FillsOf(drill);
 
         static string Key((ActorTotals Actor, ActionTotals? Action, double Most) i) =>
             i.Action == null ? i.Actor.Name : i.Actor.Name + KeyGap + i.Action.Name;
@@ -388,15 +389,16 @@ public sealed partial class MainViewModel
             // Least to greatest with the average between, on a line as long
             // as the character's biggest hit of any action.
             (row.SpreadMin, row.SpreadAvg, row.SpreadMax) = RowMarks.Spread(act.Min, act.Avg, act.Max, a.Max);
-            row.Selected = drill is { } d && d.Actor == a.Name && d.Action == act.Name;
+            (row.Selected, row.Side, row.SideFill, row.PanelSideFill) = MarkOf(drill, fills, a.Name, act.Name);
             row.Label = NameOf(a.Name) + ", " + act.Name;
         });
     }
 
     // ------------------------------------------------------------ drill-down
 
-    /// <summary>The action the drill-down is open on, by the character's real name.</summary>
-    (string Actor, string Action)? drill;
+    /// <summary>The action the drill-down is open on, by the character's real
+    /// name, and the one set beside it.</summary>
+    DrillOn? drill;
 
     /// <summary>The drill-down just opened: the window brings it into view.</summary>
     public event Action? DrillOpened;
@@ -404,13 +406,20 @@ public sealed partial class MainViewModel
     /// <summary>What the drill-down card draws (Views/DrillCard).</summary>
     public DrillView DamageDrill { get; }
 
-    /// <summary>Selecting an action opens its drill-down; selecting it again closes it.</summary>
+    /// <summary>Selecting an action opens its drill-down; selecting it again
+    /// closes it. With Ctrl, one more is set beside the open one, or taken
+    /// away again.</summary>
     [RelayCommand]
     void Drill(ActionRow row)
     {
         if (row.Action == null) return;
-        bool same = drill is { } d && d.Actor == row.Actor && d.Action == row.Action;
-        drill = same ? null : (row.Actor, row.Action);
+        if (PairedByPress(ref drill, row.Actor, row.Action))
+        {
+            Recount();
+            return;
+        }
+        bool same = drill is { } d && d.IsA(row.Actor, row.Action);
+        drill = same ? null : new DrillOn(row.Actor, row.Action);
         Recount();
         if (drill != null)
         {
@@ -428,9 +437,20 @@ public sealed partial class MainViewModel
 
     void DrawDrill(Snapshot c)
     {
+        DescribePick(DamageDrill.Pick, drill, DrillWords.Damage);
         if (drill is not { } on)
         {
             DamageDrill.Close();
+            return;
+        }
+        if (on.Paired)
+        {
+            var a = Counting.Distribution(c.Events, on.Actor, on.Action);
+            var b = Counting.Distribution(c.Events, on.ActorB!, on.ActionB!);
+            var (title, who) = Heading(on);
+            DamageDrill.ShowPair(DrillKey(on), title,
+                                 who + Dot + Versus(a.Count, b.Count) + " hits" + Dot + Versus(a.Total, b.Total) + " total damage",
+                                 SwatchOf(on.Actor), a, b, CompareSheet.Sides(a, b, healing: false), SidesOf(on), NameOf);
             return;
         }
 
@@ -452,7 +472,8 @@ public sealed partial class MainViewModel
 
     /// <summary>What a drill-down's list is of, and how it is drawn: a list
     /// with the same key may only have grown since the last count.</summary>
-    string DrillKey((string Actor, string Action) on) => on.Actor + KeyGap + on.Action + KeyGap + HideNames;
+    string DrillKey(DrillOn on) =>
+        on.Actor + KeyGap + on.Action + KeyGap + on.ActorB + KeyGap + on.ActionB + KeyGap + HideNames;
 
     /// <summary>The six figures over a drill-down: five of the spread, and
     /// one of the section's own.</summary>

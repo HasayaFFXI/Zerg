@@ -48,10 +48,17 @@ public sealed record HistogramModel(IReadOnlyList<Bin> Bins, double Avg, int Cou
 /// A histogram of two runs on the bins they share: for each run the mean to
 /// mark (null with no hit to average) and how many hits its columns are
 /// shares of, and what one of them is called ("hit", "cast"). The runs'
-/// colours are the theme's, not the caller's.
+/// colours are the theme's, not the caller's; two actions of one session
+/// (the live drill-down) are given theirs by the chart's FillA and FillB.
 /// </summary>
+/// <param name="NameA">What a screen reader calls side A: "Run A", "Side A".</param>
+/// <param name="Side">What a side is, for the chart with nothing in it: "run", "action".</param>
 public sealed record PairedHistogramModel(IReadOnlyList<PairBin> Bins, double? AvgA, double? AvgB, int CountA, int CountB,
-                                          string Unit = "hit")
+                                          string Unit = "hit", string NameA = "Run A", string NameB = "Run B",
+                                          string Side = "run")
 {
     public static PairedHistogramModel From(ActionSpread s) => new(s.Bins, s.AvgA, s.AvgB, s.HitsA, s.HitsB, s.Unit);
+
+    public static PairedHistogramModel From(ActionSpread s, string nameA, string nameB, string side) =>
+        new(s.Bins, s.AvgA, s.AvgB, s.HitsA, s.HitsB, s.Unit, nameA, nameB, side);
 }

@@ -7,6 +7,8 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 1.1.0 — 2026-10-18
+
 - Zerg is free software under the GNU General Public License, version 3
   (`LICENSE`). The zip and the installer carry it as
   `LICENSE.txt` beside `Zerg.exe` and `README.txt`, and setup shows it on a
@@ -14,6 +16,18 @@ takes its number when the version is cut.
 - Zerg starts dark unless told otherwise: the installed theme is Dark, not
   System. A settings file that already names a theme keeps it; one with no
   theme, or a theme Zerg doesn't know, gets Dark.
+- Two different actions can be compared, the same character's or two
+  characters'. In the Damage and Healing sections (and a View tab), Ctrl
+  and a press on a second action's row, or the drill-down heading's new
+  pick button, sets it beside the open one: the drill-down becomes the two
+  side by side, A and B, with both on one chart on shared bins, a table of
+  their figures with the change B against A, and every hit tagged with its
+  side. A is the character's colour, B the other character's or A's next
+  shade; Swap trades them. In Compare an opened action has a pick button
+  for each run's side: choosing another action for B (any character's) or
+  A makes a pair, a row of its own at the top of that row's actions
+  ("Tachi: Shoha ⇄ Tachi: Jinpu"), opened onto the two runs' spread, with
+  Unpair to take it away. Swap A ↔ B carries the pairs over.
 
 ## 1.0.0 — 2026-10-18
 

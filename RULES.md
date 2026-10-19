@@ -429,6 +429,38 @@ filter does, and credits a pet's heal to its owner.
   reached, pet heals under the pet's name. A parse with no heal lines is
   dashes; one that has them and never cast the heal cast it 0 times.
 
+## Two actions side by side
+
+- **A pair is two sides, each a character and an action** (in Compare,
+  of its run). The same action on both sides is what the tables already
+  had; a pair lets the actions differ (Tachi: Shoha against Tachi: Jinpu)
+  and the characters too (one SAM's Tachi: Fudo against another's). A is
+  the baseline as everywhere: every change is B − A, every percentage that
+  over A.
+- **Two actions share one set of bins**, by the rule two runs' one action
+  does (`Compare.Shared`): the least hit of either to the greatest, the
+  finer of the two widths, a column a share of its own side's hits. The
+  live drill-down and Compare go through the same code, so a pair binned
+  in one is binned the same in the other.
+- **The live drill-down's pair is of what the drill-down already counts**:
+  each side is `Counting.Distribution` over the session's rows (a heal's,
+  over its casts), the figures each side's own drill-down would print.
+  Damage leads with Hits and Accuracy, as the single drill-down's figures
+  end with accuracy; healing leads with Casts. Every hit in the list is
+  measured against its own side's average.
+- **A pair goes where its sides go.** It closes with its drill-down; a
+  skillchain on either side goes when the chains are switched off (on A,
+  the drill-down closes; on B, B goes); with targets or types isolated, a
+  B never used on them goes and A stays. Kept per parse with the
+  drill-down, never saved.
+- **In Compare a pair the player made is a row of its own**, under A's
+  row, before that row's own actions, and nothing is hidden for it: the
+  same-name rows stay. A's side is always the row's (a pair with another
+  character's action as A is made under that character); B's can be any
+  row's. Swap takes each pair with its runs (B's action is A's now, under
+  the other row). A new file in a slot, or Character | Job, drops them
+  with the opened rows.
+
 ## Colours and names
 
 - **A character is drawn in their job's colour.** The palette is the one
@@ -437,6 +469,14 @@ filter does, and credits a pet's heal to its owner.
   name and job beside it as text.
 - **Two characters on one job are shaded** (`Shades.Step`), ordered by colour
   slot so a shade is stable all session.
+- **A live pair's sides are in characters' colours, Compare's in the
+  runs'.** In a live drill-down A is its character's colour and B the
+  other character's, unless the two are too close to tell apart (one
+  character against themself, or two near colours: under 48 apart in RGB),
+  when B is A's next shade that is far enough (`Shades.Beside`). White has
+  no lighter shade on the dark page, so a WHM's B is the darker one. The
+  tag's letter says which side each is, so the colour is never the only
+  mark. In Compare the sides are runs and keep the runs' colours.
 - **No job on record, or a job with no colour, falls to the 18 slots**
   (`Cast`). The file's owner is pinned to slot 0 before anyone else is
   slotted; otherwise their hue depends on who swung first. Monsters get no

@@ -155,6 +155,13 @@ public sealed partial class ActionRow(string key, string actor, string? action) 
     [ObservableProperty] private string share = "";
     /// <summary>The drill-down is open on this action.</summary>
     [ObservableProperty] private bool selected;
+    /// <summary>While the drill-down sets two actions side by side: "A" on
+    /// the one it was opened on, "B" on the other, "" on the rest.</summary>
+    [ObservableProperty] private string side = "";
+    /// <summary>That side's colour, for the tag and the edge.</summary>
+    [ObservableProperty] private Brush? sideFill;
+    /// <summary>The same in a floating panel's colours.</summary>
+    [ObservableProperty] private Brush? panelSideFill;
     /// <summary>On a heading: the character's actions are showing under it.</summary>
     [ObservableProperty] private bool open;
     /// <summary>What a screen reader, or a script, calls the row.</summary>
@@ -279,6 +286,10 @@ public sealed partial class HealRow(string key, string actor, string? action) : 
     [ObservableProperty] private string share = "";
     /// <summary>The drill-down is open on this heal.</summary>
     [ObservableProperty] private bool selected;
+    /// <summary>"A", "B" or "", as an action row's.</summary>
+    [ObservableProperty] private string side = "";
+    [ObservableProperty] private Brush? sideFill;
+    [ObservableProperty] private Brush? panelSideFill;
     /// <summary>On a heading: the character's heals are showing under it.</summary>
     [ObservableProperty] private bool open;
     /// <summary>What a screen reader, or a script, calls the row.</summary>
@@ -313,13 +324,21 @@ public sealed record StatTile(string Label, string Value)
 /// average.
 /// </summary>
 /// <param name="Crit">A critical hit, marked with a spark beside the figure.</param>
-public sealed partial class HitRow(string time, string target, double amount, bool crit) : ObservableObject
+/// <param name="side">While two actions are set side by side, whose it is:
+/// 0 for A, 1 for B; -1 in a drill-down over one.</param>
+public sealed partial class HitRow(string time, string target, double amount, bool crit, int side = -1,
+                                   Brush? sideFill = null, Brush? panelSideFill = null) : ObservableObject
 {
     public string Time { get; } = time;
     public string Target { get; } = target;
     public double Amount { get; } = amount;
     public string Damage { get; } = Format.Int(amount);
     public bool Crit { get; } = crit;
+    public int SideIndex { get; } = side;
+    /// <summary>"A", "B", or "" over one action.</summary>
+    public string Side { get; } = side switch { 0 => "A", 1 => "B", _ => "" };
+    public Brush? SideFill { get; } = sideFill;
+    public Brush? PanelSideFill { get; } = panelSideFill;
 
     /// <summary>"+120" or "−45": from the average.</summary>
     [ObservableProperty] private string vsAvg = "";
@@ -337,7 +356,8 @@ public sealed partial class HitRow(string time, string target, double amount, bo
 
     /// <summary>What a screen reader calls the row: what it reads across,
     /// and that a hit was critical in a word, since the spark is a mark.</summary>
-    public override string ToString() => $"{Time}, {Target}, {Damage}{(Crit ? " critical" : "")}, {VsAvg} against the average";
+    public override string ToString() =>
+        $"{(Side.Length > 0 ? Side + ", " : "")}{Time}, {Target}, {Damage}{(Crit ? " critical" : "")}, {VsAvg} against the average";
 }
 
 static class Rows

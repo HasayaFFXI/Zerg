@@ -387,14 +387,24 @@ public static class Compare
     /// 6..<paramref name="maxBins"/>, fewer than a single histogram's, because
     /// every bin holds two columns.</para>
     /// </summary>
-    public static Spread Spread(Measurement ma, Measurement mb, string key, string action, int maxBins = 0)
+    public static Spread Spread(Measurement ma, Measurement mb, string key, string action, int maxBins = 0) =>
+        Spread(ma, mb, key, action, key, action, maxBins);
+
+    /// <summary>
+    /// The same for two actions that need not be one: A's action of one row
+    /// against B's of the same row or another ("Tachi: Shoha in A against
+    /// Tachi: Jinpu in B", or one character against another). Binned as one
+    /// action of both runs is.
+    /// </summary>
+    public static Spread Spread(Measurement ma, Measurement mb, string keyA, string actionA, string keyB, string actionB,
+                                int maxBins = 0)
     {
         static Distribution? Of(Measurement m, string key, string action)
         {
             var d = Counting.Distribution(m.Rows, key, action);
             return d.Swings > 0 ? d : null;
         }
-        return Binned(Of(ma, key, action), Of(mb, key, action), maxBins);
+        return Shared(Of(ma, keyA, actionA), Of(mb, keyB, actionB), maxBins);
     }
 
     /// <summary>
@@ -403,17 +413,28 @@ public static class Compare
     /// file's own heal drill-down. A pet's heals are under the pet's name. A
     /// cure on a full target is a cast that healed 0, in the first bin.
     /// </summary>
-    public static Spread HealSpread(Measurement ma, Measurement mb, string key, string action, int maxBins = 0)
+    public static Spread HealSpread(Measurement ma, Measurement mb, string key, string action, int maxBins = 0) =>
+        HealSpread(ma, mb, key, action, key, action, maxBins);
+
+    /// <summary>The same for two heals that need not be one, as <see cref="Spread(Measurement, Measurement, string, string, string, string, int)"/>.</summary>
+    public static Spread HealSpread(Measurement ma, Measurement mb, string keyA, string actionA, string keyB,
+                                    string actionB, int maxBins = 0)
     {
         static Distribution? Of(Measurement m, string key, string action)
         {
             var d = Counting.Distribution(Healing.AsEvents(m.HealRows), key, action);
             return d.Swings > 0 ? d : null;
         }
-        return Binned(Of(ma, key, action), Of(mb, key, action), maxBins);
+        return Shared(Of(ma, keyA, actionA), Of(mb, keyB, actionB), maxBins);
     }
 
-    static Spread Binned(Distribution? a, Distribution? b, int maxBins)
+    /// <summary>
+    /// Two distributions on one set of bins, whatever they are of: one action
+    /// in two runs, two actions of one run, two characters' actions. The live
+    /// sections' drill-down puts two actions of one session side by side with
+    /// this, so a pair there is binned as a pair here is.
+    /// </summary>
+    public static Spread Shared(Distribution? a, Distribution? b, int maxBins = 0)
     {
         if (maxBins == 0) maxBins = 20;
         var spread = new Spread { A = a, B = b };

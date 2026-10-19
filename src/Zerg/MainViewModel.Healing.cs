@@ -224,6 +224,7 @@ public sealed partial class MainViewModel
             foreach (var act in a.ActionList) items.Add((a, act, most));
         }
         HasHeals = items.Count > 0;
+        var fills = FillsOf(healDrill);
 
         static string Key((HealerTotals Actor, HealAction? Action, double Most) i) =>
             i.Action == null ? i.Actor.Name : i.Actor.Name + KeyGap + i.Action.Name;
@@ -258,15 +259,16 @@ public sealed partial class MainViewModel
             row.Max = Format.Int(act.Max);
             row.Share = Format.Num(all != 0 ? act.Total / all * 100 : 0, 1) + "%";
             row.ShareFraction = RowMarks.Fraction(act.Total, most);
-            row.Selected = healDrill is { } d && d.Actor == a.Name && d.Action == act.Name;
+            (row.Selected, row.Side, row.SideFill, row.PanelSideFill) = MarkOf(healDrill, fills, a.Name, act.Name);
             row.Label = NameOf(a.Name) + ", " + act.Name;
         });
     }
 
     // ------------------------------------------------------------ drill-down
 
-    /// <summary>The heal the drill-down is open on, by the character's real name.</summary>
-    (string Actor, string Action)? healDrill;
+    /// <summary>The heal the drill-down is open on, by the character's real
+    /// name, and the one set beside it.</summary>
+    DrillOn? healDrill;
 
     /// <summary>The heal drill-down just opened: the window brings it into view.</summary>
     public event Action? HealDrillOpened;
@@ -280,8 +282,13 @@ public sealed partial class MainViewModel
     void HealDrill(HealRow row)
     {
         if (row.Action == null) return;
-        bool same = healDrill is { } d && d.Actor == row.Actor && d.Action == row.Action;
-        healDrill = same ? null : (row.Actor, row.Action);
+        if (PairedByPress(ref healDrill, row.Actor, row.Action))
+        {
+            Recount();
+            return;
+        }
+        bool same = healDrill is { } d && d.IsA(row.Actor, row.Action);
+        healDrill = same ? null : new DrillOn(row.Actor, row.Action);
         Recount();
         if (healDrill != null)
         {
@@ -299,9 +306,21 @@ public sealed partial class MainViewModel
 
     void DrawHealDrill(Snapshot c)
     {
+        DescribePick(HealingDrill.Pick, healDrill, DrillWords.Healing);
         if (healDrill is not { } on)
         {
             HealingDrill.Close();
+            return;
+        }
+        if (on.Paired)
+        {
+            var events = Healing.AsEvents(c.Heals);
+            var a = Counting.Distribution(events, on.Actor, on.Action);
+            var b = Counting.Distribution(events, on.ActorB!, on.ActionB!);
+            var (title, who) = Heading(on);
+            HealingDrill.ShowPair(DrillKey(on), title,
+                                  who + Dot + Versus(a.Count, b.Count) + " casts" + Dot + Versus(a.Total, b.Total) + " healed",
+                                  SwatchOf(on.Actor), a, b, CompareSheet.Sides(a, b, healing: true), SidesOf(on), NameOf);
             return;
         }
 

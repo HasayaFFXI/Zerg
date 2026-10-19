@@ -33,4 +33,33 @@ public static class Shades
         byte Move(byte c) => (byte)Format.Round(c + (end - c) * mix);
         return (Move(colour.R), Move(colour.G), Move(colour.B));
     }
+
+    /// <summary>How far apart two colours must be to be told apart side by
+    /// side, as the straight distance between them in RGB.</summary>
+    public const double Apart = 48;
+
+    /// <summary>
+    /// The colour of side B of a pair whose side A is <paramref name="a"/>: B's
+    /// own colour, <paramref name="b"/>, when it is far enough from A's to tell
+    /// the two columns of a bin apart; otherwise A's next shade that is (one
+    /// character against themself, or two whose colours nearly match). A
+    /// shade that cannot move (white has no lighter step on a dark page) is
+    /// passed over for the next.
+    /// </summary>
+    public static (byte R, byte G, byte B) Beside((byte R, byte G, byte B) a, (byte R, byte G, byte B) b, bool lightTheme)
+    {
+        if (Distance(a, b) >= Apart) return b;
+        for (int k = 1; k <= 4; k++)
+        {
+            var shade = Step(a, k, lightTheme);
+            if (Distance(a, shade) >= Apart) return shade;
+        }
+        return Step(a, 2, lightTheme);
+    }
+
+    static double Distance((byte R, byte G, byte B) x, (byte R, byte G, byte B) y)
+    {
+        double r = x.R - y.R, g = x.G - y.G, b = x.B - y.B;
+        return Math.Sqrt(r * r + g * g + b * b);
+    }
 }

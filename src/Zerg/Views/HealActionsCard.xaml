@@ -120,17 +120,20 @@
         <DataTrigger Binding="{Binding Selected}" Value="True">
           <Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
         </DataTrigger>
+        <DataTrigger Binding="{Binding Side}" Value="B">
+          <Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
+        </DataTrigger>
       </Style.Triggers>
     </Style>
     <DataTemplate x:Key="Action">
       <StackPanel>
         <Button Style="{StaticResource ActionPick}"
                 Command="{Binding DataContext.HealDrillCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label}" ToolTip="Show every cast">
+                CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label}" ToolTip="Show every cast. With Ctrl, set it beside the heal open">
           <Grid>
             <Rectangle Style="{StaticResource SubShade}" Margin="0,0,0,1" v:Grow.Share="{Binding ShareFraction}"/>
-            <Rectangle x:Name="Edge" Width="2" HorizontalAlignment="Left" Margin="0,0,0,1" SnapsToDevicePixels="True"
-                       Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+            <Rectangle Style="{StaticResource ActionEdge}"/>
+            <ContentControl Style="{StaticResource RowSideTag}"/>
             <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
               <TextBlock x:Name="Name" Text="{Binding Name}" Style="{StaticResource CellText}" Padding="42,0,8,0"/>
               <TextBlock Text="{Binding Casts}" Style="{StaticResource Cell}"/>
@@ -149,7 +152,9 @@
       </StackPanel>
       <DataTemplate.Triggers>
         <DataTrigger Binding="{Binding Selected}" Value="True">
-          <Setter TargetName="Edge" Property="Visibility" Value="Visible"/>
+          <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Side}" Value="B">
           <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
         </DataTrigger>
       </DataTemplate.Triggers>

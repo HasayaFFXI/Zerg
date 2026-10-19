@@ -294,59 +294,85 @@
          spread, on bins the runs share, and the figures of each beside it,
          a line 23 units tall for each, the change in two columns: as a
          share of A, toned, and the plain difference, quiet. A box on the
-         pane's surface, set into the well under its action. -->
+         pane's surface, set into the well under its action.
+
+         Over them, what each side is, each a pick button: A's action, of
+         this row in run A, and B's, of this row or any other in run B.
+         Picking another makes a pair of the two, a row of its own at the
+         top of the well ("Tachi: Shoha ⇄ Tachi: Jinpu"), which opens here
+         the same way; on that row Unpair takes it away. -->
     <DataTemplate x:Key="SpreadDetail">
       <Border Margin="28,4,14,8" Background="{DynamicResource Bg1Brush}" BorderBrush="{DynamicResource Line2Brush}"
               BorderThickness="1" CornerRadius="4" SnapsToDevicePixels="True">
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="330"/>
-          </Grid.ColumnDefinitions>
-          <!-- The chart is as tall as the figures beside it, which are a row
-               longer when either run has a crit. -->
-          <DockPanel Margin="10,8,8,8">
-            <TextBlock DockPanel.Dock="Bottom" Text="{Binding Spread.Caption}" Style="{StaticResource Quiet}"
-                       FontSize="10.5" Margin="0,4,0,0" HorizontalAlignment="Center" Typography.NumeralAlignment="Tabular"/>
-            <c:PairedHistogramChart MinHeight="150" Model="{Binding Histogram}"
-                                    AutomationProperties.Name="Distribution chart of both runs"/>
+        <DockPanel>
+          <DockPanel DockPanel.Dock="Top" Margin="10,7,9,0">
+            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Height="22" Padding="10,0" FontSize="11"
+                    Content="Unpair" Command="{Binding UnpairCommand}" ToolTip="Take this pair away"
+                    AutomationProperties.Name="{Binding Label, StringFormat='Unpair {0}'}"
+                    Visibility="{Binding IsCross, Converter={StaticResource Visible}}"/>
+            <WrapPanel VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
+                <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagA}" Margin="0,0,6,0"/>
+                <v:PairPicker DataContext="{Binding PickA}"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="vs" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagB}" Margin="0,0,6,0"/>
+                <v:PairPicker DataContext="{Binding PickB}"/>
+              </StackPanel>
+            </WrapPanel>
           </DockPanel>
-          <Border Grid.Column="1" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0" Margin="0,9"
-                  Padding="5,0,9,0" SnapsToDevicePixels="True">
-            <StackPanel VerticalAlignment="Top">
-              <!-- The rows name themselves; over the figures, whose they are. -->
-              <Grid Height="21">
-                <v:Cells Widths="{StaticResource SpreadColumns}" Margin="0,0,0,1">
-                  <Border/>
-                  <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagA}" HorizontalAlignment="Right"/>
-                  <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagB}" HorizontalAlignment="Right"/>
-                  <TextBlock Text="&#x394; %" Style="{StaticResource Head}" Padding="0" ToolTip="{StaticResource ChangeTip}"/>
-                  <TextBlock Text="&#x394;" Style="{StaticResource Head}" Padding="0" ToolTip="B &#x2212; A"/>
-                </v:Cells>
-                <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
-              </Grid>
-              <ItemsControl ItemsSource="{Binding Spread.Lines}" Focusable="False"
-                            ItemContainerStyle="{StaticResource ByLabel}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Grid Height="23" Background="Transparent" ToolTip="{Binding Tip}">
-                      <v:Cells Widths="{StaticResource SpreadColumns}" Margin="0,0,0,1">
-                        <TextBlock Text="{Binding Label}" FontSize="11.5" Padding="4,0,4,0" VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Text2Brush}"/>
-                        <TextBlock Text="{Binding A}" Style="{StaticResource SpreadFig}"/>
-                        <TextBlock Text="{Binding B}" Style="{StaticResource SpreadFig}"/>
-                        <TextBlock Text="{Binding Change.Main}" Style="{StaticResource Tone}" FontSize="11.5"/>
-                        <TextBlock Text="{Binding Change.Sub}" Style="{StaticResource SpreadFig}" FontSize="10.5"
-                                   Foreground="{DynamicResource Text3Brush}"/>
-                      </v:Cells>
-                      <Rectangle Style="{StaticResource RowRule}"/>
-                    </Grid>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
-          </Border>
-        </Grid>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="330"/>
+            </Grid.ColumnDefinitions>
+            <!-- The chart is as tall as the figures beside it, which are a row
+                 longer when either run has a crit. -->
+            <DockPanel Margin="10,8,8,8">
+              <TextBlock DockPanel.Dock="Bottom" Text="{Binding Spread.Caption}" Style="{StaticResource Quiet}"
+                         FontSize="10.5" Margin="0,4,0,0" HorizontalAlignment="Center" Typography.NumeralAlignment="Tabular"/>
+              <c:PairedHistogramChart MinHeight="150" Model="{Binding Histogram}" FillA="{DynamicResource RunABrush}"
+                                      FillB="{DynamicResource RunBBrush}"
+                                      AutomationProperties.Name="Distribution chart of both runs"/>
+            </DockPanel>
+            <Border Grid.Column="1" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0" Margin="0,9"
+                    Padding="5,0,9,0" SnapsToDevicePixels="True">
+              <StackPanel VerticalAlignment="Top">
+                <!-- The rows name themselves; over the figures, whose they are. -->
+                <Grid Height="21">
+                  <v:Cells Widths="{StaticResource SpreadColumns}" Margin="0,0,0,1">
+                    <Border/>
+                    <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagA}" HorizontalAlignment="Right"/>
+                    <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagB}" HorizontalAlignment="Right"/>
+                    <TextBlock Text="&#x394; %" Style="{StaticResource Head}" Padding="0" ToolTip="{StaticResource ChangeTip}"/>
+                    <TextBlock Text="&#x394;" Style="{StaticResource Head}" Padding="0" ToolTip="B &#x2212; A"/>
+                  </v:Cells>
+                  <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding Spread.Lines}" Focusable="False"
+                              ItemContainerStyle="{StaticResource ByLabel}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Grid Height="23" Background="Transparent" ToolTip="{Binding Tip}">
+                        <v:Cells Widths="{StaticResource SpreadColumns}" Margin="0,0,0,1">
+                          <TextBlock Text="{Binding Label}" FontSize="11.5" Padding="4,0,4,0" VerticalAlignment="Center"
+                                     TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Text2Brush}"/>
+                          <TextBlock Text="{Binding A}" Style="{StaticResource SpreadFig}"/>
+                          <TextBlock Text="{Binding B}" Style="{StaticResource SpreadFig}"/>
+                          <TextBlock Text="{Binding Change.Main}" Style="{StaticResource Tone}" FontSize="11.5"/>
+                          <TextBlock Text="{Binding Change.Sub}" Style="{StaticResource SpreadFig}" FontSize="10.5"
+                                     Foreground="{DynamicResource Text3Brush}"/>
+                        </v:Cells>
+                        <Rectangle Style="{StaticResource RowRule}"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </DockPanel>
       </Border>
     </DataTemplate>
     <Style x:Key="UnderSpread" TargetType="ContentControl">

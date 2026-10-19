@@ -168,9 +168,11 @@ src/Zerg.Core/          net10.0, no UI: everything testable
 src/Zerg/               net10.0-windows WPF exe
   App.xaml(.cs)         fonts, measures, type styles; startup, single instance, crash dialog
   MainWindow            title bar, command bar, bands, the page, status line; tray, hot key
-  MainViewModel(.Damage/.Healing/.Layout/.Parse/.Settings)   one partial per concern
+  MainViewModel(.Damage/.Healing/.Layout/.Parse/.Settings/.Pairs)   one partial per concern
+                        (.Pairs: a drill-down's second action, B, set beside it)
   CompareViewModel      the Compare section
   PickFilter            target / type filters and their tables
+  PairPick              what one side of a pair is set to (Views/PairPicker draws it)
   Rows, DrillView, ViewedParse, Panels, PanelWindow, TrayMenu, EventFeed, Settings,
   AppTheme, Inks, Debouncer, Log
   Views/                one UserControl per card, plus the panels Zerg lays out with
@@ -233,7 +235,11 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   (`MainViewModel.Rate`, which the beat goes through too). Never saved.
   `RULES.md` has the rules.
 - **Compare.** `CompareViewModel` over a `CompareSheet`; redraws only on a
-  change and only while on screen. Run colours are settings; `AppTheme` makes
+  change and only while on screen. A pair the player made (A's action
+  against another of B's) is a `CrossPair`, a row before its row's actions.
+- **Pairs in the drill-down.** A drill-down is a `DrillOn`: an action, and
+  while two are side by side the other (B). `CompareSheet.Sides` gives the
+  figures, `Compare.Shared` the bins, the same as Compare's. Run colours are settings; `AppTheme` makes
   six frozen brushes from them, swapped in one step.
 - **Charts.** `Zerg.Core/Charts` decides where everything goes; `src/Zerg/Charts`
   paints. Give a chart a new immutable model per draw; rebuild models on
@@ -419,8 +425,10 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
 
 ## Status and what's next
 
-- **Current: 1.0.0** (2026-10-18): the first version for distribution, with an
-  installer (`Zerg-1.0.0-setup.exe`) beside the zip. `dist/Zerg` is 0.3.0.
+- **Current: 1.1.0** (2026-10-18): two different actions compared side by
+  side, live and in Compare. 1.0.0 was the first version for distribution,
+  with an installer (`Zerg-<version>-setup.exe`) beside the zip. `dist/Zerg`
+  is 1.1.0.
 - **Packaging** works (`tools/package.py`: zip and installer). The installer is
   per user (`%LOCALAPPDATA%\Programs\Zerg`, HKCU uninstall entry), ticks the
   desktop shortcut and the `.zerg` association by default, and its finish page

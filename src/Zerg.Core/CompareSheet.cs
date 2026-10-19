@@ -414,13 +414,65 @@ public sealed class CompareSheet
     /// used it and never hit has 0 hits, and nothing else to state.</para>
     /// </summary>
     /// <param name="key">The row's key: a character, or by job a main job.</param>
-    public ActionSpread Spread(string key, string action)
+    public ActionSpread Spread(string key, string action) => Spread(key, action, key, action);
+
+    /// <summary>
+    /// A's action of one row against B's of the same row or another: a pair
+    /// the player made (<see cref="Cross"/>), measured as one action of both
+    /// runs is. A side that row never used is dashes, as it is there.
+    /// </summary>
+    public ActionSpread Spread(string keyA, string actionA, string keyB, string actionB)
     {
-        var s = Compare.Spread(A, B, key, action);
-        // Neutral, like the length of a run: more hits is a longer fight as often as a better one.
-        return Worded(s, new SpreadLine("Hits", "Uses that dealt damage", Whole(s.A?.Count), Whole(s.B?.Count),
-                                        Change.Of(s.A?.Count, s.B?.Count, ChangeKind.Percent, Format.Int, 0)),
-                      "Damage distribution", "hit");
+        var s = Compare.Spread(A, B, keyA, actionA, keyB, actionB);
+        return Worded(s, [HitsOf(s)], "Damage distribution", "hit", "run");
+    }
+
+    // Neutral, like the length of a run: more hits is a longer fight as often as a better one.
+    static SpreadLine HitsOf(Spread s) =>
+        new("Hits", "Uses that dealt damage", Whole(s.A?.Count), Whole(s.B?.Count),
+            Change.Of(s.A?.Count, s.B?.Count, ChangeKind.Percent, Format.Int, 0));
+
+    /// <summary>
+    /// The line of a pair the player made: A's action of row
+    /// <paramref name="keyA"/> against B's action of row <paramref name="keyB"/>,
+    /// with the figures every action line has. Named by A's action.
+    /// </summary>
+    public ActionLine Cross(string keyA, string actionA, string keyB, string actionB)
+    {
+        static ActionTotals? Of(Measurement m, string key, string action) =>
+            m.Agg.Actors.FirstOrDefault(x => x.Name == key)?.Actions.GetValueOrDefault(action);
+        return ActionOf(new Pair<ActionTotals>(actionA, Of(A, keyA, actionA), Of(B, keyB, actionB)));
+    }
+
+    /// <summary>The same for two heals, a line of the healing table.</summary>
+    public HealLine CrossHeal(string keyA, string actionA, string keyB, string actionB)
+    {
+        static HealAction? Of(Measurement m, string key, string action) =>
+            m.Heal.Actors.FirstOrDefault(x => x.Name == key)?.Actions.GetValueOrDefault(action);
+        return HealOf(new Pair<HealAction>(actionA, Of(A, keyA, actionA), Of(B, keyB, actionB)), A, B);
+    }
+
+    /// <summary>
+    /// Two actions of one session (or one parse), side by side: what the
+    /// live sections' drill-down draws when a second action is picked. The
+    /// same figures, bins and words as two runs' one action, with "that
+    /// action's" for "that run's"; damage leads with accuracy too, as the
+    /// single drill-down's figures do. A side with no swings is dashes.
+    /// </summary>
+    /// <param name="healing">The two are heals: casts, and no accuracy.</param>
+    public static ActionSpread Sides(Distribution? a, Distribution? b, bool healing)
+    {
+        static Distribution? Swung(Distribution? d) => d is { Swings: > 0 } ? d : null;
+        var s = Compare.Shared(Swung(a), Swung(b));
+        if (healing)
+            return Worded(s, [new SpreadLine("Casts", "One per cast, however many people it reached", Whole(s.A?.Count),
+                                             Whole(s.B?.Count), Change.Of(s.A?.Count, s.B?.Count, ChangeKind.Percent,
+                                                                          Format.Int, 0))],
+                          "Healed per cast", "cast", "heal");
+        double? x = s.A?.Accuracy, y = s.B?.Accuracy;
+        var accuracy = new SpreadLine("Accuracy", "Swings that landed", Percent(x), Percent(y),
+                                      Change.Of(x, y, ChangeKind.Points, v => Percent(v), 1));
+        return Worded(s, [HitsOf(s), accuracy], "Damage distribution", "hit", "action");
     }
 
     /// <summary>
@@ -431,21 +483,25 @@ public sealed class CompareSheet
     /// <para>A parse with no heal lines is dashes throughout. In one that has
     /// them, a heal nobody cast was cast 0 times, as the table over it says.</para>
     /// </summary>
-    public ActionSpread HealSpread(string key, string action)
+    public ActionSpread HealSpread(string key, string action) => HealSpread(key, action, key, action);
+
+    /// <summary>A's heal of one row against B's of the same row or another, as <see cref="Spread(string, string, string, string)"/>.</summary>
+    public ActionSpread HealSpread(string keyA, string actionA, string keyB, string actionB)
     {
-        var s = Compare.HealSpread(A, B, key, action);
+        var s = Compare.HealSpread(A, B, keyA, actionA, keyB, actionB);
         static double? Casts(Measurement m, Distribution? d) => m.HasHeals ? d?.Count ?? 0 : null;
         double? x = Casts(A, s.A), y = Casts(B, s.B);
         // Neutral: more casts is not better healing.
-        return Worded(s, new SpreadLine("Casts", "One per cast, however many people it reached", Whole(x), Whole(y),
-                                        Change.Of(x, y, ChangeKind.Percent, Format.Int, 0)),
-                      "Healed per cast", "cast");
+        return Worded(s, [new SpreadLine("Casts", "One per cast, however many people it reached", Whole(x), Whole(y),
+                                         Change.Of(x, y, ChangeKind.Percent, Format.Int, 0))],
+                      "Healed per cast", "cast", "run");
     }
 
-    /// <param name="count">The line that leads the figures: how many there were.</param>
+    /// <param name="lead">The lines that lead the figures: how many there were, and how many landed.</param>
     /// <param name="title">What the chart is of, to open its caption.</param>
     /// <param name="unit">What one of the things counted is called.</param>
-    static ActionSpread Worded(Spread s, SpreadLine count, string title, string unit)
+    /// <param name="side">What a side is: "run", "action", "heal".</param>
+    static ActionSpread Worded(Spread s, SpreadLine[] lead, string title, string unit, string side)
     {
         var (a, b) = (s.A, s.B);
         static double? Of(Distribution? d, Func<Distribution, double> pick) => d != null && d.Count != 0 ? pick(d) : null;
@@ -455,9 +511,8 @@ public sealed class CompareSheet
             return new SpreadLine(label, tip, Whole(x), Whole(y), Change.Of(x, y, ChangeKind.Percent, Format.Int, good));
         }
 
-        var lines = new List<SpreadLine>
+        var lines = new List<SpreadLine>(lead)
         {
-            count,
             Line("Min", d => d.Min, 1),
             Line("Median", d => d.Median, 1, "Half the " + unit + "s were under this, half over"),
             Line("Average", d => d.Avg, 1),
@@ -475,7 +530,7 @@ public sealed class CompareSheet
 
         var caption = s.Bins.Count == 0 ? "" :
             title + Dot + s.Bins.Count.ToString(CultureInfo.InvariantCulture) +
-            (s.Bins.Count == 1 ? " bin" : " bins") + Dot + "a column is its share of that run’s " + unit + "s";
+            (s.Bins.Count == 1 ? " bin" : " bins") + Dot + "a column is its share of that " + side + "’s " + unit + "s";
         return new ActionSpread(s.Bins, a?.Count ?? 0, b?.Count ?? 0, Of(a, d => d.Avg), Of(b, d => d.Avg), lines, caption,
                                 unit);
     }
@@ -542,18 +597,21 @@ public sealed class CompareSheet
             new AB(Whole(a.Pet), Whole(b.Pet)),
             heals);
 
-    static List<HealLine> HealsOf(Pair<HealerTotals> r, Measurement ma, Measurement mb)
+    static List<HealLine> HealsOf(Pair<HealerTotals> r, Measurement ma, Measurement mb) =>
+        Compare.HealActions(r).Select(x => HealOf(x, ma, mb)).ToList();
+
+    static HealLine HealOf(Pair<HealAction> x, Measurement ma, Measurement mb)
     {
         static double? Of(Measurement m, HealAction? x, Func<HealAction, double> pick) =>
             !m.HasHeals ? null : x != null ? pick(x) : 0;
         static double? Avg(Measurement m, HealAction? x) => x != null && m.HasHeals ? x.Avg : null;
-        return Compare.HealActions(r).Select(x => new HealLine(x.Key,
+        return new HealLine(x.Key,
             new AB(Whole(Of(ma, x.A, h => h.Casts)), Whole(Of(mb, x.B, h => h.Casts))),
             new AB(Whole(Of(ma, x.A, h => h.Total)), Whole(Of(mb, x.B, h => h.Total))),
             Change.Of(Of(ma, x.A, h => h.Total), Of(mb, x.B, h => h.Total), ChangeKind.Percent, Format.Int, 1),
             new AB(Whole(Avg(ma, x.A)), Whole(Avg(mb, x.B))),
             Change.Of(Avg(ma, x.A), Avg(mb, x.B), ChangeKind.Percent, Format.Int, 1),
-            new AB(Whole(Of(ma, x.A, h => h.Max)), Whole(Of(mb, x.B, h => h.Max))))).ToList();
+            new AB(Whole(Of(ma, x.A, h => h.Max)), Whole(Of(mb, x.B, h => h.Max))));
     }
 
     static string NoteOf(Measurement ma, Measurement mb, bool anyRows)

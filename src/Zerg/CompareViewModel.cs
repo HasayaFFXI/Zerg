@@ -126,6 +126,23 @@ public abstract partial class CompareSpreadRow(string key, string name, string l
     [ObservableProperty] private ActionSpread? spread;
     [ObservableProperty] private PairedHistogramModel? histogram;
 
+    /// <summary>A pair the player made: A's action of this row against B's
+    /// action of this row or another. Its name says both.</summary>
+    public bool IsCross { get; init; }
+    /// <summary>Make the pick buttons over the row's spread, A's and B's.
+    /// Asked for once the row is open and its spread drawn.</summary>
+    public Func<PairPick>? MakeA { get; init; }
+    public Func<PairPick>? MakeB { get; init; }
+    /// <summary>Takes a pair the player made away again.</summary>
+    public Action? Unpaired { get; init; }
+
+    PairPick? pickA, pickB;
+    public PairPick? PickA => pickA ??= MakeA?.Invoke();
+    public PairPick? PickB => pickB ??= MakeB?.Invoke();
+
+    [RelayCommand]
+    void Unpair() => Unpaired?.Invoke();
+
     protected override void Unfold()
     {
         Spread = Open ? measure() : null;
@@ -192,13 +209,16 @@ public sealed partial class ComparePickRow(object line, string key, string name,
 public sealed partial class CompareActorRow : CompareRow
 {
     readonly Func<ActionLine, CompareActionRow> action;
+    readonly Func<IEnumerable<CompareActionRow>> crosses;
 
     /// <param name="action">Makes the row of one of this row's actions.</param>
+    /// <param name="crosses">Makes the rows of the pairs the player made under this row.</param>
     public CompareActorRow(ActorLine line, Identity id, Brush swatch, bool byJob, bool open, Action<string, bool> flipped,
-                           Func<ActionLine, CompareActionRow> action)
+                           Func<ActionLine, CompareActionRow> action, Func<IEnumerable<CompareActionRow>> crosses)
         : base(line.Key, flipped)
     {
         this.action = action;
+        this.crosses = crosses;
         (Line, Name, Swatch) = (line, id.Label, swatch);
         // A character not in a run has no job there; one who was, and whose
         // job the party table never reported, has a question mark. Beside a
@@ -228,8 +248,8 @@ public sealed partial class CompareActorRow : CompareRow
 
     protected override void Unfold()
     {
-        Actions = Open ? Line.Actions.Select(action).ToList() : [];
-        NoActions = Open && Line.Actions.Count == 0;
+        Actions = Open ? [.. crosses(), .. Line.Actions.Select(action)] : [];
+        NoActions = Open && Actions.Count == 0;
     }
 }
 
@@ -237,13 +257,16 @@ public sealed partial class CompareActorRow : CompareRow
 public sealed partial class CompareHealerRow : CompareRow, IGroupedRow
 {
     readonly Func<HealLine, CompareHealRow>? heal;
+    readonly Func<IEnumerable<CompareHealRow>>? crosses;
 
     /// <param name="heal">Makes the row of one of this healer's heals. The party has none to make.</param>
+    /// <param name="crosses">Makes the rows of the pairs the player made under this healer.</param>
     public CompareHealerRow(HealerLine line, string name, Brush? swatch, bool open, Action<string, bool> flipped,
-                            Func<HealLine, CompareHealRow>? heal = null)
+                            Func<HealLine, CompareHealRow>? heal = null, Func<IEnumerable<CompareHealRow>>? crosses = null)
         : base(line.Key ?? "", flipped)
     {
         this.heal = heal;
+        this.crosses = crosses;
         (Line, Name, Swatch) = (line, name, swatch);
         Open = open && line.Key != null;
     }
@@ -260,8 +283,8 @@ public sealed partial class CompareHealerRow : CompareRow, IGroupedRow
 
     protected override void Unfold()
     {
-        Heals = Open && heal != null ? Line.Heals.Select(heal).ToList() : [];
-        NoHeals = Open && Line.Heals.Count == 0;
+        Heals = Open && heal != null ? [.. crosses?.Invoke() ?? [], .. Line.Heals.Select(heal)] : [];
+        NoHeals = Open && Heals.Count == 0;
     }
 }
 
@@ -302,6 +325,23 @@ public sealed partial class CompareViewModel : ObservableObject
     /// its own name, and stays kept while its row is closed.</summary>
     readonly HashSet<string> open = new(StringComparer.Ordinal), healOpen = new(StringComparer.Ordinal),
                              spreadOpen = new(StringComparer.Ordinal), healSpreadOpen = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// A pair the player made: A's action of row <see cref="KeyA"/> against
+    /// B's action of row <see cref="KeyB"/>, the same row or another. It is
+    /// a row under A's row, before that row's own actions.
+    /// </summary>
+    sealed record CrossPair(string KeyA, string ActionA, string KeyB, string ActionB)
+    {
+        /// <summary>The pair the other way round, for Swap.</summary>
+        public CrossPair Swapped => new(KeyB, ActionB, KeyA, ActionA);
+        /// <summary>Its row's key: no name holds a line break, so it is no other row's.</summary>
+        public string Id => "\n\n" + KeyA + "\n" + ActionA + "\n" + KeyB + "\n" + ActionB;
+    }
+
+    /// <summary>The pairs made of actions, and of heals, newest first. Kept
+    /// as the open rows are, and dropped with them.</summary>
+    readonly List<CrossPair> pairs = [], healPairs = [];
     CompareSheet? sheet;
     /// <summary>Something changed while another section was on screen.</summary>
     bool stale = true;
@@ -479,6 +519,8 @@ public sealed partial class CompareViewModel : ObservableObject
     /// <summary>The rows are about to change meaning: nothing that was opened is the same thing any more.</summary>
     void Forget()
     {
+        pairs.Clear();
+        healPairs.Clear();
         open.Clear();
         healOpen.Clear();
         spreadOpen.Clear();
@@ -532,6 +574,18 @@ public sealed partial class CompareViewModel : ObservableObject
         var a = A.Held;
         A.Hold(B.Held);
         B.Hold(a);
+        // A pair the player made goes with its runs: B's action is A's now.
+        // It is under the other row, if it was of two.
+        foreach (var list in new[] { pairs, healPairs })
+            for (int i = 0; i < list.Count; i++)
+            {
+                var was = list[i];
+                list[i] = was.Swapped;
+                if (spreadOpen.Remove(was.Id)) spreadOpen.Add(list[i].Id);
+                if (healSpreadOpen.Remove(was.Id)) healSpreadOpen.Add(list[i].Id);
+                if (open.Contains(was.KeyA)) open.Add(was.KeyB);
+                if (healOpen.Contains(was.KeyA)) healOpen.Add(was.KeyB);
+            }
         Redraw();
     }
 
@@ -653,7 +707,8 @@ public sealed partial class CompareViewModel : ObservableObject
             : TargetFilter.NoteOf(s.TargetList.Count);
         Actors = heal ? [] : s.Actors.Select(r => new CompareActorRow(r, s.Ids[r.Key], SwatchOf(s.Ids[r.Key]), job,
                                                                       open.Contains(r.Key), (k, on) => Flip(open, k, on),
-                                                                      x => ActionOf(s, r.Key, x))).ToList();
+                                                                      x => ActionOf(s, r.Key, x),
+                                                                      () => CrossesOf(s, r.Key))).ToList();
         KindRows = heal ? [] : s.Kinds.Select(k => new ComparePickRow(k, k.Key, k.Label, types.Contains(k.Key),
                                                                      types.Count > 0 && !types.Contains(k.Key),
                                                                      TypeFilter.PickTip(k.Label),
@@ -671,7 +726,7 @@ public sealed partial class CompareViewModel : ObservableObject
             new CompareHealerRow(s.Party, "Party", null, false, (_, _) => { }),
             .. s.Healers.Select(r => new CompareHealerRow(r, s.Ids[r.Key!].Label, SwatchOf(s.Ids[r.Key!]),
                                                           healOpen.Contains(r.Key!), (k, on) => Flip(healOpen, k, on),
-                                                          x => HealOf(s, r.Key!, x))),
+                                                          x => HealOf(s, r.Key!, x), () => HealCrossesOf(s, r.Key!))),
         ];
         HealSpells = heal ? s.HealSpells : [];
         HealTargets = heal ? s.HealTargets : [];
@@ -696,16 +751,166 @@ public sealed partial class CompareViewModel : ObservableObject
     {
         // No name holds a line break, so this cannot be another row's action.
         var id = key + "\n" + line.Name;
+        var row = new CrossPair(key, line.Name, key, line.Name);
         return new CompareActionRow(line, id, s.Ids[key].Label + ", " + line.Name, spreadOpen.Contains(id),
-                                    (k, on) => Flip(spreadOpen, k, on), () => s.Spread(key, line.Name));
+                                    (k, on) => Flip(spreadOpen, k, on), () => s.Spread(key, line.Name))
+        {
+            MakeA = () => PickA(s, row, null, heal: false), MakeB = () => PickB(s, row, null, heal: false),
+        };
     }
 
     /// <summary>One heal's row, under the healer of <paramref name="key"/>, measured the same way.</summary>
     CompareHealRow HealOf(CompareSheet s, string key, HealLine line)
     {
         var id = key + "\n" + line.Name;
+        var row = new CrossPair(key, line.Name, key, line.Name);
         return new CompareHealRow(line, id, s.Ids[key].Label + ", " + line.Name, healSpreadOpen.Contains(id),
-                                  (k, on) => Flip(healSpreadOpen, k, on), () => s.HealSpread(key, line.Name));
+                                  (k, on) => Flip(healSpreadOpen, k, on), () => s.HealSpread(key, line.Name))
+        {
+            MakeA = () => PickA(s, row, null, heal: true), MakeB = () => PickB(s, row, null, heal: true),
+        };
+    }
+
+    // ------------------------------------------------------- pairs made here
+
+    /// <summary>What a pair the player made is called: A's action, then B's,
+    /// after its row's name when it is another row's.</summary>
+    static string CrossName(CompareSheet s, CrossPair p) =>
+        p.ActionA + " \u21C4 " + (p.KeyB == p.KeyA ? p.ActionB : s.Ids[p.KeyB].Label + " \u00B7 " + p.ActionB);
+
+    /// <summary>The rows of the pairs made under the row of <paramref name="key"/>,
+    /// newest first, each measured once it is opened.</summary>
+    IEnumerable<CompareActionRow> CrossesOf(CompareSheet s, string key) =>
+        pairs.Where(p => p.KeyA == key && s.Ids.ContainsKey(p.KeyB)).Select(p =>
+        {
+            var name = CrossName(s, p);
+            return new CompareActionRow(s.Cross(p.KeyA, p.ActionA, p.KeyB, p.ActionB) with { Name = name }, p.Id,
+                                        s.Ids[key].Label + ", " + name, spreadOpen.Contains(p.Id),
+                                        (k, on) => Flip(spreadOpen, k, on),
+                                        () => s.Spread(p.KeyA, p.ActionA, p.KeyB, p.ActionB))
+            {
+                IsCross = true, MakeA = () => PickA(s, p, p, heal: false), MakeB = () => PickB(s, p, p, heal: false),
+                Unpaired = () => Pair(p, null, heal: false),
+            };
+        }).ToList();
+
+    IEnumerable<CompareHealRow> HealCrossesOf(CompareSheet s, string key) =>
+        healPairs.Where(p => p.KeyA == key && s.Ids.ContainsKey(p.KeyB)).Select(p =>
+        {
+            var name = CrossName(s, p);
+            return new CompareHealRow(s.CrossHeal(p.KeyA, p.ActionA, p.KeyB, p.ActionB) with { Name = name }, p.Id,
+                                      s.Ids[key].Label + ", " + name, healSpreadOpen.Contains(p.Id),
+                                      (k, on) => Flip(healSpreadOpen, k, on),
+                                      () => s.HealSpread(p.KeyA, p.ActionA, p.KeyB, p.ActionB))
+            {
+                IsCross = true, MakeA = () => PickA(s, p, p, heal: true), MakeB = () => PickB(s, p, p, heal: true),
+                Unpaired = () => Pair(p, null, heal: true),
+            };
+        }).ToList();
+
+    /// <summary>
+    /// A pair made, changed or taken away. A pair of one action with itself
+    /// is the row the table already has: that row is opened instead. The
+    /// row the pair is under stays open, and the pair's own row opens.
+    /// </summary>
+    /// <param name="was">The pair being changed or taken away, or null for a new one.</param>
+    /// <param name="now">What it becomes, or null to take it away.</param>
+    void Pair(CrossPair? was, CrossPair? now, bool heal)
+    {
+        var list = heal ? healPairs : pairs;
+        var spreads = heal ? healSpreadOpen : spreadOpen;
+        if (was != null)
+        {
+            list.Remove(was);
+            spreads.Remove(was.Id);
+        }
+        if (now != null)
+        {
+            (heal ? healOpen : open).Add(now.KeyA);
+            if (now.KeyA == now.KeyB && now.ActionA == now.ActionB) spreads.Add(now.KeyA + "\n" + now.ActionA);
+            else
+            {
+                list.Remove(now);
+                list.Insert(0, now);
+                spreads.Add(now.Id);
+            }
+        }
+        Show();
+    }
+
+    /// <summary>What one row did in one run, as a pick lists it: each action
+    /// (or heal) and how many times, largest first.</summary>
+    static List<(string Action, string Uses)> UsesOf(CompareSheet s, bool a, string key, bool heal)
+    {
+        var m = a ? s.A : s.B;
+        static string Times(double n, string unit) => Format.Int(n) + " " + unit + (n == 1 ? "" : "s");
+        if (heal)
+            return m.Heal.Actors.FirstOrDefault(x => x.Name == key)?.ActionList.Select(x => (x.Name, Times(x.Casts, "cast")))
+                       .ToList() ?? [];
+        return m.Agg.Actors.FirstOrDefault(x => x.Name == key)?.ActionList.Where(x => x.Total > 0 || x.Hits > 0)
+                   .Select(x => (x.Name, Times(x.Swings, "use"))).ToList() ?? [];
+    }
+
+    static bool Has(CompareSheet s, bool a, string key, string action, bool heal) =>
+        UsesOf(s, a, key, heal).Any(x => x.Action == action);
+
+    /// <summary>
+    /// A's pick button over a row's spread: the row's own actions in run A.
+    /// A's side is always the row's; a pair with another character's action
+    /// as A is made under that character's row. Nothing to pick while the
+    /// row's B side is not there: a pair needs both.
+    /// </summary>
+    /// <param name="at">The pair as the row stands: its own action on both sides, or a pair made.</param>
+    PairPick PickA(CompareSheet s, CrossPair at, CrossPair? made, bool heal)
+    {
+        bool hasA = Has(s, true, at.KeyA, at.ActionA, heal), hasB = Has(s, false, at.KeyB, at.ActionB, heal);
+        var pick = new PairPick("Run A's " + (heal ? "heal" : "action"), () =>
+        [
+            new PairGroup(s.Ids[at.KeyA].Label, SwatchOf(s.Ids[at.KeyA]),
+                UsesOf(s, true, at.KeyA, heal).Select(x => new PairOption(x.Action, x.Uses, hasA && x.Action == at.ActionA,
+                    () => Chose(at with { ActionA = x.Action }))).ToList()),
+        ])
+        {
+            Label = hasA ? at.ActionA : "Not in A",
+            CanPick = hasB,
+            Tip = hasB ? "Set A’s side to another of this row’s " + (heal ? "heals" : "actions") + " in run A" : null,
+        };
+        return pick;
+
+        void Chose(CrossPair now)
+        {
+            if (now == at && made == null) return;
+            Pair(made, now, heal);
+        }
+    }
+
+    /// <summary>
+    /// B's pick button: this row's actions in run B, then every other row's,
+    /// a line each that opens onto theirs. Nothing to pick while the row's A
+    /// side is not there.
+    /// </summary>
+    PairPick PickB(CompareSheet s, CrossPair at, CrossPair? made, bool heal)
+    {
+        bool hasA = Has(s, true, at.KeyA, at.ActionA, heal), hasB = Has(s, false, at.KeyB, at.ActionB, heal);
+        var keys = heal ? s.Healers.Select(h => h.Key!).ToList() : s.Actors.Select(r => r.Key).ToList();
+        var pick = new PairPick("Run B's " + (heal ? "heal" : "action"), () =>
+            keys.Where(k => k == at.KeyA).Concat(keys.Where(k => k != at.KeyA)).Select(k =>
+                new PairGroup(s.Ids[k].Label, SwatchOf(s.Ids[k]),
+                    UsesOf(s, false, k, heal).Select(x => new PairOption(x.Action, x.Uses,
+                        hasB && k == at.KeyB && x.Action == at.ActionB,
+                        () => Chose(at with { KeyB = k, ActionB = x.Action }))).ToList())).ToList())
+        {
+            Label = !hasB ? "Not in B" : at.KeyB == at.KeyA ? at.ActionB : s.Ids[at.KeyB].Label + " \u00B7 " + at.ActionB,
+            CanPick = hasA,
+            Tip = hasA ? "Set B’s side to another " + (heal ? "heal" : "action") + " in run B, this row’s or anyone’s" : null,
+        };
+        return pick;
+
+        void Chose(CrossPair now)
+        {
+            if (now == at && made == null) return;
+            Pair(made, now, heal);
+        }
     }
 
     static void Flip(HashSet<string> set, string key, bool on)

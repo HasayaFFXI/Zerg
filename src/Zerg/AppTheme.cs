@@ -190,6 +190,18 @@ static class AppTheme
 
     static (byte R, byte G, byte B) Rgb(Color c) => (c.R, c.G, c.B);
 
+    /// <summary>
+    /// The letter on a badge of colour <paramref name="c"/> that is not a
+    /// run's (a side of a pair in a live drill-down, in its character's
+    /// colour): near-black or the pale ink, by the rule a run's badge
+    /// follows. <paramref name="dark"/> is the dark set, as a panel always is.
+    /// </summary>
+    public static Color InkOn(Color c, bool dark)
+    {
+        var ink = Core.RunColours.InkOn(Rgb(c), Rgb(dark ? Token("Text1", true) : Colors.White));
+        return Color.FromRgb(ink.R, ink.G, ink.B);
+    }
+
     static void PutRuns()
     {
         // The pale ink a badge's letter may take: the dark theme's own text

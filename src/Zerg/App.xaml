@@ -178,6 +178,91 @@
     <BooleanToVisibilityConverter x:Key="Visible"/>
     <v:HiddenConverter x:Key="Hidden"/>
     <v:PresentConverter x:Key="Present"/>
+    <v:InkConverter x:Key="InkOn"/>
+
+    <!-- A side's tag while a live drill-down sets two actions side by side:
+         its letter, A or B, on its colour (the character's, or B's shade of
+         it), as a run's badge is on the run's. Content is the letter and
+         Background the colour; in a floating panel the letter's ink is the
+         dark set's, as the panel's colours are. -->
+    <ControlTemplate x:Key="SideTagFace" TargetType="ContentControl">
+      <Border CornerRadius="3" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+        <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" FontWeight="Bold"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Foreground="{Binding Background, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource InkOn}}"/>
+      </Border>
+    </ControlTemplate>
+    <ControlTemplate x:Key="SideTagPanelFace" TargetType="ContentControl">
+      <Border CornerRadius="3" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+        <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" FontWeight="Bold"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Foreground="{Binding Background, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource InkOn}, ConverterParameter=Panel}"/>
+      </Border>
+    </ControlTemplate>
+    <Style x:Key="SideTag" TargetType="ContentControl">
+      <Setter Property="Width" Value="14"/>
+      <Setter Property="Height" Value="14"/>
+      <Setter Property="FontSize" Value="9.5"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="IsTabStop" Value="False"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Template" Value="{StaticResource SideTagFace}"/>
+      <Style.Triggers>
+        <Trigger Property="v:Float.On" Value="True">
+          <Setter Property="Template" Value="{StaticResource SideTagPanelFace}"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- A row of the Actions or the Heals table (an ActionRow, a HealRow):
+         the edge at its left while the drill-down is open on it, in the
+         accent; while two are side by side, on both their rows, wider and
+         in each side's colour, with the side's tag in the room before the
+         name. -->
+    <Style x:Key="ActionEdge" TargetType="Rectangle">
+      <Setter Property="Width" Value="2"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Setter Property="Margin" Value="0,0,0,1"/>
+      <Setter Property="SnapsToDevicePixels" Value="True"/>
+      <Setter Property="Fill" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Visibility" Value="Collapsed"/>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Selected}" Value="True">
+          <Setter Property="Visibility" Value="Visible"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Side}" Value="A">
+          <Setter Property="Width" Value="3"/>
+          <Setter Property="Fill" Value="{Binding SideFill}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Side}" Value="B">
+          <Setter Property="Visibility" Value="Visible"/>
+          <Setter Property="Width" Value="3"/>
+          <Setter Property="Fill" Value="{Binding SideFill}"/>
+        </DataTrigger>
+        <MultiDataTrigger>
+          <MultiDataTrigger.Conditions>
+            <Condition Binding="{Binding Side, Converter={StaticResource Present}}" Value="Visible"/>
+            <Condition Binding="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}}" Value="True"/>
+          </MultiDataTrigger.Conditions>
+          <Setter Property="Fill" Value="{Binding PanelSideFill}"/>
+        </MultiDataTrigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="RowSideTag" TargetType="ContentControl" BasedOn="{StaticResource SideTag}">
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Setter Property="Margin" Value="20,0,0,1"/>
+      <Setter Property="Content" Value="{Binding Side}"/>
+      <Setter Property="Background" Value="{Binding SideFill}"/>
+      <Style.Triggers>
+        <Trigger Property="v:Float.On" Value="True">
+          <Setter Property="Template" Value="{StaticResource SideTagPanelFace}"/>
+          <Setter Property="Background" Value="{Binding PanelSideFill}"/>
+        </Trigger>
+        <DataTrigger Binding="{Binding Side}" Value="">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
 
     <!-- The dark halo round the text of a floating panel, which keeps it
          legible over a bright part of the game with the panel's backdrop

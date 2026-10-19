@@ -297,6 +297,70 @@ public class CompareSheetTests
     }
 
     [Fact]
+    public void A_pair_the_player_made_is_one_action_of_A_against_another_of_B()
+    {
+        var a = Run(60, Lines.Hit(10, "Hasaya", 100), Lines.Hit(11, "Hasaya", 1000, kind: "ws", action: "Tachi: Shoha"),
+                        Lines.Hit(12, "Hasaya", 1200, kind: "ws", action: "Tachi: Shoha"));
+        var b = Run(60, Lines.Hit(10, "Hasaya", 100), Lines.Hit(11, "Hasaya", 900, kind: "ws", action: "Tachi: Jinpu"),
+                        Lines.Hit(12, "Kyouji", 1500, kind: "ws", action: "Tachi: Shoha"));
+        var sheet = Sheet(a, b);
+
+        var s = sheet.Spread("Hasaya", "Tachi: Shoha", "Hasaya", "Tachi: Jinpu");
+        Assert.Equal((2, 1, 1100d, 900d), (s.HitsA, s.HitsB, s.AvgA, s.AvgB));
+        Assert.Equal((900d, 1200d), (s.Bins[0].Lo, s.Bins[^1].Hi));
+        Assert.Equal("−18.2%", s.Lines.Single(x => x.Label == "Average").Change.Main);
+        var line = sheet.Cross("Hasaya", "Tachi: Shoha", "Hasaya", "Tachi: Jinpu");
+        Assert.Equal(("Tachi: Shoha", new AB("2", "1"), new AB("1,100", "900"), new AB("2,200", "900")),
+                     (line.Name, line.Uses, line.Avg, line.Total));
+        Assert.Equal("−18.2%", line.AvgChange.Main);
+
+        // B's side can be another character's.
+        var other = sheet.Spread("Hasaya", "Tachi: Shoha", "Kyouji", "Tachi: Shoha");
+        Assert.Equal((2, 1, 1500d), (other.HitsA, other.HitsB, other.AvgB));
+        Assert.Equal(new AB("1,100", "1,500"), sheet.Cross("Hasaya", "Tachi: Shoha", "Kyouji", "Tachi: Shoha").Avg);
+
+        // The same action on both sides is the row the table already has.
+        Assert.Equal(sheet.Spread("Hasaya", "Attack").Lines, sheet.Spread("Hasaya", "Attack", "Hasaya", "Attack").Lines);
+    }
+
+    [Fact]
+    public void A_heal_of_A_pairs_with_another_heal_of_B()
+    {
+        var a = Run(60, Lines.Hit(10, "Hasaya", 100), Lines.Heal(12, "Mage", 300), Lines.Heal(13, "Mage", 500));
+        var b = Run(60, Lines.Hit(10, "Hasaya", 100), Lines.Heal(12, "Mage", 900, action: "Cure V"));
+        var sheet = Sheet(a, b);
+
+        var s = sheet.HealSpread("Mage", "Cure IV", "Mage", "Cure V");
+        Assert.Equal((2, 1, 400d, 900d), (s.HitsA, s.HitsB, s.AvgA, s.AvgB));
+        var line = sheet.CrossHeal("Mage", "Cure IV", "Mage", "Cure V");
+        Assert.Equal(("Cure IV", new AB("2", "1"), new AB("800", "900")), (line.Name, line.Casts, line.Total));
+    }
+
+    [Fact]
+    public void Two_actions_of_one_session_are_set_side_by_side_as_two_runs_are()
+    {
+        var t = new Tracker();
+        t.Follow("Hasaya_2026.07.30.jsonl");
+        t.Start(0);
+        t.Feed([Lines.Hit(10, "Hasaya", 100), Lines.Hit(11, "Hasaya", 0, hit: false), Lines.Hit(12, "Hasaya", 300),
+                Lines.Hit(13, "Hasaya", 1000, kind: "ws", action: "Tachi: Fudo")]);
+        var c = t.Count(Nobody, true, 30_000);
+        var s = CompareSheet.Sides(Counting.Distribution(c.Events, "Hasaya", "Attack"),
+                                   Counting.Distribution(c.Events, "Hasaya", "Tachi: Fudo"), healing: false);
+
+        Assert.Equal((2, 1, 200d, 1000d), (s.HitsA, s.HitsB, s.AvgA, s.AvgB));
+        Assert.Equal(["Hits", "Accuracy", "Min", "Median", "Average", "90th pct", "Max", "Std dev"], s.Lines.Select(x => x.Label));
+        Assert.Equal(("66.7%", "100.0%", "+33.3 pt"), (s.Lines[1].A, s.Lines[1].B, s.Lines[1].Change.Main));
+        Assert.EndsWith("a column is its share of that action’s hits", s.Caption);
+
+        // An action nobody swung on what is isolated is dashes, not zeroes.
+        var none = CompareSheet.Sides(Counting.Distribution(c.Events, "Hasaya", "Attack"),
+                                      Counting.Distribution(c.Events, "Hasaya", "Tachi: Kasha"), healing: false);
+        Assert.Equal(("2", "—"), (none.Lines[0].A, none.Lines[0].B));
+        Assert.Null(none.AvgB);
+    }
+
+    [Fact]
     public void The_crit_rate_is_there_once_either_run_has_a_crit()
     {
         var a = Run(30, Lines.Hit(10, "Hasaya", 100), Lines.Hit(11, "Hasaya", 200, crit: true));

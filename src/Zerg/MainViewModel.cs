@@ -46,8 +46,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>What one parse was being looked into with: its two
     /// drill-downs and the targets and types isolated in it.</summary>
-    sealed record Looking((string Actor, string Action)? Drill, (string Actor, string Action)? HealDrill,
-                          string[] Targets, string[] Types);
+    sealed record Looking(DrillOn? Drill, DrillOn? HealDrill, string[] Targets, string[] Types);
 
     /// <summary>
     /// What each parse that is not on screen was left being looked into
@@ -196,8 +195,10 @@ public sealed partial class MainViewModel : ObservableObject
         MakeSavers();
         excluded = new HashSet<string>(settings.Excluded, StringComparer.Ordinal);
         Panels = new PanelSet(settings);
-        DamageDrill = new DrillView(DrillWords.Damage, Panels["actions"], CloseDrillCommand);
-        HealingDrill = new DrillView(DrillWords.Healing, Panels["hactions"], CloseHealDrillCommand);
+        DamageDrill = new DrillView(DrillWords.Damage, Panels["actions"], CloseDrillCommand, SwapDrillCommand,
+                                    MakeDamagePick());
+        HealingDrill = new DrillView(DrillWords.Healing, Panels["hactions"], CloseHealDrillCommand, SwapHealDrillCommand,
+                                     MakeHealPick());
         Panels.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(PanelSet.OutCount) or nameof(PanelSet.ClickThrough))
@@ -456,10 +457,6 @@ public sealed partial class MainViewModel : ObservableObject
 
     // -------------------------------------------------------------- filters
 
-    /// <summary>A drill-down open on a skillchain.</summary>
-    static bool IsChain((string Actor, string Action)? on) =>
-        on is { } d && d.Action.StartsWith("Skillchain:", StringComparison.Ordinal);
-
     partial void OnSkillchainsChanged(bool value)
     {
         settings.Skillchains = value;
@@ -468,9 +465,9 @@ public sealed partial class MainViewModel : ObservableObject
         // chains are out, so it closes rather than sitting there empty.
         if (!value)
         {
-            if (IsChain(drill)) drill = null;
+            drill = WithoutChains(drill);
             foreach (var (tracker, l) in looking.ToList())
-                if (IsChain(l.Drill)) looking[tracker] = l with { Drill = null };
+                looking[tracker] = l with { Drill = WithoutChains(l.Drill) };
         }
         Recount();
         Compare.SharedChanged();
@@ -564,10 +561,9 @@ public sealed partial class MainViewModel : ObservableObject
         var c = snapshot = Shown.Count(excluded, Skillchains, now, TargetFilter.Only, TypeFilter.Only);
         if (c.Latched) LogSession("started");
         // A drill-down into an action never used on what is isolated closes,
-        // as it does when its character is left out.
-        if ((c.Isolated.Count > 0 || c.IsolatedTypes.Count > 0) && drill is { } on &&
-            !c.Totals.Actors.Any(a => a.Name == on.Actor && a.Actions.ContainsKey(on.Action)))
-            drill = null;
+        // as it does when its character is left out; one set beside it goes.
+        if (c.Isolated.Count > 0 || c.IsolatedTypes.Count > 0)
+            drill = Still(drill, (actor, action) => c.Totals.Actors.Any(a => a.Name == actor && a.Actions.ContainsKey(action)));
         View = SessionView.Of(Shown.Session, Viewing, live.Asking);
         DescribeParse();
         Compare.SessionChanged(live.Session.StartedAt != null);
