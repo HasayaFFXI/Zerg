@@ -22,8 +22,8 @@ public sealed record Placement(int X, int Y, int Width, int Height, bool Maximiz
 /// </summary>
 public sealed class Settings
 {
-    /// <summary>"System" (follow Windows), "Light" or "Dark".</summary>
-    public string Theme { get; set; } = "System";
+    /// <summary>"Dark", as installed; "Light", or "System" (follow Windows).</summary>
+    public string Theme { get; set; } = "Dark";
 
     /// <summary>The section on screen: "Damage", "Healing", "View" or "Compare".</summary>
     public string Section { get; set; } = "Damage";
@@ -151,13 +151,13 @@ public sealed class Settings
     public Dictionary<string, JsonElement>? Unknown { get; set; }
 
     /// <summary><see cref="Theme"/> as the choice it names; anything else is
-    /// "follow Windows". Not saved: computed.</summary>
+    /// dark, as installed. Not saved: computed.</summary>
     [JsonIgnore]
     internal ThemeChoice ThemeChoice => Theme switch
     {
         "Light" => ThemeChoice.Light,
-        "Dark" => ThemeChoice.Dark,
-        _ => ThemeChoice.System,
+        "System" => ThemeChoice.System,
+        _ => ThemeChoice.Dark,
     };
 
     // ---------------------------------------------------------------- file

@@ -11,6 +11,9 @@ takes its number when the version is cut.
   (`LICENSE`). The zip and the installer carry it as
   `LICENSE.txt` beside `Zerg.exe` and `README.txt`, and setup shows it on a
   page of its own, to read before going on (nothing to accept).
+- Zerg starts dark unless told otherwise: the installed theme is Dark, not
+  System. A settings file that already names a theme keeps it; one with no
+  theme, or a theme Zerg doesn't know, gets Dark.
 
 ## 1.0.0 — 2026-10-18
 

@@ -30,7 +30,7 @@ enum ThemeChoice { System, Light, Dark }
 /// </summary>
 static class AppTheme
 {
-    static ThemeChoice mode = ThemeChoice.System;
+    static ThemeChoice mode = ThemeChoice.Dark;
     static ResourceDictionary? colours;
     static bool watching;
 
