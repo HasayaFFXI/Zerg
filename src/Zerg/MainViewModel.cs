@@ -564,7 +564,7 @@ public sealed partial class MainViewModel : ObservableObject
         // as it does when its character is left out; one set beside it goes.
         if (c.Isolated.Count > 0 || c.IsolatedTypes.Count > 0)
             drill = Still(drill, (actor, action) => c.Totals.Actors.Any(a => a.Name == actor && a.Actions.ContainsKey(action)));
-        View = SessionView.Of(Shown.Session, Viewing, live.Asking);
+        View = SessionView.Of(Shown.Session, Viewing, live.Asking, replay: Viewing && Shown.Replayed);
         DescribeParse();
         Compare.SessionChanged(live.Session.StartedAt != null);
 
@@ -617,9 +617,10 @@ public sealed partial class MainViewModel : ObservableObject
         Tag = View.Tag;
         ClockText = SessionText.Stopwatch(s, now);
         ClockNote = SessionText.ClockNote(s);
-        TotalNote = totalShare + SessionText.TotalNote(s, agg is { Actors.Count: > 0 }, Viewing);
+        bool replay = Viewing && Shown.Replayed;
+        TotalNote = totalShare + SessionText.TotalNote(s, agg is { Actors.Count: > 0 }, Viewing, replay: replay);
         var heals = snapshot?.Healing;
-        HealTotalNote = SessionText.TotalNote(s, heals is { Actors.Count: > 0 }, Viewing, what: "healing");
+        HealTotalNote = SessionText.TotalNote(s, heals is { Actors.Count: > 0 }, Viewing, what: "healing", replay: replay);
 
         if (damage)
         {
@@ -661,7 +662,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             int rows = viewed!.Tracker.Reader.Events.Count;
             StatusLight = StatusLight.Held;
-            StatusFile = "viewing" + Dot + viewed.File;
+            StatusFile = (viewed.IsReplay ? "replaying" : "viewing") + Dot + viewed.File;
             StatusDetail = Format.Int(rows) + " event" + (rows == 1 ? "" : "s") + Dot +
                            SessionText.Status(viewed.Tracker.Session, imported: true);
             return;

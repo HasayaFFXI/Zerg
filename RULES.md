@@ -429,6 +429,40 @@ filter does, and credits a pet's heal to its owner.
   reached, pet heals under the pet's name. A parse with no heal lines is
   dashes; one that has them and never cast the heal cast it 0 times.
 
+## Replay
+
+An addon event file read whole, cropped to a range and exported (`Replay`,
+`Tracker.Replaying`).
+
+- **Every line goes through `EventReader.Feed`**, as a polled line does,
+  into one reader. A replay is not a second way of reading the file.
+- **A replay is an import**: it lives in a View tab, is read only (no Start,
+  no Pause, no new lines) and takes nothing from the live session. The one
+  difference is its clock, which is the range picked over it.
+- **A range is measured as Start and Pause would have measured it**
+  (`Replay.Crop`): armed at its start, floored to the second as arming is;
+  its zero the first party row from there; paused at its end, raised to the
+  second, and snapped back to the last party row before it
+  (`Session.Snap`). Dragging a handle into a quiet stretch moves no clock.
+- **Asked without the viewer's switches.** The zero, the end and the bars
+  are of every party row, excluded characters and skillchains
+  included, as a paused session's end is. The range is picked over rows
+  already read; a zero that moved with each chip would re-date the parse,
+  and an export carries no filters to work it out from again.
+- **One range, one clock.** From its zero to its end, the quiet stretches
+  inside it included, as a session left running through them would have it.
+  The file is not cut into fights for the player: where one begins and ends
+  is the player's to say, with the handles.
+- **A file with no party damage cannot be replayed**: nothing to measure, so
+  it is refused, not opened empty. A range with no party row in
+  it counts nothing and cannot be exported.
+- **The file is read once.** The live file can be replayed too: what it held
+  when it was read, up to its last whole line. Closing the tab and opening
+  it again reads it again.
+- **An export of a range is an ordinary parse**, made by `Tracker.Export`
+  like any other: only the rows the range covers, the roster, and the range
+  as a paused session.
+
 ## Two actions side by side
 
 - **A pair is two sides, each a character and an action** (in Compare,

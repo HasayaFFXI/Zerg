@@ -130,9 +130,9 @@
       <Setter Property="Tracking" Value="0.8"/>
     </Style>
     <!-- The state tag beside the clock (Views/StateTag draws it): the word
-         LIVE, ARMED, HELD, IDLE or SAVED in the state's own colour, on a
+         LIVE, ARMED, HELD, IDLE, SAVED or REPLAY in the state's own colour, on a
          pill of that colour at 12% with an edge at 45% (the Tag* brushes).
-         Green is counting; amber is armed or held; idle and a saved parse
+         Green is counting; amber is armed, held or a replay; idle and a saved parse
          are the colour of a label. An element of a class of its own finds
          no style by its type: whoever uses one names this. -->
     <Style x:Key="StateTag" TargetType="v:StateTag">
@@ -156,6 +156,11 @@
           <Setter Property="Ink" Value="{DynamicResource AccentBrush}"/>
         </Trigger>
         <Trigger Property="State" Value="Held">
+          <Setter Property="Fill" Value="{DynamicResource TagHeldFillBrush}"/>
+          <Setter Property="Edge" Value="{DynamicResource TagHeldEdgeBrush}"/>
+          <Setter Property="Ink" Value="{DynamicResource AccentBrush}"/>
+        </Trigger>
+        <Trigger Property="State" Value="Replay">
           <Setter Property="Fill" Value="{DynamicResource TagHeldFillBrush}"/>
           <Setter Property="Edge" Value="{DynamicResource TagHeldEdgeBrush}"/>
           <Setter Property="Ink" Value="{DynamicResource AccentBrush}"/>

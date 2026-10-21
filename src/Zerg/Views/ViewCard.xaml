@@ -34,6 +34,19 @@
       <Setter Property="FontSize" Value="11"/>
     </Style>
 
+    <!-- REPLAY, beside a replayed file's name: the state tag's look, amber. -->
+    <Style x:Key="ReplayTag" TargetType="Border">
+      <Setter Property="Height" Value="17"/>
+      <Setter Property="Padding" Value="6,0"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Background" Value="{DynamicResource TagHeldFillBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource TagHeldEdgeBrush}"/>
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="TextElement.FontSize" Value="9.5"/>
+      <Setter Property="TextElement.FontWeight" Value="Bold"/>
+    </Style>
     <!-- Why the last file would not open: red, behind a warning. Not there
          with nothing to say. Whatever was open is still open. -->
     <Style x:Key="Refusal" TargetType="DockPanel">
@@ -54,7 +67,7 @@
             Padding="16,11,16,31" Visibility="{Binding HasParse, Converter={StaticResource Hidden}}">
       <StackPanel>
         <TextBlock Text="View a parse" Style="{StaticResource SlotTitle}"/>
-        <TextBlock Text="Open or drop a parse exported from Zerg to look through its damage and its healing. The session goes on being measured underneath, and Damage and Healing return to it."
+        <TextBlock Text="Open or drop a parse exported from Zerg to look through its damage and its healing, or an addon event file to replay it, crop it to the stretch wanted and export that. The session goes on being measured underneath, and Damage and Healing return to it."
                    Style="{StaticResource Label}" TextWrapping="Wrap" Margin="0,4,0,0"/>
         <!-- An outline of where a parse goes: dashed, and whole and amber
              while a file is held over the band. Never wider than the
@@ -79,11 +92,15 @@
             </Rectangle.Style>
           </Rectangle>
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-            <TextBlock Text="Drop an exported parse here, or open one" Style="{StaticResource Label}" FontSize="12"
+            <TextBlock Text="Drop a parse (.zerg) or an event file (.jsonl) here" Style="{StaticResource Label}" FontSize="12"
                        HorizontalAlignment="Center"/>
-            <Button Content="Open…" Command="{Binding OpenParseCommand}" Style="{StaticResource FilledButton}" Height="24"
-                    ToolTip="Open an exported parse" HorizontalAlignment="Center" Margin="0,9,0,0"
-                    AutomationProperties.Name="Open a parse to view"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,9,0,0">
+              <Button Content="Open…" Command="{Binding OpenParseCommand}" Style="{StaticResource FilledButton}" Height="24"
+                      ToolTip="Open an exported parse" AutomationProperties.Name="Open a parse to view"/>
+              <Button Content="Replay…" Command="{Binding BrowseReplayCommand}" Height="24" Margin="8,0,0,0"
+                      ToolTip="Read an addon event file into a tab of its own, to crop it to the stretch wanted and export that"
+                      AutomationProperties.Name="Replay an event file"/>
+            </StackPanel>
           </StackPanel>
         </Grid>
         <DockPanel Style="{StaticResource Refusal}" Margin="0,10,0,0">
@@ -101,8 +118,8 @@
          An amber edge at the left says this band is not the session. In a
          window too narrow for the line, it wraps group by group and the
          band grows. -->
-    <Grid Background="{DynamicResource Bg2Brush}" MinHeight="{StaticResource ViewBandHeight}"
-          Visibility="{Binding HasParse, Converter={StaticResource Visible}}">
+    <StackPanel Visibility="{Binding HasParse, Converter={StaticResource Visible}}">
+    <Grid Background="{DynamicResource Bg2Brush}" MinHeight="{StaticResource ViewBandHeight}">
       <Rectangle Width="2" HorizontalAlignment="Left" Fill="{DynamicResource AccentBrush}"/>
       <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
       <DockPanel Margin="14,7,12,7">
@@ -116,9 +133,15 @@
         </StackPanel>
 
         <v:BarWrap>
-          <TextBlock Text="{Binding Viewed.Name}" ToolTip="{Binding Viewed.Tip}" Style="{StaticResource SlotTitle}"
-                     TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Background="Transparent" MaxWidth="360"
-                     Margin="0,0,18,0"/>
+          <StackPanel Orientation="Horizontal" Margin="0,0,18,0" MinHeight="24">
+            <TextBlock Text="{Binding Viewed.Name}" ToolTip="{Binding Viewed.Tip}" Style="{StaticResource SlotTitle}"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Background="Transparent" MaxWidth="360"/>
+            <!-- A replayed event file, not a saved parse. -->
+            <Border Style="{StaticResource ReplayTag}" Margin="10,0,0,0"
+                    Visibility="{Binding Viewed.IsReplay, Converter={StaticResource Visible}}">
+              <TextBlock Text="REPLAY"/>
+            </Border>
+          </StackPanel>
           <StackPanel Orientation="Horizontal" Margin="0,0,18,0"
                       ToolTip="Look through the damage of this parse, or its healing">
             <TextBlock Text="Show" Style="{StaticResource Fact}" Margin="0,0,8,0"/>
@@ -134,16 +157,22 @@
             </Border>
           </StackPanel>
           <StackPanel Orientation="Horizontal" MinHeight="24">
-            <TextBlock Text="Started" Style="{StaticResource Fact}"/>
+            <TextBlock Text="{Binding Viewed.StartedLabel}" Style="{StaticResource Fact}"/>
             <TextBlock Text="{Binding Viewed.Started}" Style="{StaticResource FactValue}"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal" MinHeight="24">
             <TextBlock Text="Length" Style="{StaticResource Fact}"/>
             <TextBlock Text="{Binding Viewed.Length}" Style="{StaticResource FactValue}"/>
           </StackPanel>
-          <StackPanel Orientation="Horizontal" MinHeight="24">
+          <StackPanel Orientation="Horizontal" MinHeight="24"
+                      Visibility="{Binding Viewed.IsReplay, Converter={StaticResource Hidden}}">
             <TextBlock Text="Party" Style="{StaticResource Fact}"/>
             <TextBlock Text="{Binding Viewed.Party}" Style="{StaticResource FactValue}"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" MinHeight="24"
+                      Visibility="{Binding Viewed.IsReplay, Converter={StaticResource Visible}}">
+            <TextBlock Text="Lines" Style="{StaticResource Fact}"/>
+            <TextBlock Text="{Binding Viewed.Lines}" Style="{StaticResource FactValue}"/>
           </StackPanel>
           <!-- What of the file was not understood, when anything was not. -->
           <TextBlock Text="{Binding Viewed.Skipped}" Style="{StaticResource Quiet}" Margin="0,0,16,0"/>
@@ -157,5 +186,9 @@
         </v:BarWrap>
       </DockPanel>
     </Grid>
+    <!-- A replay's range: what the figures and panes below are measured over. -->
+    <v:RangeBand DataContext="{Binding Viewed.Range}"
+                 Visibility="{Binding DataContext.Viewed.IsReplay, RelativeSource={RelativeSource AncestorType=v:ViewCard}, Converter={StaticResource Visible}}"/>
+    </StackPanel>
   </Grid>
 </UserControl>

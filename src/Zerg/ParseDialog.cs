@@ -69,11 +69,31 @@ static class ParseDialog
         return dialog.ShowDialog(owner) == true ? dialog.FileName : null;
     }
 
+    /// <summary>An addon event file the player picked to replay, starting in
+    /// <paramref name="folder"/>, the one being followed; null if they cancelled.</summary>
+    public static string? OpenEvents(Window owner, string folder)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Replay an event file",
+            Filter = "Addon event files (*.jsonl)|*.jsonl|All files (*.*)|*.*",
+            CheckFileExists = true,
+        };
+        if (Directory.Exists(folder)) dialog.InitialDirectory = folder;
+        return dialog.ShowDialog(owner) == true ? dialog.FileName : null;
+    }
+
     /// <summary>A file, to be read.</summary>
     public static ParseText Read(string path) => new(Path.GetFileName(path), path);
 
-    /// <summary>A parse's name without the extension it was saved under.</summary>
+    /// <summary>Whether a file is to be replayed rather than opened: the
+    /// addon's own files are <c>.jsonl</c>, and a parse never is
+    /// (<see cref="Zerg.Core.ParseFile.CanSaveAs"/>).</summary>
+    public static bool IsEventFile(string? path) => path?.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>A parse's name without the extension it was saved under; an
+    /// event file's without its own.</summary>
     public static string Title(string fileName) => Extension.Replace(fileName, "");
 
-    static readonly Regex Extension = new(@"\.zerg$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    static readonly Regex Extension = new(@"\.(zerg|jsonl)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 }

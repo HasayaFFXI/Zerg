@@ -163,6 +163,33 @@ public sealed class Tracker
     {
         Imported = true, File = parse.File, Reader = parse.Source, Session = parse.Session,
     };
+
+    /// <summary>A replayed event file is an import too, read only, with
+    /// one difference: its clock is the range picked over it, and is given
+    /// again each time the range moves (<see cref="Crop"/>). Empty, counting
+    /// nothing, until the file has been read (<see cref="Load"/>).</summary>
+    public bool Replayed { get; private init; }
+
+    /// <summary>A replay's tracker, before its file has been read.</summary>
+    public static Tracker Replaying(string file) => new() { Imported = true, Replayed = true, File = file };
+
+    /// <summary>The replay's file, read, measured over <paramref name="range"/>.</summary>
+    public void Load(Replay replay, Session? range)
+    {
+        if (!Replayed) return;
+        Reader = replay.Reader;
+        Crop(range);
+    }
+
+    /// <summary>
+    /// A replay measured over another range (<see cref="Replay.Crop"/>), or
+    /// over nothing with none (a range no party row falls in). A new session
+    /// object, so every row kept between counts is read again against it.
+    /// </summary>
+    public void Crop(Session? range)
+    {
+        if (Replayed) Session = range ?? Session.Idle();
+    }
     public EventReader Reader { get; private set; } = new();
     public Session Session { get; private set; } = Session.Idle();
     public Cast Cast { get; private set; } = new();

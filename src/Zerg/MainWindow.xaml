@@ -202,12 +202,18 @@
          as not. Cut short with an ellipsis when the tabs run out of room
          (v:TabStrip); the tab's tooltip has it whole. -->
     <DataTemplate x:Key="ParseTabLabel">
-      <Grid>
-        <v:Room Text="{Binding Name}" FontFamily="{StaticResource MonoFont}" FontSize="12" FontWeight="SemiBold"
-                TextTrimming="CharacterEllipsis"/>
-        <TextBlock Text="{Binding Name}" FontFamily="{StaticResource MonoFont}" FontSize="12"
-                   TextTrimming="CharacterEllipsis"/>
-      </Grid>
+      <DockPanel>
+        <!-- A replayed event file's tab leads with a play mark. -->
+        <Path DockPanel.Dock="Left" Data="M0.5,0 L7.5,4.5 L0.5,9 Z" Width="8" Height="9" StrokeThickness="1.2"
+              StrokeLineJoin="Round" Stroke="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,7,0"
+              Visibility="{Binding IsReplay, Converter={StaticResource Visible}}"/>
+        <Grid>
+          <v:Room Text="{Binding Name}" FontFamily="{StaticResource MonoFont}" FontSize="12" FontWeight="SemiBold"
+                  TextTrimming="CharacterEllipsis"/>
+          <TextBlock Text="{Binding Name}" FontFamily="{StaticResource MonoFont}" FontSize="12"
+                     TextTrimming="CharacterEllipsis"/>
+        </Grid>
+      </DockPanel>
     </DataTemplate>
 
     <!-- A section's panes (v:SplitPanel): on the pane surface, which shows
@@ -464,6 +470,20 @@
                     ToolTip="Open a parse exported from Zerg in a tab of its own, to look through its damage and its healing. The session goes on being measured underneath"
                     Style="{StaticResource GhostButton}" VerticalAlignment="Center"
                     AutomationProperties.Name="Import"/>
+            <!-- An addon event file read whole into a tab of its own, to be
+                 cropped and exported: a press opens the newest files in
+                 the events folder, and Browse for any other (OnReplay). -->
+            <Button x:Name="ReplayButton" Click="OnReplay" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
+                    Margin="6,0,0,0" Padding="12,0,10,0" ContextMenuService.IsEnabled="False"
+                    ToolTip="Read an addon event file into a tab of its own, crop it to the stretch wanted and export that as a parse. The session goes on being measured underneath"
+                    AutomationProperties.Name="Replay">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Replay" VerticalAlignment="Center"/>
+                <Path Data="M0,0 L3.5,3.5 L7,0" Width="7" Height="4" StrokeThickness="1.2" Margin="7,1,0,0"
+                      VerticalAlignment="Center"
+                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+              </StackPanel>
+            </Button>
           </StackPanel>
 
           <Border Style="{StaticResource GroupRule}" Height="20" Margin="12,0,11,6" v:BarWrap.Rule="True"/>

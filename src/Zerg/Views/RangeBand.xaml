@@ -1,0 +1,94 @@
+<UserControl x:Class="Zerg.Views.RangeBand"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:Zerg.Views"
+             xmlns:c="clr-namespace:Zerg.Charts">
+  <UserControl.Resources>
+    <Style x:Key="Fact" TargetType="TextBlock" BasedOn="{StaticResource Label}">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="14,0,6,0"/>
+    </Style>
+    <Style x:Key="FactValue" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
+    </Style>
+    <Style x:Key="BandButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <!-- A handle's time, typed: the time of day, set on Enter or on leaving the box. -->
+    <Style x:Key="TimeBox" TargetType="TextBox" BasedOn="{StaticResource ZTextBox}">
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="Width" Value="76"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+  </UserControl.Resources>
+
+  <Border Background="{DynamicResource Bg1Brush}" BorderBrush="{DynamicResource Line2Brush}" BorderThickness="0,0,0,1"
+          Padding="16,9,16,8">
+    <Grid>
+      <!-- While the file is read: how far it has got, and the way to call it off. -->
+      <StackPanel Visibility="{Binding Reading, Converter={StaticResource Visible}}" Margin="0,2,0,4">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Style="{StaticResource BandButton}" Content="Cancel" Command="{Binding StopCommand}"
+                  ToolTip="Stop reading the file and close its tab" AutomationProperties.Name="Stop replaying"/>
+          <TextBlock Text="{Binding ReadText}" Style="{StaticResource Label}" FontSize="11.5" VerticalAlignment="Center"
+                     AutomationProperties.LiveSetting="Polite"/>
+        </DockPanel>
+        <Grid Height="6" Margin="0,8,0,0" ClipToBounds="True">
+          <Border Background="{DynamicResource Bg4Brush}" CornerRadius="3"/>
+          <Border Background="{DynamicResource AccentBrush}" CornerRadius="3" RenderTransformOrigin="0,0.5">
+            <Border.RenderTransform>
+              <ScaleTransform ScaleX="{Binding Progress}"/>
+            </Border.RenderTransform>
+          </Border>
+        </Grid>
+      </StackPanel>
+
+      <StackPanel Visibility="{Binding Reading, Converter={StaticResource Hidden}}">
+        <!-- The range in words, the switch, and what to do with it. -->
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button Style="{StaticResource BandButton}" Content="Whole file" Command="{Binding WholeCommand}"
+                    ToolTip="Take every line of the file" Margin="0,0,7,0"/>
+            <!-- The command bar's Export, which on a replay saves the range. -->
+            <Button Content="Export range…" Style="{StaticResource FilledButton}" Height="26" Padding="14,0"
+                    Command="{Binding DataContext.ExportCommand, RelativeSource={RelativeSource AncestorType=v:ViewCard}}"
+                    ToolTip="{Binding DataContext.ExportTip, RelativeSource={RelativeSource AncestorType=v:ViewCard}}"
+                    ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Export range"/>
+          </StackPanel>
+          <v:BarWrap>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+              <v:Caps Text="Range" Style="{StaticResource Caps}" Width="50"/>
+              <TextBlock Text="From" Style="{StaticResource Fact}" Margin="0,0,6,0"/>
+              <TextBox x:Name="FromBox" Style="{StaticResource TimeBox}"
+                       Text="{Binding FromText, Mode=TwoWay, UpdateSourceTrigger=Explicit}"
+                       KeyDown="OnTimeKey" LostKeyboardFocus="OnTimeLeft"
+                       ToolTip="When the range begins, as a time of day. The clock starts on the first party row from here"
+                       AutomationProperties.Name="Range from"/>
+              <TextBlock Text="to" Style="{StaticResource Fact}" Margin="8,0,8,0"/>
+              <TextBox x:Name="ToBox" Style="{StaticResource TimeBox}"
+                       Text="{Binding ToText, Mode=TwoWay, UpdateSourceTrigger=Explicit}"
+                       KeyDown="OnTimeKey" LostKeyboardFocus="OnTimeLeft"
+                       ToolTip="When the range ends, as a time of day. The clock ends at the last party row before it"
+                       AutomationProperties.Name="Range to"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4" MinHeight="24">
+              <TextBlock Text="Length" Style="{StaticResource Fact}"/>
+              <TextBlock Text="{Binding LengthText}" Style="{StaticResource FactValue}" Margin="0,0,16,0"/>
+            </StackPanel>
+          </v:BarWrap>
+        </DockPanel>
+
+        <c:RangeStrip Range="{Binding}" Margin="0,8,0,0" FocusVisualStyle="{x:Null}"
+                      AutomationProperties.Name="Range of the file"
+                      ToolTip="The party's damage over the whole file. Drag a handle, or the range between them; press elsewhere to start a new range. Left and Right move a handle a second, ten with Shift; Up and Down change handles"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

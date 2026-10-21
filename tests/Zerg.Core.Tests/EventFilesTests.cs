@@ -4,6 +4,45 @@ namespace Zerg.Core.Tests;
 
 public class EventFilesTests
 {
+    // ------------------------------------------------- reading one whole
+
+    [Fact]
+    public void ReadAll_reads_whole_lines_and_leaves_a_half_written_one()
+    {
+        using var t = new TempDir();
+        var path = t.Write("A-20260101000000.jsonl", "one\r\ntwo\n\nthree {\"half\":");
+        // Held open for writing, as the addon holds it.
+        using var writer = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+        Assert.Equal(["one", "two", ""], EventFiles.ReadAll(path));
+        Assert.Empty(EventFiles.ReadAll(t.Write("B.jsonl", "no break")));
+    }
+
+    [Fact]
+    public void Times_are_read_off_the_first_and_last_records_with_a_time()
+    {
+        using var t = new TempDir();
+        var path = t.Write("A.jsonl", "{\"kind\":\"meta\",\"t\":100}\n" + "not json\n" +
+                                      "{\"t\":105,\"kind\":\"melee\",\"actor\":\"A\"}\n" +
+                                      "{\"t\":230,\"kind\":\"melee\",\"actor\":\"A\"}\n" + "{\"t\":231,\"ki");
+        Assert.Equal((100d, 230d), EventFiles.Times(path));
+        Assert.Equal((null, null), EventFiles.Times(t.Write("B.jsonl", "")));
+        Assert.Equal((null, null), EventFiles.Times(Path.Combine(t.Dir, "gone.jsonl")));
+    }
+
+    [Fact]
+    public void Recent_lists_event_files_newest_first()
+    {
+        using var t = new TempDir();
+        var a = t.Write("A.jsonl", "a\n");
+        var b = t.Write("B.jsonl", "b\n");
+        t.Write("C.txt", "c\n");
+        File.SetLastWriteTimeUtc(a, new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(b, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        Assert.Equal(["A.jsonl", "B.jsonl"], EventFiles.Recent(t.Dir, 5).Select(f => f.Name));
+        Assert.Equal(["A.jsonl"], EventFiles.Recent(t.Dir, 1).Select(f => f.Name));
+        Assert.Empty(EventFiles.Recent(Path.Combine(t.Dir, "none"), 5));
+    }
+
     // ------------------------------------------------------------- Newest
 
     [Fact]

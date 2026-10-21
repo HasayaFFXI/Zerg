@@ -158,6 +158,7 @@ src/Zerg.Core/          net10.0, no UI: everything testable
   Tracker                              the live session (or an opened parse: Tracker.Of);
                                        Count() is the whole pipeline in one call
   ParseFile                            .zerg export / import
+  Replay                               an event file read whole: its bars, a range's session
   Format                               numbers and clocks: one rounding rule, US grouping
   LenientJson                          settings.json read so one bad value costs only itself
   Charts/                              where a chart puts things, no drawing
@@ -168,11 +169,14 @@ src/Zerg.Core/          net10.0, no UI: everything testable
 src/Zerg/               net10.0-windows WPF exe
   App.xaml(.cs)         fonts, measures, type styles; startup, single instance, crash dialog
   MainWindow            title bar, command bar, bands, the page, status line; tray, hot key
-  MainViewModel(.Damage/.Healing/.Layout/.Parse/.Settings/.Pairs)   one partial per concern
-                        (.Pairs: a drill-down's second action, B, set beside it)
+  MainViewModel(.Damage/.Healing/.Layout/.Parse/.Settings/.Pairs/.Replay)   one partial per concern
+                        (.Pairs: a drill-down's second action, B, set beside it;
+                        .Replay: an event file read into a View tab, cropped)
   CompareViewModel      the Compare section
   PickFilter            target / type filters and their tables
   PairPick              what one side of a pair is set to (Views/PairPicker draws it)
+  ReplayRange, ReplayMenu   a replay tab's range (Views/RangeBand, Charts/RangeStrip);
+                        the command bar's Replay menu
   Rows, DrillView, ViewedParse, Panels, PanelWindow, TrayMenu, EventFeed, Settings,
   AppTheme, Inks, Debouncer, Log
   Views/                one UserControl per card, plus the panels Zerg lays out with
@@ -216,7 +220,10 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   (including View showing that side). View has a tab per opened parse
   (`ViewedParse`, its own read-only `Tracker`); `live` is always fed, `Shown` is
   what's drawn. Each parse and the session keep their own drill-downs and
-  filters (`looking`).
+  filters (`looking`). A replay is a View tab too (`ViewedParse.Range`):
+  `Tracker.Replaying`, filled once the file is read off the UI thread
+  (`Load`), its session given again on each move of the range (`Crop`,
+  from `Replay.Crop`); a `.jsonl` opened or dropped there is replayed.
 - **Panes.** Each section's cards are `Views/Pane`s in a `Views/SplitPanel`,
   placed by a tree of splits (`Zerg.Core/Layout/SplitTree`, installed trees in
   `PaneLayouts`). Edits (drag a rule, fold, carry a pane by its heading) are
@@ -425,10 +432,11 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
 
 ## Status and what's next
 
-- **Current: 1.1.0** (2026-10-18): two different actions compared side by
-  side, live and in Compare. 1.0.0 was the first version for distribution,
-  with an installer (`Zerg-<version>-setup.exe`) beside the zip. `dist/Zerg`
-  is 1.1.0.
+- **Current: 1.2.0** (2026-10-21): Replay, an addon event file read whole
+  into a View tab, cropped to a range and exported as a parse. 1.1.0 compared
+  two different actions side by side; 1.0.0 was the first version for
+  distribution, with an installer (`Zerg-<version>-setup.exe`) beside the zip.
+  `dist/Zerg` is 1.1.0.
 - **Packaging** works (`tools/package.py`: zip and installer). The installer is
   per user (`%LOCALAPPDATA%\Programs\Zerg`, HKCU uninstall entry), ticks the
   desktop shortcut and the `.zerg` association by default, and its finish page

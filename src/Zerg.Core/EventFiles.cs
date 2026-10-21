@@ -42,6 +42,68 @@ public static class EventFiles
         return best;
     }
 
+    /// <summary>The *.jsonl files in <paramref name="directory"/>, newest first,
+    /// at most <paramref name="count"/>; none when it cannot be listed.</summary>
+    public static IReadOnlyList<FileInfo> Recent(string directory, int count)
+    {
+        try
+        {
+            return [.. new DirectoryInfo(directory).EnumerateFiles()
+                       .Where(f => f.Name.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase))
+                       .OrderByDescending(f => f.LastWriteTimeUtc)
+                       .Take(count)];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// The whole of an event file as lines, read while the addon may still be
+    /// writing it: shared as a poll shares it, and up to the last line break,
+    /// so a line half written is left out as a poll would leave it.
+    /// </summary>
+    public static IReadOnlyList<string> ReadAll(string path)
+    {
+        using var fs = OpenShared(path);
+        using var text = new StreamReader(fs, Encoding.UTF8);
+        var all = text.ReadToEnd();
+        int last = all.LastIndexOf('\n');
+        if (last < 0) return [];
+        var lines = all[..(last + 1)].Replace("\r\n", "\n").Split('\n').ToList();
+        if (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
+        return lines;
+    }
+
+    /// <summary>
+    /// When an event file's records begin and end, in Unix seconds, from its
+    /// first and its last few kilobytes alone: what a list of files says about
+    /// each without reading it. Null for either end with no time in reach.
+    /// </summary>
+    public static (double? First, double? Last) Times(string path)
+    {
+        const int Reach = 16 * 1024;
+        try
+        {
+            using var fs = OpenShared(path);
+            var head = new byte[(int)Math.Min(Reach, fs.Length)];
+            fs.ReadExactly(head);
+            fs.Position = Math.Max(0, fs.Length - Reach);
+            var tail = new byte[(int)(fs.Length - fs.Position)];
+            fs.ReadExactly(tail);
+            static IEnumerable<double> Stamps(IEnumerable<string> lines) =>
+                lines.Select(EventRecord.Parse).Where(r => r is { Malformed: false, T: not null }).Select(r => r!.T!.Value);
+            var first = Stamps(Encoding.UTF8.GetString(head).Split('\n')).Cast<double?>().FirstOrDefault();
+            var last = Stamps(Encoding.UTF8.GetString(tail).Split('\n').Reverse()).Cast<double?>().FirstOrDefault();
+            return (first, last);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return (null, null);
+        }
+    }
+
     /// <summary>
     /// Opens for reading while sharing Read, Write AND Delete. The addon appends
     /// to this file from inside the game process, on the game's thread, and must

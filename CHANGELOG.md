@@ -7,6 +7,21 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 1.2.0 — 2026-10-21
+
+- Replay: an addon event file can be read whole into a View tab of its
+  own, cropped to the stretch wanted and exported as an ordinary parse.
+  Replay on the command bar lists the newest files in the events folder
+  (whose, when, how long, how big) and Browse for any other; Replay on the
+  empty View section, or a `.jsonl` dropped or opened there, does the same.
+  The tab is marked with a play sign and its clock tag reads REPLAY. Under
+  its band a range band shows the party's damage over the whole file, with
+  two handles to drag (or the times typed, or Left and Right on the
+  keyboard), and Whole file to take all of it. Everything below counts
+  only the range, its clock started and ended as Start and Pause would
+  have. Export range… saves the range as a `.zerg`. A file with no party
+  damage is refused.
+
 ## 1.1.0 — 2026-10-18
 
 - Zerg is free software under the GNU General Public License, version 3

@@ -9,6 +9,9 @@ namespace Zerg;
 /// and which side of it the tab shows. Several can be open at once; the
 /// <see cref="MainViewModel"/> holds them in the order they were opened
 /// and says which one is picked.
+///
+/// <para>A replayed event file is one too, with a <see cref="Range"/>: its
+/// facts are said once the file has been read (<see cref="Loaded"/>).</para>
 /// </summary>
 public sealed partial class ViewedParse : ObservableObject
 {
@@ -27,6 +30,20 @@ public sealed partial class ViewedParse : ObservableObject
         this.pick = pick;
     }
 
+    /// <summary>An event file being replayed, before it has been read.</summary>
+    internal ViewedParse(Tracker tracker, string file, string? path, ReplayRange range, string mode,
+                         Action<ViewedParse> pick)
+    {
+        Tracker = tracker;
+        File = file;
+        Path = path;
+        Name = ParseDialog.Title(file);
+        Tip = "Replay of " + (path ?? file);
+        Range = range;
+        this.mode = mode;
+        this.pick = pick;
+    }
+
     /// <summary>The parse, counted as the session is.</summary>
     public Tracker Tracker { get; }
     /// <summary>The file it was opened from, by name.</summary>
@@ -38,10 +55,29 @@ public sealed partial class ViewedParse : ObservableObject
     public string Name { get; }
     /// <summary>The event file the parse was recorded from, where it says.</summary>
     public string Tip { get; }
-    public string Started { get; }
-    public string Length { get; }
-    public string Party { get; }
-    public string Skipped { get; }
+    /// <summary>A replay's range, and its band; null for an exported parse.</summary>
+    public ReplayRange? Range { get; }
+    public bool IsReplay => Range != null;
+    /// <summary>What the band calls when it was: a parse's start, or the
+    /// span a replayed file was recorded over.</summary>
+    public string StartedLabel => IsReplay ? "Recorded" : "Started";
+
+    [ObservableProperty] private string started = "";
+    [ObservableProperty] private string length = "";
+    [ObservableProperty] private string party = "";
+    [ObservableProperty] private string skipped = "";
+    /// <summary>A replay's lines, as its band says them.</summary>
+    [ObservableProperty] private string lines = "";
+
+    /// <summary>The replay's file has been read: what its band says of it.</summary>
+    internal void Loaded(Replay replay)
+    {
+        Started = Format.Day(replay.First) + " " + Format.Clock(replay.First) + " – " + Format.Clock(replay.Last);
+        Length = Format.Stopwatch(replay.Span);
+        Lines = Format.Int(replay.Lines);
+        int unreadable = replay.Reader.Unreadable;
+        Skipped = unreadable > 0 ? Format.Int(unreadable) + " unreadable line" + (unreadable == 1 ? "" : "s") + " skipped" : "";
+    }
 
     /// <summary>Which side of the parse the tab shows: "Damage" or
     /// "Healing". Each tab keeps its own.</summary>

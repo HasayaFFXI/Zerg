@@ -12,11 +12,11 @@ public enum SessionLight { Idle, Armed, Live, Held }
 
 /// <summary>
 /// The word in the state tag beside the clock: the session's state, or
-/// Saved over a parse that is only being looked at. A saved parse's light
-/// is Held (its clock is stopped for good), which is not what the tag says
-/// of it: nobody is holding it.
+/// Saved over a parse that is only being looked at, Replay over an event
+/// file replayed. A saved parse's light is Held (its clock is stopped for
+/// good), which is not what the tag says of it: nobody is holding it.
 /// </summary>
-public enum SessionTag { Idle, Armed, Live, Held, Saved }
+public enum SessionTag { Idle, Armed, Live, Held, Saved, Replay }
 
 /// <summary>
 /// The two session buttons and the status dot, as plain data: what each says,
@@ -75,15 +75,18 @@ public sealed record SessionView(
     /// buttons are held off everywhere they appear.</param>
     /// <param name="asking">Start was pressed over a measurement and waits
     /// for its answer (<see cref="Tracker.Asking"/>).</param>
-    public static SessionView Of(Session session, bool imported = false, bool asking = false)
+    /// <param name="replay">The import is an event file replayed
+    /// (<see cref="Tracker.Replayed"/>).</param>
+    public static SessionView Of(Session session, bool imported = false, bool asking = false, bool replay = false)
     {
         if (imported)
         {
-            const string why = "Viewing a saved parse. Switch to Damage or Healing to measure your own.";
+            string why = (replay ? "Viewing a replayed event file; its clock is the range picked over it."
+                                 : "Viewing a saved parse.") + " Switch to Damage or Healing to measure your own.";
             return new SessionView("Start", why, StartLook.Locked, false, false,
                                    "Pause", why, SecondLook.Off, false, SessionLight.Held)
             {
-                Tag = SessionTag.Saved,
+                Tag = replay ? SessionTag.Replay : SessionTag.Saved,
             };
         }
 
@@ -156,8 +159,10 @@ public static class SessionText
     /// which has a tile of its own beside it; two neighbours printing one
     /// clock in two formats is what that tile exists to avoid.
     /// </summary>
-    public static string TotalNote(Session s, bool anyone, bool imported = false, string what = "damage") =>
-        imported ? "saved parse" + Dash + "read only"
+    public static string TotalNote(Session s, bool anyone, bool imported = false, string what = "damage",
+                                   bool replay = false) =>
+        replay ? "replay" + Dash + "the range picked"
+        : imported ? "saved parse" + Dash + "read only"
         : s.Armed ? "armed" + Dash + "starts on the first hit"
         : s.StartedAt == null ? "not started" + Dash + "press Start"
         : !anyone ? "no " + what + " yet"

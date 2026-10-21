@@ -66,6 +66,7 @@ public partial class MainWindow : Window
         // The same goes for a dialog.
         model.Compare.Picker = model.Picker = () => ParseDialog.Open(this);
         model.Saver = name => ParseDialog.Save(this, name);
+        model.EventPicker = folder => ParseDialog.OpenEvents(this, folder);
         model.FolderPicker = PickFolder;
         model.Asker = (headline, content) => TaskDialog.Ask(headline, content, TaskDialog.Icon.Warning, this);
         model.Binder = Bind;
@@ -238,6 +239,9 @@ public partial class MainWindow : Window
         };
         layout.IsOpen = true;
     }
+
+    /// <summary>The Replay menu, under its button (<see cref="ReplayMenu"/>).</summary>
+    void OnReplay(object sender, RoutedEventArgs e) => ReplayMenu.Open(ReplayButton, model);
 
     // ------------------------------------------------- tray icon and hot key
     //

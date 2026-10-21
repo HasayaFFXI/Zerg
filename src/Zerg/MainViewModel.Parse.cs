@@ -159,6 +159,9 @@ public sealed partial class MainViewModel
             Pick(open);
             return true;
         }
+        // The addon's own file is replayed, not imported. It may be the one
+        // being written, which only a shared read can open.
+        if (ParseDialog.IsEventFile(file.Path)) return await ReplayNow(file, clears);
         try
         {
             var parse = await Task.Run(() => ParseFile.Import(file.Read()));
@@ -169,6 +172,11 @@ public sealed partial class MainViewModel
             Log.Write($"viewing {file.Name} ({Parses.Count} open)");
             HasParse = true;
             Pick(tab);
+        }
+        // An event file under another name: told by its content, and replayed.
+        catch (ParseImportException e) when (e.Reason == ImportError.EventFile && file.Path != null)
+        {
+            return await ReplayNow(file, clears);
         }
         // Named, since several may be opened at once.
         catch (ParseImportException e)
@@ -247,6 +255,8 @@ public sealed partial class MainViewModel
         if (at < 0) return;
         Parses.RemoveAt(at);
         Log.Write($"closed {tab.File} ({Parses.Count} open)");
+        // A replay still being read stops being read.
+        tab.Range?.Stop();
         if (!ReferenceEquals(tab, viewed))
         {
             looking.Remove(tab.Tracker);
@@ -293,7 +303,11 @@ public sealed partial class MainViewModel
     {
         var s = Shown.Session;
         CanExport = Shown.CanExport;
-        ExportTip = CanExport ? "Save this parse to a file another copy of Zerg can open with Import or in Compare"
+        ExportTip = Shown.Replayed
+            ? CanExport ? "Save the range picked to a parse file another copy of Zerg can open with Import or in Compare"
+              : viewed?.Range is { Reading: true } ? "Still reading the event file"
+              : "Nothing to export — no party damage falls in the range picked"
+            : CanExport ? "Save this parse to a file another copy of Zerg can open with Import or in Compare"
             : s.StartedAt != null ? "Pause first — a parse is exported once its clock has stopped"
             : "Nothing to export yet — Start, then Pause, to export a pull";
     }
