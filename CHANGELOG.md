@@ -7,6 +7,8 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 1.3.0 — 2026-10-26
+
 - The By target pane has three more columns: Acc, the party's melee and
   ranged accuracy at each target; WS Avg, the average of the weaponskills
   that dealt it damage; and WS %, the part of what it took that came from

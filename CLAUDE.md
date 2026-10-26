@@ -436,11 +436,13 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
 
 ## Status and what's next
 
-- **Current: 1.2.0** (2026-10-21): Replay, an addon event file read whole
-  into a View tab, cropped to a range and exported as a parse. 1.1.0 compared
-  two different actions side by side; 1.0.0 was the first version for
+- **Current: 1.3.0** (2026-10-26): By target's Acc, WS Avg and WS %
+  columns (Acc with the low accuracy mark), and tables sorted by pressing a
+  column heading. 1.2.0 was Replay, an addon event file read whole into a
+  View tab, cropped to a range and exported as a parse; 1.1.0 compared two
+  different actions side by side; 1.0.0 was the first version for
   distribution, with an installer (`Zerg-<version>-setup.exe`) beside the zip.
-  `dist/Zerg` is 1.2.0 with the Unreleased work (2026-10-26).
+  `dist/Zerg` has 1.3.0's changes but was published under 1.2.0.
 - **Packaging** works (`tools/package.py`: zip and installer). The installer is
   per user (`%LOCALAPPDATA%\Programs\Zerg`, HKCU uninstall entry), ticks the
   desktop shortcut and the `.zerg` association by default, and its finish page
