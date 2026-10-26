@@ -36,6 +36,11 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     /// <summary>What those add up to, rows that name no target included:
     /// the figure of "All targets".</summary>
     public double AllTargets { get; init; }
+    /// <summary>Each target's Accuracy and weaponskill figures, by name
+    /// (<see cref="Counting.ByTarget"/>): of the same rows as
+    /// <see cref="Targets"/>, every target, isolated or not.</summary>
+    public IReadOnlyDictionary<string, SplitFigures> TargetFigures { get; init; } =
+        new Dictionary<string, SplitFigures>(StringComparer.Ordinal);
 
     /// <summary>The damage types isolated, by key, in the order they are
     /// picked from; none while every type counts.</summary>
@@ -436,7 +441,8 @@ public sealed class Tracker
             if (e.Hit && !double.IsNaN(e.Dmg)) whole += e.Dmg;
         var only = Targets.Only(targets);
         var onlyTypes = Targets.Only(types);
-        var byTarget = Targets.Totals(onlyTypes != null ? Counting.Filter(shown, new FilterOptions { Types = onlyTypes }) : shown);
+        var ofTypes = onlyTypes != null ? Counting.Filter(shown, new FilterOptions { Types = onlyTypes }) : shown;
+        var byTarget = Targets.Totals(ofTypes);
         var byType = DamageTypes.Totals(only != null ? Counting.Filter(shown, new FilterOptions { Targets = only }) : shown);
         if (only != null || onlyTypes != null)
             shown = Counting.Filter(shown, new FilterOptions { Targets = only, Types = onlyTypes });
@@ -464,6 +470,7 @@ public sealed class Tracker
             Isolated = only != null ? Targets.Sorted(only) : [],
             Targets = Targets.Pickable(byTarget.Keys).Select(n => new TargetTotal(n, byTarget[n])).ToList(),
             AllTargets = byTarget.Values.Sum(),
+            TargetFigures = Counting.ByTarget(ofTypes),
             IsolatedTypes = onlyTypes != null ? DamageTypes.Sorted(onlyTypes) : [],
             Types = DamageTypes.Sorted(byType.Keys).Select(k => new TargetTotal(k, byType[k])).ToList(),
             AllTypes = byType.Values.Sum(),

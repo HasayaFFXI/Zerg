@@ -62,6 +62,12 @@ public sealed partial class TallyRow(string key, Action<string> flip) : Row(key)
     /// <summary>How long the row's shade is, or the bar beside its share:
     /// this one's damage out of the largest's in the table.</summary>
     [ObservableProperty] private double fraction;
+    /// <summary>By target only: the party's Accuracy at this target, and its
+    /// weaponskills' average and share of the damage to it
+    /// (<see cref="Counting.ByTarget"/>); dashes where there is nothing to measure.</summary>
+    [ObservableProperty] private string accuracy = "";
+    [ObservableProperty] private string wsAvg = "";
+    [ObservableProperty] private string wsShare = "";
     /// <summary>Damage is isolated to this one, alone or among others.</summary>
     [ObservableProperty] private bool isolated;
     /// <summary>Damage is isolated to others and not this one.</summary>
@@ -129,9 +135,9 @@ public sealed partial class PickFilter : ObservableObject
                         Func<IReadOnlyList<TargetTotal>, IReadOnlyCollection<string>, List<TargetTotal>> Order);
 
     PickFilter(bool paired, string word, string allRow, string clearName, string clearTip, string idle,
-           Func<string, string> busy, Words words, Func<string, string>? called = null)
+           Func<string, string> busy, Words words, Func<string, string>? called = null, bool hasFigures = false)
     {
-        (Paired, Word, AllRow, ClearName, ClearTip) = (paired, word, allRow, clearName, clearTip);
+        (Paired, Word, AllRow, ClearName, ClearTip, HasFigures) = (paired, word, allRow, clearName, clearTip, hasFigures);
         (this.idle, this.busy, this.called, this.words) = (idle, busy, called ?? (k => k), words);
         tip = idle;
         tableNote = words.Note;
@@ -147,7 +153,8 @@ public sealed partial class PickFilter : ObservableObject
         new Words("By target", "Clear the isolated targets", "Out of the damage dealt to every target",
                   name => "Count only the damage dealt to " + name, "Damage that named no target",
                   "Party damage dealt to each target name. Select one to isolate it",
-                  (list, picked) => Targets.Ranked(list, picked)));
+                  (list, picked) => Targets.Ranked(list, picked)),
+        hasFigures: true);
 
     /// <summary>By damage type. A key is a type as a row has it ("ws"); it
     /// is called what its line of Compare's By damage type table is
@@ -166,6 +173,9 @@ public sealed partial class PickFilter : ObservableObject
     /// <summary>The list is of two runs, a column each; otherwise of one
     /// parse, with each one's share.</summary>
     public bool Paired { get; }
+    /// <summary>The table has Acc, WS Avg and WS % columns: by target, and
+    /// not by type, where a type is a column of its own.</summary>
+    public bool HasFigures { get; }
     /// <summary>What the button is called, and its menu's first column: "Target", "Type".</summary>
     public string Word { get; }
     /// <summary>The line that leads the menu: "All targets".</summary>
@@ -325,7 +335,10 @@ public sealed partial class PickFilter : ObservableObject
     /// </summary>
     /// <param name="whole">The damage to them all: the first line's figure.</param>
     /// <param name="draw">A name as it is drawn (a player's, while names are hidden).</param>
-    public void Draw(IReadOnlyList<TargetTotal> list, double whole, Func<string, string> draw)
+    /// <param name="figures">Each one's Accuracy and weaponskill figures, by
+    /// key (<see cref="Counting.ByTarget"/>), for a table that has them.</param>
+    public void Draw(IReadOnlyList<TargetTotal> list, double whole, Func<string, string> draw,
+                     IReadOnlyDictionary<string, SplitFigures>? figures = null)
     {
         var by = list.ToDictionary(t => t.Name, t => t.Total, StringComparer.Ordinal);
         double most = RowMarks.Largest(by.Values);
@@ -361,11 +374,17 @@ public sealed partial class PickFilter : ObservableObject
             row.Damage = hit ? Format.Int(t.Total) : None;
             row.Share = hit && whole > 0 ? Format.Num(t.Total / whole * 100, 1) + "%" : None;
             row.Fraction = hit ? RowMarks.Fraction(t.Total, most) : 0;
+            SplitFigures? f = figures != null && figures.TryGetValue(row.CanPick ? t.Name : "", out var x) ? x : null;
+            row.Accuracy = Percent(f?.AutoAcc);
+            row.WsAvg = f?.WsAvg is double avg ? Format.Int(avg) : None;
+            row.WsShare = Percent(f?.WsShare);
             Mark(row);
         });
         HasTable = Table.Count > 0;
         TableNote = NoteOf(Table.Count(r => r.CanPick));
     }
+
+    static string Percent(double? x) => x is double v ? Format.Num(v * 100, 1) + "%" : None;
 
     /// <summary>The list over two runs: each one's damage in each.</summary>
     /// <param name="wholeA">The damage to them all in run A.</param>

@@ -356,6 +356,38 @@ public static class Counting
     }
 
     /// <summary>
+    /// The split columns of the damage dealt to each target, by name: for
+    /// each, what the Party line under the per-character table reads with
+    /// that target alone isolated (<see cref="Aggregate"/>'s <c>Party</c>),
+    /// the By target table's Acc, WS Avg and WS %. A row is asked its target
+    /// before its use is folded, as isolating asks it, so a weaponskill that
+    /// reached three targets is one use at each, of what it dealt to that
+    /// one. Rows that name no target are under "".
+    /// </summary>
+    public static Dictionary<string, SplitFigures> ByTarget(IReadOnlyList<CombatEvent> events)
+    {
+        var rows = new Dictionary<string, List<CombatEvent>>(StringComparer.Ordinal);
+        foreach (var e in events)
+        {
+            if (!rows.TryGetValue(e.Target, out var list)) rows[e.Target] = list = [];
+            list.Add(e);
+        }
+        var figures = new Dictionary<string, SplitFigures>(rows.Count, StringComparer.Ordinal);
+        foreach (var (name, list) in rows)
+        {
+            var split = new Split();
+            double total = 0;
+            foreach (var u in Fold(list))
+            {
+                split.Add(u);
+                if (u.Hit) total += u.Dmg;
+            }
+            figures[name] = split.Figures(total);
+        }
+        return figures;
+    }
+
+    /// <summary>
     /// Who dealt damage, by name, largest first: the order of
     /// <see cref="Aggregate"/>'s characters, and nothing else of it. Counted
     /// as it counts (per use, a use that landed anywhere dealing all it

@@ -284,6 +284,15 @@ The Target button counts only the damage dealt to the targets picked
   dashes. Under them, where any row named no target, a line says what
   those came to (`Targets.Unnamed`): it is in the total, and there is
   nothing of it to pick.
+- **By target's Acc, WS Avg and WS % are the Party line's with that target
+  isolated** (`Counting.ByTarget`, through the same `Split.Figures`):
+  the party's melee and ranged swings at it, its weaponskills' damage over
+  those that dealt it damage, and that damage out of what it took. A row
+  is asked its target before its use is folded, as isolating asks it, so
+  an area weaponskill is one use at each target it reached, of what it
+  dealt to that one, and one that dealt one of them nothing is a miss at
+  that one. Of the types isolated, as the Damage column is; a dash where
+  there is nothing to measure. By damage type has no such columns.
 - **The list names every target whatever is picked**, each with what it took
   from the characters who count (exclusions and the skillchain switch
   apply; the targets picked do not). A target nothing landed on is not

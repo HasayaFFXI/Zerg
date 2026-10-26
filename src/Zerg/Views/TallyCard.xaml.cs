@@ -28,6 +28,15 @@ public partial class TallyCard : UserControl
     public static readonly DependencyProperty InfoProperty = DependencyProperty.Register(nameof(Info), typeof(PanelInfo),
         typeof(TallyCard), new PropertyMetadata(null));
 
+    /// <summary>The table has Acc, WS Avg and WS % columns (by target, and
+    /// not by type): inherited, for the cells' style triggers, which
+    /// collapse them otherwise, as they do when the room is too narrow.</summary>
+    public static readonly DependencyProperty FiguresProperty = DependencyProperty.RegisterAttached("Figures", typeof(bool),
+        typeof(TallyCard), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.Inherits));
+
+    public static bool GetFigures(DependencyObject d) => (bool)d.GetValue(FiguresProperty);
+    public static void SetFigures(DependencyObject d, bool value) => d.SetValue(FiguresProperty, value);
+
     public TallyCard() => InitializeComponent();
 
     /// <summary>What the table lists and what its rows tell: the view

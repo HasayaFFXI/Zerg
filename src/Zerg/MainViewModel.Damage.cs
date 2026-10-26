@@ -78,7 +78,7 @@ public sealed partial class MainViewModel
     /// </summary>
     void DrawTargets(Snapshot c)
     {
-        TargetFilter.Draw(c.Targets, c.AllTargets, NameOf);
+        TargetFilter.Draw(c.Targets, c.AllTargets, NameOf, c.TargetFigures);
         TypeFilter.Draw(c.Types, c.AllTypes, n => n);
         bool isolated = c.Isolated.Count > 0, any = isolated || c.IsolatedTypes.Count > 0;
         TotalLabel = DamageTypes.Heading(c.IsolatedTypes, c.Isolated);

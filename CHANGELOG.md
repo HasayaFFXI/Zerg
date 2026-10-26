@@ -7,6 +7,13 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- The By target pane has three more columns: Acc, the party's melee and
+  ranged accuracy at each target; WS Avg, the average of the weaponskills
+  that dealt it damage; and WS %, the part of what it took that came from
+  weaponskills. Each reads what the Party line reads with that target
+  isolated. In a pane too narrow for them they go, and the table is the
+  three columns it was.
+
 ## 1.2.0 — 2026-10-21
 
 - Replay: an addon event file can be read whole into a View tab of its

@@ -7,17 +7,54 @@
   <UserControl.Resources>
     <!-- What it is, Damage, Share: the shares the Compare section's side
          tables give the same three, each with the least it may be (a
-         figure column its longest figure). The second set is the same
-         table with "shade characters" off: the share then has a small bar
-         before its figure, which needs the room, and the name gives it up.
-         The heading and every row share them. -->
-    <sys:String x:Key="Columns">170*90,100*64,84*56</sys:String>
-    <sys:String x:Key="BarColumns">130*70,100*64,124*100</sys:String>
+         figure column its longest figure). By target has three more, Acc,
+         WS Avg and WS % (v:TallyCard.Figures); by type their cells are
+         collapsed and take their columns with them. The second set is the
+         same table with "shade characters" off: the share then has a small
+         bar before its figure, which needs the room, and the name gives it
+         up. The heading and every row share them. -->
+    <sys:String x:Key="Columns">170*90,100*64,84*56,64*56,72*60,64*56</sys:String>
+    <sys:String x:Key="BarColumns">130*70,100*64,124*100,64*56,72*60,64*56</sys:String>
     <Style x:Key="Table" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource Columns}"/>
       <Style.Triggers>
         <Trigger Property="v:Shading.Characters" Value="False">
           <Setter Property="Widths" Value="{StaticResource BarColumns}"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <!-- The table says whether all six fit (v:Shed.Full). When they do
+         not, the three after Share go together, and the table is the
+         three it was before them. -->
+    <Style x:Key="TableRoom" TargetType="Grid">
+      <Setter Property="v:Shed.Full" Value="{StaticResource Columns}"/>
+      <Style.Triggers>
+        <Trigger Property="v:Shading.Characters" Value="False">
+          <Setter Property="v:Shed.Full" Value="{StaticResource BarColumns}"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <!-- A heading and a figure of those three: gone by type, and when the
+         room is too narrow. -->
+    <Style x:Key="HeadMore" TargetType="TextBlock" BasedOn="{StaticResource Head}">
+      <Setter Property="Padding" Value="2,0,8,0"/>
+      <Style.Triggers>
+        <Trigger Property="v:TallyCard.Figures" Value="False">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+        <Trigger Property="v:Shed.Narrow" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="FigMore" TargetType="TextBlock" BasedOn="{StaticResource FigQuiet}">
+      <Setter Property="Padding" Value="2,0,8,0"/>
+      <Style.Triggers>
+        <Trigger Property="v:TallyCard.Figures" Value="False">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+        <Trigger Property="v:Shed.Narrow" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
         </Trigger>
       </Style.Triggers>
     </Style>
@@ -40,7 +77,8 @@
     </Style>
 
     <!-- One target, or one type: what it is called, what it came to, and
-         that out of them all. Pressed, it isolates it, as its line of the
+         that out of them all; a target, the party's accuracy at it and its
+         weaponskills' average and share of what it took. Pressed, it isolates it, as its line of the
          Target or Type button's menu does; isolated, it has the accent down
          its left edge, and the rows that are not are dimmed. -->
     <DataTemplate x:Key="Line">
@@ -54,6 +92,9 @@
               <v:SmallBar For="Character" Length="42" Value="{Binding Fraction}" Fill="{DynamicResource Text3Brush}">
                 <TextBlock Text="{Binding Share}" Style="{StaticResource FigQuiet}" Padding="2,0,8,0"/>
               </v:SmallBar>
+              <TextBlock Text="{Binding Accuracy}" Style="{StaticResource FigMore}"/>
+              <TextBlock Text="{Binding WsAvg}" Style="{StaticResource FigMore}"/>
+              <TextBlock Text="{Binding WsShare}" Style="{StaticResource FigMore}"/>
             </v:Cells>
           </Grid>
           <Rectangle Style="{StaticResource PickEdge}"/>
@@ -79,7 +120,8 @@
        The pane says how its rows are drawn (v:Shading). -->
   <v:Pane Title="{Binding Filter.Title, ElementName=Self}" Note="{Binding Filter.TableNote, ElementName=Self}"
           PopOutCommand="{Binding Info.PopOutCommand, ElementName=Self}"
-          v:Shading.Characters="{Binding ShadeCharacters}">
+          v:Shading.Characters="{Binding ShadeCharacters}"
+          v:TallyCard.Figures="{Binding Filter.HasFigures, ElementName=Self}">
     <v:Pane.Tools>
       <Button Content="Clear" Command="{Binding Filter.ClearCommand, ElementName=Self}"
               ToolTip="{Binding Filter.ClearTip, ElementName=Self}"
@@ -90,7 +132,7 @@
             <Style.Triggers>
               <!-- In a floating panel the tools have a line of their own,
                    and a table lies edge to edge: the link stands over the
-                   Share column, clear of the frame and of the scroll bar. -->
+                   last column, clear of the frame and of the scroll bar. -->
               <Trigger Property="v:Float.On" Value="True">
                 <Setter Property="Margin" Value="0,3,22,1"/>
               </Trigger>
@@ -104,7 +146,8 @@
                  Margin="12,18,12,8" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
                  Visibility="{Binding Filter.HasTable, ElementName=Self, Converter={StaticResource Hidden}}"/>
 
-      <Grid Visibility="{Binding Filter.HasTable, ElementName=Self, Converter={StaticResource Visible}}">
+      <Grid Style="{StaticResource TableRoom}"
+            Visibility="{Binding Filter.HasTable, ElementName=Self, Converter={StaticResource Visible}}">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition/>
@@ -117,6 +160,12 @@
             <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="2,0,8,0"/>
             <TextBlock Text="Share" Style="{StaticResource Head}" Padding="2,0,8,0"
                        ToolTip="{Binding Filter.ShareTip, ElementName=Self}"/>
+            <TextBlock Text="Acc" Style="{StaticResource HeadMore}"
+                       ToolTip="The party's melee and ranged attacks at this target that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted"/>
+            <TextBlock Text="WS Avg" Style="{StaticResource HeadMore}"
+                       ToolTip="Average damage to this target of the weaponskills that dealt it damage"/>
+            <TextBlock Text="WS %" Style="{StaticResource HeadMore}"
+                       ToolTip="Weaponskill damage out of the damage this target took"/>
           </v:Cells>
           <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
         </Grid>

@@ -92,6 +92,59 @@ public class TargetsTests
     }
 
     [Fact]
+    public void Each_targets_figures_are_the_party_lines_with_it_isolated()
+    {
+        var t = Session(
+            Lines.Hit(10, "Hasaya", 100, target: "Kirin"),
+            Lines.Hit(12, "Hasaya", 0, target: "Kirin", hit: false),
+            Lines.Hit(14, "Tank", 40, target: "Kirin"),
+            Lines.Hit(16, "Hasaya", 900, kind: "ws", action: "Savage Blade", target: "Kirin"),
+            Lines.Hit(18, "Tank", 0, kind: "ws", action: "Savage Blade", target: "Kirin", hit: false),
+            Lines.Hit(20, "Hasaya", 300, target: "Genbu"),
+            Lines.Hit(22, "Tank", 600, kind: "ws", action: "Savage Blade", target: "Genbu"),
+            Lines.Hit(24, "Tank", 0, target: "Byakko", hit: false));
+        var c = t.Count(Nobody, true, 30_000);
+
+        // Two swings of three at Kirin landed; one weaponskill of two dealt damage.
+        var kirin = c.TargetFigures["Kirin"];
+        Assert.Equal(2.0 / 3, kirin.AutoAcc);
+        Assert.Equal(900, kirin.WsAvg);
+        Assert.Equal(900.0 / 1040, kirin.WsShare);
+        Assert.Equal(0.5, kirin.WsAcc);
+        var genbu = c.TargetFigures["Genbu"];
+        Assert.Equal(1, genbu.AutoAcc);
+        Assert.Equal(600, genbu.WsAvg);
+        Assert.Equal(600.0 / 900, genbu.WsShare);
+        // Nothing landed on Byakko: a swing that missed, and no weaponskill to measure.
+        var byakko = c.TargetFigures["Byakko"];
+        Assert.Equal(0, byakko.AutoAcc);
+        Assert.Null(byakko.WsAvg);
+        Assert.Null(byakko.WsShare);
+
+        foreach (var name in new[] { "Kirin", "Genbu", "Byakko" })
+            Assert.Equal(t.Count(Nobody, true, 30_000, Only(name)).Totals.Party, c.TargetFigures[name]);
+    }
+
+    [Fact]
+    public void An_area_weaponskill_is_one_use_at_each_target_it_reached()
+    {
+        var t = Session(
+            Lines.Hit(10, "Hasaya", 800, kind: "ws", action: "Cataclysm", target: "Kirin"),
+            Lines.Hit(10, "Hasaya", 0, kind: "ws", action: "Cataclysm", target: "Genbu", hit: false));
+        // The lines above were each given a use of their own: fold them by hand.
+        var one = t.Reader.Events.Select(e => e with { Use = 77 }).ToList();
+        var by = Counting.ByTarget(one);
+        Assert.Equal(800, by["Kirin"].WsAvg);
+        Assert.Equal(1, by["Kirin"].WsShare);
+        Assert.Equal(1, by["Kirin"].WsAcc);
+        // At Genbu it dealt nothing: used there, and not landed.
+        Assert.Equal(0, by["Genbu"].WsAcc);
+        Assert.Null(by["Genbu"].WsAvg);
+        foreach (var name in by.Keys)
+            Assert.Equal(Counting.Aggregate(Counting.Filter(one, new FilterOptions { Targets = Only(name) })).Party, by[name]);
+    }
+
+    [Fact]
     public void The_clock_is_the_sessions_whatever_is_isolated()
     {
         // Genbu was first hit at 20 s. The zero is still the session's first row.
