@@ -288,13 +288,18 @@
                            Margin="8,0,0,0" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular"/>
               </StackPanel>
               <!-- Over the rows' own columns: the heading's content begins
-                   26 units in, after the caret. -->
-              <v:Cells Widths="{StaticResource Columns}" Margin="-26,0,0,0">
+                   26 units in, after the caret. The two headings order the
+                   list (v:SortHead), and a press on one does not fold it. -->
+              <v:Cells Widths="{StaticResource Columns}" Margin="-26,0,0,0" v:SortHead.Sort="{Binding Sort}">
                 <Border/>
                 <Border/>
-                <TextBlock Text="{Binding Words.Amount}" Style="{StaticResource Head}"/>
+                <v:SortHead Column="amount">
+                  <TextBlock Text="{Binding Words.Amount}" Style="{StaticResource Head}"/>
+                </v:SortHead>
                 <Border/>
-                <TextBlock Text="vs avg" Style="{StaticResource Head}"/>
+                <v:SortHead Column="vsAvg">
+                  <TextBlock Text="vs avg" Style="{StaticResource Head}"/>
+                </v:SortHead>
               </v:Cells>
             </Grid>
           </Expander.Header>

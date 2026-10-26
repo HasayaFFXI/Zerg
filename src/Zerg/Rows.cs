@@ -345,11 +345,13 @@ public sealed partial class HitRow(string time, string target, double amount, bo
     /// <summary>How far it fell from the average, out of the furthest any
     /// hit in the list fell: over it up to 1, under it down to -1.</summary>
     [ObservableProperty] private double offset;
+    /// <summary>How far it fell from the average, as "vs avg" prints it: what the list is ordered by under that heading.</summary>
+    public double Delta { get; private set; }
 
     /// <summary>Measured again against the list's average and its furthest.</summary>
     internal void Measure(double avg, double furthest)
     {
-        var delta = Amount - avg;
+        var delta = Delta = Amount - avg;
         VsAvg = (delta >= 0 ? "+" : "−") + Format.Int(Math.Abs(delta));
         Offset = RowMarks.Offset(Amount, avg, furthest);
     }

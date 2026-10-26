@@ -541,13 +541,13 @@
         </v:SettingRow>
       </Border>
 
-      <!-- Under what rate Accuracy, WS Acc and Pet Acc are marked, and six
+      <!-- Under what rate Accuracy, WS Acc, Pet Acc and By target's Acc are marked, and six
            rates as the mark (v:LowMark) would draw them at that. -->
       <Border Style="{StaticResource Row}">
         <v:SettingRow>
           <StackPanel>
             <TextBlock Text="Low accuracy mark" Style="{StaticResource Name}"/>
-            <TextBlock Text="Accuracy, WS Acc and Pet Acc under this are marked in red, more strongly the lower they fall: a rule under the figure first, then the cell cut out. At 60% and under the mark is at its strongest."
+            <TextBlock Text="Accuracy, WS Acc, Pet Acc and By target's Acc under this are marked in red, more strongly the lower they fall: a rule under the figure first, then the cell cut out. At 60% and under the mark is at its strongest."
                        Style="{StaticResource Words}"/>
           </StackPanel>
           <StackPanel Margin="0,6,0,0">

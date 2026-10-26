@@ -237,6 +237,10 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   share of the leader at the strength `RowShade` allows. Shading settings are
   set once on a card (`Views/Shading`) and inherited. Columns come from
   `Layout/Columns`; narrow tables drop columns (`Views/Shed`), then scroll.
+  A heading that sorts is a `Views/SortHead` round the heading's `TextBlock`
+  (the shedding style goes on it); each table's order is a `ColumnSort`
+  (saved in `settings.sorts`), rows listed through `Zerg.Core/TableOrder`'s
+  `Ordering`; a press redraws from the last count, never counts.
 - **Filters.** Target and Type (`PickFilter`) cut together; each list shows
   what the other leaves. While a target is isolated every DPS is a dash
   (`MainViewModel.Rate`, which the beat goes through too). Never saved.
@@ -436,7 +440,7 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
   into a View tab, cropped to a range and exported as a parse. 1.1.0 compared
   two different actions side by side; 1.0.0 was the first version for
   distribution, with an installer (`Zerg-<version>-setup.exe`) beside the zip.
-  `dist/Zerg` is 1.1.0.
+  `dist/Zerg` is 1.2.0 with the Unreleased work (2026-10-26).
 - **Packaging** works (`tools/package.py`: zip and installer). The installer is
   per user (`%LOCALAPPDATA%\Programs\Zerg`, HKCU uninstall entry), ticks the
   desktop shortcut and the `.zerg` association by default, and its finish page

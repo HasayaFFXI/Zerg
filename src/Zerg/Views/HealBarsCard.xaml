@@ -85,7 +85,7 @@
        character, the bar behind the name, and the three figures a glance
        during a fight is for. -->
   <v:Pane Title="Healing by character" Note="Total healed since the session started"
-          Hint="Total healed since the session started. Hover a column heading for how it is counted."
+          Hint="Total healed since the session started. Hover a column heading for how it is counted, and press one to sort by it."
           PopOutCommand="{Binding Panels[hbars].PopOutCommand}"
           v:Shading.Characters="{Binding ShadeCharacters}">
     <Grid>
@@ -177,20 +177,36 @@
                  rows' cells and the Party line: the room the rows' scroll
                  bar is drawn in. -->
             <Grid Height="{StaticResource ColumnHeadHeight}">
-              <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
-                <TextBlock Text="Character" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
-                <TextBlock Text="Job" Style="{StaticResource HeadText}"
-                           Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
-                <TextBlock Text="Healing" Style="{StaticResource Head}"
-                           ToolTip="Every cure, waltz and healing ability this character used. Pet heals are not included"/>
-                <TextBlock Text="Healing %" Style="{StaticResource Head}"
-                           ToolTip="This character's healing out of the whole party's"/>
-                <TextBlock Text="HPS" Style="{StaticResource Head}" ToolTip="Healing divided by the session clock"/>
-                <TextBlock Text="Casts" Style="{StaticResource Head}"
-                           ToolTip="One per cast, however many people it reached"/>
-                <TextBlock Text="Avg / cast" Style="{StaticResource Head}" ToolTip="Healing divided by casts"/>
-                <TextBlock Text="Pet Healing" Style="{StaticResource Head}"
-                           ToolTip="Everything this character's pet healed. Not part of Healing"/>
+              <!-- Each heading orders the table (v:SortHead). -->
+              <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding HealersSort}">
+                <v:SortHead Column="name" Words="True">
+                  <TextBlock Text="Character" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
+                </v:SortHead>
+                <v:SortHead Column="job" Words="True" Visibility="{Binding ShowJob, Converter={StaticResource Visible}}">
+                  <TextBlock Text="Job" Style="{StaticResource HeadText}"/>
+                </v:SortHead>
+                <v:SortHead Column="healing">
+                  <TextBlock Text="Healing" Style="{StaticResource Head}"
+                             ToolTip="Every cure, waltz and healing ability this character used. Pet heals are not included"/>
+                </v:SortHead>
+                <v:SortHead Column="share">
+                  <TextBlock Text="Healing %" Style="{StaticResource Head}"
+                             ToolTip="This character's healing out of the whole party's"/>
+                </v:SortHead>
+                <v:SortHead Column="hps">
+                  <TextBlock Text="HPS" Style="{StaticResource Head}" ToolTip="Healing divided by the session clock"/>
+                </v:SortHead>
+                <v:SortHead Column="casts">
+                  <TextBlock Text="Casts" Style="{StaticResource Head}"
+                             ToolTip="One per cast, however many people it reached"/>
+                </v:SortHead>
+                <v:SortHead Column="avg">
+                  <TextBlock Text="Avg / cast" Style="{StaticResource Head}" ToolTip="Healing divided by casts"/>
+                </v:SortHead>
+                <v:SortHead Column="petHealing">
+                  <TextBlock Text="Pet Healing" Style="{StaticResource Head}"
+                             ToolTip="Everything this character's pet healed. Not part of Healing"/>
+                </v:SortHead>
               </v:Cells>
               <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
             </Grid>

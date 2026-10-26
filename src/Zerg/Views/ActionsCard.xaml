@@ -211,18 +211,37 @@
           <!-- 14 units are kept clear at the right of the headings and of
                every row's cells: the room the list's scroll bar is drawn in. -->
           <Grid Height="{StaticResource ColumnHeadHeight}">
-            <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
-              <TextBlock Text="Action" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
-              <TextBlock Text="Hits" Style="{StaticResource Head}" ToolTip="Uses that dealt damage"/>
-              <TextBlock Text="Miss" Style="{StaticResource HeadShedsLate}"
-                         ToolTip="Uses that dealt none. A swing taken by shadows is a miss here, though it counts as a hit in Accuracy"/>
-              <TextBlock Text="Total" Style="{StaticResource Head}"/>
-              <TextBlock Text="Avg" Style="{StaticResource Head}"/>
-              <TextBlock Text="Min" Style="{StaticResource HeadShedsLate}"/>
-              <TextBlock Text="Max" Style="{StaticResource Head}"/>
+            <!-- Each heading but the spread's orders every character's
+                 actions under them (v:SortHead); the characters stay
+                 largest first. -->
+            <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding ActionsSort}">
+              <v:SortHead Column="name" Words="True">
+                <TextBlock Text="Action" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
+              </v:SortHead>
+              <v:SortHead Column="hits">
+                <TextBlock Text="Hits" Style="{StaticResource Head}" ToolTip="Uses that dealt damage"/>
+              </v:SortHead>
+              <v:SortHead Column="misses" Style="{StaticResource ShedsLate}">
+                <TextBlock Text="Miss" Style="{StaticResource Head}"
+                           ToolTip="Uses that dealt none. A swing taken by shadows is a miss here, though it counts as a hit in Accuracy"/>
+              </v:SortHead>
+              <v:SortHead Column="total">
+                <TextBlock Text="Total" Style="{StaticResource Head}"/>
+              </v:SortHead>
+              <v:SortHead Column="avg">
+                <TextBlock Text="Avg" Style="{StaticResource Head}"/>
+              </v:SortHead>
+              <v:SortHead Column="min" Style="{StaticResource ShedsLate}">
+                <TextBlock Text="Min" Style="{StaticResource Head}"/>
+              </v:SortHead>
+              <v:SortHead Column="max">
+                <TextBlock Text="Max" Style="{StaticResource Head}"/>
+              </v:SortHead>
               <TextBlock Text="Min &#xB7; avg &#xB7; max" Style="{StaticResource HeadSheds}" TextAlignment="Left" Padding="16,0,8,0"
                          ToolTip="This action's least hit, its average and its greatest, on a line as long as this character's biggest hit of any action"/>
-              <TextBlock Text="Share" Style="{StaticResource Head}" ToolTip="Out of this character's damage"/>
+              <v:SortHead Column="share">
+                <TextBlock Text="Share" Style="{StaticResource Head}" ToolTip="Out of this character's damage"/>
+              </v:SortHead>
             </v:Cells>
             <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
           </Grid>

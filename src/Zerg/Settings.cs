@@ -73,8 +73,8 @@ public sealed class Settings
     public bool ShadeActions { get; set; }
 
     /// <summary>The low accuracy mark's threshold, in percent: Accuracy, WS
-    /// Acc and Pet Acc under it are marked in red, more strongly the lower
-    /// they fall. 50 to 100; 90 as installed.</summary>
+    /// Acc, Pet Acc and By target's Acc under it are marked in red, more
+    /// strongly the lower they fall. 50 to 100; 90 as installed.</summary>
     public int LowAccuracy { get; set; } = Core.LowMark.Installed;
 
     /// <summary>The colour of Compare's run A, the baseline, as it is
@@ -144,6 +144,16 @@ public sealed class Settings
     /// because an arrangement locked for being settled should stay locked.
     /// Not as installed.</summary>
     public bool LayoutLocked { get; set; }
+
+    /// <summary>
+    /// How each table is listed where a player pressed a column heading, by
+    /// the table's key ("bars", "actions", "healers", "heals", "targets",
+    /// "types", "hits", "casts"): the column and the way, "damage desc"
+    /// (<see cref="TableOrder"/>). A table not here is in its own order. A
+    /// value that does not read, or names a column the table does not have,
+    /// costs that table its order alone.
+    /// </summary>
+    public Dictionary<string, string> Sorts { get; set; } = [];
 
     /// <summary>Keys this build doesn't know, written by a newer one, kept
     /// as they were so going back a version and forward again loses nothing.</summary>
@@ -225,6 +235,7 @@ public sealed class Settings
         Excluded = Excluded?.Where(n => n is not null).ToList() ?? [];
         OpenPanels = OpenPanels?.Where(n => n is not null).ToList() ?? [];
         PanelOpacities ??= [];
+        Sorts = Sorts?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value) ?? [];
         Windows = Windows?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value) ?? [];
         return this;
     }

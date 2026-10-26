@@ -406,8 +406,9 @@
 
     <!-- A cell that goes when its table is in a room too narrow for every
          column (Views/Shed): collapsed, it takes its column with it. For
-         whatever is in such a column that is not text; the text styles
-         after it are the same for a figure and a heading. -->
+         whatever is in such a column that is not text, a heading that
+         sorts (Views/SortHead) among them; the text styles after it are
+         the same for a figure and a heading that does not. -->
     <Style x:Key="Sheds" TargetType="FrameworkElement">
       <Style.Triggers>
         <Trigger Property="v:Shed.Narrow" Value="True">
@@ -429,7 +430,7 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-    <!-- The same three for a column that goes second, in a table that
+    <!-- The same for a column that goes second, in a table that
          drops columns in two steps: when what is left after the first
          does not fit either. -->
     <Style x:Key="ShedsLate" TargetType="FrameworkElement">
@@ -440,13 +441,6 @@
       </Style.Triggers>
     </Style>
     <Style x:Key="SubFigQuietShedsLate" TargetType="TextBlock" BasedOn="{StaticResource SubFigQuiet}">
-      <Style.Triggers>
-        <Trigger Property="v:Shed.Tight" Value="True">
-          <Setter Property="Visibility" Value="Collapsed"/>
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-    <Style x:Key="HeadShedsLate" TargetType="TextBlock" BasedOn="{StaticResource Head}">
       <Style.Triggers>
         <Trigger Property="v:Shed.Tight" Value="True">
           <Setter Property="Visibility" Value="Collapsed"/>

@@ -231,7 +231,8 @@ public sealed partial class MainViewModel
         // 0), and a row of zeroes and dashes is nothing but height. Only this
         // card drops them: they keep their chip, so they can still be
         // excluded, and the actions table still shows what they did.
-        var actors = c.Totals.Actors.Where(a => a.Total > 0).ToList();
+        // Largest first, or as the headings order it; the strip the same.
+        var actors = BarsSort.Order(c.Totals.Actors.Where(a => a.Total > 0), column => BarKey(c, column));
 
         // The row is the bar: each is shaded to its damage out of the
         // leader's, not out of the party's. With ten to eighteen characters
@@ -313,6 +314,44 @@ public sealed partial class MainViewModel
         });
     }
 
+    /// <summary>
+    /// What each column of the Damage by character table is ordered by:
+    /// what it prints, a dash being nothing. Damage % and DPS are the damage
+    /// over one whole and one clock, so they go as Damage does; while a
+    /// target is isolated every DPS is a dash, and the order is the table's own.
+    /// </summary>
+    SortKey<ActorTotals>? BarKey(Snapshot c, string column) => column switch
+    {
+        "name" => SortKey<ActorTotals>.Of(a => NameOf(a.Name)),
+        "job" => SortKey<ActorTotals>.Of(a => Roster.JobLabel(a.Name)),
+        "damage" or "share" => SortKey<ActorTotals>.Of(a => a.Total),
+        "dps" => SortKey<ActorTotals>.Of(a => c.Rate(a.Total, 1)),
+        "accuracy" => SortKey<ActorTotals>.Of(a => a.AutoAcc),
+        "wsDamage" => SortKey<ActorTotals>.Of(a => a.WsTotal),
+        "wsAvg" => SortKey<ActorTotals>.Of(a => a.WsAvg),
+        "wsShare" => SortKey<ActorTotals>.Of(a => a.WsShare),
+        "wsAccuracy" => SortKey<ActorTotals>.Of(a => a.WsAcc),
+        "scDamage" => SortKey<ActorTotals>.Of(a => a.ScTotal),
+        "scShare" => SortKey<ActorTotals>.Of(a => a.ScShare),
+        "petDamage" => SortKey<ActorTotals>.Of(a => a.PetTotal),
+        "petAccuracy" => SortKey<ActorTotals>.Of(a => a.PetAcc),
+        _ => null,
+    };
+
+    /// <summary>What each column of a character's actions is ordered by. A
+    /// use that never missed has a dash for Miss, and goes after those that did.</summary>
+    static SortKey<ActionTotals>? ActionKey(string column) => column switch
+    {
+        "name" => SortKey<ActionTotals>.Of(x => x.Name),
+        "hits" => SortKey<ActionTotals>.Of(x => x.Hits),
+        "misses" => SortKey<ActionTotals>.Of(x => x.Misses != 0 ? (double?)x.Misses : null),
+        "total" or "share" => SortKey<ActionTotals>.Of(x => x.Total),
+        "avg" => SortKey<ActionTotals>.Of(x => x.Avg),
+        "min" => SortKey<ActionTotals>.Of(x => x.Min),
+        "max" => SortKey<ActionTotals>.Of(x => x.Max),
+        _ => null,
+    };
+
     // A figure with nothing to measure is a dash, never zero: a mage with no
     // weaponskills has no weaponskill accuracy, and 0% would say every one missed.
     static string Percent(double? x) => x is double v ? Format.Num(v * 100, 1) + "%" : None;
@@ -351,7 +390,7 @@ public sealed partial class MainViewModel
             items.Add((a, null, top));
             if (!openActions.Contains(a.Name)) continue;
             double most = RowMarks.Largest(a.ActionList.Select(x => x.Total));
-            foreach (var act in a.ActionList) items.Add((a, act, most));
+            foreach (var act in ActionsSort.Order(a.ActionList, ActionKey)) items.Add((a, act, most));
         }
         HasActions = items.Count > 0;
         var fills = FillsOf(drill);

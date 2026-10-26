@@ -22,9 +22,10 @@ namespace Zerg;
 /// </summary>
 public sealed partial class DrillView : ObservableObject
 {
-    public DrillView(DrillWords words, PanelInfo panel, ICommand close, ICommand swap, PairPick pick)
+    public DrillView(DrillWords words, PanelInfo panel, ICommand close, ICommand swap, PairPick pick, ColumnSort sort)
     {
         Words = words;
+        Sort = sort;
         Panel = panel;
         CloseCommand = close;
         SwapCommand = swap;
@@ -43,6 +44,8 @@ public sealed partial class DrillView : ObservableObject
     public ICommand SwapCommand { get; }
     /// <summary>What is set beside the action: the heading's pick button.</summary>
     public PairPick Pick { get; }
+    /// <summary>The list's order, as its headings set it: newest first, as it is listed, by none.</summary>
+    public ColumnSort Sort { get; }
 
     /// <summary>A second action is set beside the first: the figures are
     /// both sides' in a table, the chart is the two on shared bins, and
@@ -70,24 +73,32 @@ public sealed partial class DrillView : ObservableObject
     [ObservableProperty] private Color panelFill = Colors.Gray;
     [ObservableProperty] private string caption = "";
 
-    /// <summary>Every hit, newest first.</summary>
+    /// <summary>Every hit, newest first, or as the list's headings order it.</summary>
     public ObservableCollection<HitRow> Hits { get; } = [];
 
-    /// <summary>What the list was made for, and the hits in it, oldest first.</summary>
+    /// <summary>What the list was made for, in what order, and the hits in
+    /// it, oldest first, with their rows.</summary>
     string? listedFor;
+    TableOrder? listedBy;
     readonly List<(double T, double Amount, string Target, bool Crit, int Side)> listed = [];
+    readonly List<HitRow> made = [];
 
     /// <summary>Nothing picked: the card folds to its heading.</summary>
     public void Close()
     {
         Open = false;
         Unpair();
-        if (Hits.Count > 0 || listedFor != null)
-        {
-            Hits.Clear();
-            listed.Clear();
-            listedFor = null;
-        }
+        if (Hits.Count > 0 || listedFor != null) Forget(null);
+    }
+
+    /// <summary>The list is emptied, to be made again for <paramref name="key"/>.</summary>
+    void Forget(string? key)
+    {
+        Hits.Clear();
+        listed.Clear();
+        made.Clear();
+        listedFor = key;
+        listedBy = Sort.By;
     }
 
     /// <summary>
@@ -109,9 +120,7 @@ public sealed partial class DrillView : ObservableObject
             Tiles = Kept(Tiles, [new StatTile(Words.Nothing, "")]);
             Histogram = null;
             Caption = "";
-            Hits.Clear();
-            listed.Clear();
-            listedFor = key;
+            Forget(key);
             return;
         }
         Tiles = Kept(Tiles, tiles);
@@ -171,15 +180,10 @@ public sealed partial class DrillView : ObservableObject
     void DrawHits(string key, List<(CombatEvent e, int Side)> events, double[] avgs, Brush[][] fills,
                   Func<string, string> nameOf)
     {
-        bool grown = key == listedFor && events.Count >= listed.Count;
+        bool grown = key == listedFor && Equals(Sort.By, listedBy) && events.Count >= listed.Count;
         for (int i = 0; grown && i < listed.Count; i++)
             grown = listed[i] == Of(events[i].e, events[i].Side);
-        if (!grown)
-        {
-            Hits.Clear();
-            listed.Clear();
-            listedFor = key;
-        }
+        if (!grown) Forget(key);
 
         // Each with how far it fell from its side's average, out of the
         // furthest any of that side's fell: the length of the small bar beside it.
@@ -199,9 +203,41 @@ public sealed partial class DrillView : ObservableObject
                                  e.Dmg, Words.Crits && e.Crit, side,
                                  side >= 0 ? fills[0][side] : null, side >= 0 ? fills[1][side] : null);
             row.Measure(avgs[At(side)], furthest[At(side)]);
+            made.Add(row);
             // Newest first.
-            Hits.Insert(0, row);
+            if (Sort.By is null) Hits.Insert(0, row);
         }
+        // Ordered by a heading, the new among the rest, those that come out
+        // equal newest first. Under "vs avg" with two actions side by side
+        // a side's average moving moves its hits among the other's.
+        if (Sort.By != null) Put(Sort.Order(Enumerable.Reverse(made), KeyOf));
+    }
+
+    /// <summary>What each heading of the list orders it by.</summary>
+    static SortKey<HitRow>? KeyOf(string column) => column switch
+    {
+        "amount" => SortKey<HitRow>.Of(r => r.Amount),
+        "vsAvg" => SortKey<HitRow>.Of(r => r.Delta),
+        _ => null,
+    };
+
+    /// <summary>
+    /// Makes the list <paramref name="order"/>, moving rows that are out of
+    /// place and putting in new ones, so a new hit is one row put in and the
+    /// rest stay where they are, as they do in the list's own order.
+    /// </summary>
+    void Put(List<HitRow> order)
+    {
+        for (int i = 0; i < order.Count; i++)
+        {
+            if (i < Hits.Count && ReferenceEquals(Hits[i], order[i])) continue;
+            int at = -1;
+            for (int j = i + 1; j < Hits.Count && at < 0; j++)
+                if (ReferenceEquals(Hits[j], order[i])) at = j;
+            if (at >= 0) Hits.Move(at, i);
+            else Hits.Insert(i, order[i]);
+        }
+        while (Hits.Count > order.Count) Hits.RemoveAt(Hits.Count - 1);
     }
 
     static (double, double, string, bool, int) Of(CombatEvent e, int side) => (e.T, e.Dmg, e.Target, e.Crit, side);

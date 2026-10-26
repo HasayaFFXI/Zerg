@@ -85,6 +85,9 @@ public sealed class LowMark : Decorator
     public static readonly DependencyProperty SurfaceProperty = DependencyProperty.Register(nameof(Surface), typeof(Brush),
         typeof(LowMark), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty RaiseProperty = DependencyProperty.Register(nameof(Raise), typeof(double),
+        typeof(LowMark), new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public LowMark()
     {
         SetResourceReference(InkProperty, "CritBrush");
@@ -96,6 +99,9 @@ public sealed class LowMark : Decorator
     public Brush? Ink { get => (Brush?)GetValue(InkProperty); set => SetValue(InkProperty, value); }
     /// <summary>The pane's own surface, which cuts the cell out of its row.</summary>
     public Brush? Surface { get => (Brush?)GetValue(SurfaceProperty); set => SetValue(SurfaceProperty, value); }
+    /// <summary>How much higher the mark stands than in a character's row:
+    /// 1 in a row two units shorter, where the figure stands one higher.</summary>
+    public double Raise { get => (double)GetValue(RaiseProperty); set => SetValue(RaiseProperty, value); }
 
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
@@ -111,7 +117,7 @@ public sealed class LowMark : Decorator
 
         if (look.CutOut)
         {
-            double left = MarkInk.Snap(Math.Max(0, w - CutRight - CutWidth), scale), top = MarkInk.Snap(CutTop, scale);
+            double left = MarkInk.Snap(Math.Max(0, w - CutRight - CutWidth), scale), top = MarkInk.Snap(CutTop - Raise, scale);
             var box = new Rect(left, top, MarkInk.Snap(Math.Min(CutWidth, w - CutRight), scale), MarkInk.Snap(CutHeight, scale));
             if (box.Width > 0)
             {
@@ -126,7 +132,7 @@ public sealed class LowMark : Decorator
         if (MarkInk.At(Ink, look.Rule) is { } rule)
         {
             double left = MarkInk.Snap(Math.Max(0, w - RuleRight - RuleWidth), scale);
-            dc.DrawRoundedRectangle(rule, null, new Rect(left, MarkInk.Snap(RuleTop, scale), MarkInk.Snap(RuleWidth, scale),
+            dc.DrawRoundedRectangle(rule, null, new Rect(left, MarkInk.Snap(RuleTop - Raise, scale),MarkInk.Snap(RuleWidth, scale),
                                                          MarkInk.Snap(RuleHeight, scale)), RuleRadius, RuleRadius);
         }
     }

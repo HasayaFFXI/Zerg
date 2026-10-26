@@ -36,8 +36,7 @@
     </Style>
     <!-- A heading and a figure of those three: gone by type, and when the
          room is too narrow. -->
-    <Style x:Key="HeadMore" TargetType="TextBlock" BasedOn="{StaticResource Head}">
-      <Setter Property="Padding" Value="2,0,8,0"/>
+    <Style x:Key="More" TargetType="FrameworkElement">
       <Style.Triggers>
         <Trigger Property="v:TallyCard.Figures" Value="False">
           <Setter Property="Visibility" Value="Collapsed"/>
@@ -77,8 +76,10 @@
     </Style>
 
     <!-- One target, or one type: what it is called, what it came to, and
-         that out of them all; a target, the party's accuracy at it and its
-         weaponskills' average and share of what it took. Pressed, it isolates it, as its line of the
+         that out of them all; a target, the party's accuracy at it (marked
+         when low, as a character's is: v:LowMark, one unit higher in this
+         shorter row) and its weaponskills' average and share of what it
+         took. Pressed, it isolates it, as its line of the
          Target or Type button's menu does; isolated, it has the accent down
          its left edge, and the rows that are not are dimmed. -->
     <DataTemplate x:Key="Line">
@@ -92,7 +93,9 @@
               <v:SmallBar For="Character" Length="42" Value="{Binding Fraction}" Fill="{DynamicResource Text3Brush}">
                 <TextBlock Text="{Binding Share}" Style="{StaticResource FigQuiet}" Padding="2,0,8,0"/>
               </v:SmallBar>
-              <TextBlock Text="{Binding Accuracy}" Style="{StaticResource FigMore}"/>
+              <v:LowMark Rate="{Binding AccuracyRate}" Raise="1" Style="{StaticResource More}">
+                <TextBlock Text="{Binding Accuracy}" Style="{StaticResource FigQuiet}" Padding="2,0,8,0"/>
+              </v:LowMark>
               <TextBlock Text="{Binding WsAvg}" Style="{StaticResource FigMore}"/>
               <TextBlock Text="{Binding WsShare}" Style="{StaticResource FigMore}"/>
             </v:Cells>
@@ -117,10 +120,11 @@
        heading has the way back to them all. In a floating panel the list
        takes the panel's height.
 
-       The pane says how its rows are drawn (v:Shading). -->
+       The pane says how its rows are drawn and under what accuracy is
+       marked (v:Shading). -->
   <v:Pane Title="{Binding Filter.Title, ElementName=Self}" Note="{Binding Filter.TableNote, ElementName=Self}"
           PopOutCommand="{Binding Info.PopOutCommand, ElementName=Self}"
-          v:Shading.Characters="{Binding ShadeCharacters}"
+          v:Shading.Characters="{Binding ShadeCharacters}" v:Shading.LowAccuracy="{Binding LowAccuracy}"
           v:TallyCard.Figures="{Binding Filter.HasFigures, ElementName=Self}">
     <v:Pane.Tools>
       <Button Content="Clear" Command="{Binding Filter.ClearCommand, ElementName=Self}"
@@ -155,17 +159,31 @@
         <!-- 14 units are kept clear at the right of the headings and of
              every row's cells: the room the list's scroll bar is drawn in. -->
         <Grid Height="{StaticResource SubRowHeight}">
-          <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1">
-            <TextBlock Text="{Binding Filter.Word, ElementName=Self}" Style="{StaticResource HeadText}" Padding="14,0,8,0"/>
-            <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="2,0,8,0"/>
-            <TextBlock Text="Share" Style="{StaticResource Head}" Padding="2,0,8,0"
-                       ToolTip="{Binding Filter.ShareTip, ElementName=Self}"/>
-            <TextBlock Text="Acc" Style="{StaticResource HeadMore}"
-                       ToolTip="The party's melee and ranged attacks at this target that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted"/>
-            <TextBlock Text="WS Avg" Style="{StaticResource HeadMore}"
-                       ToolTip="Average damage to this target of the weaponskills that dealt it damage"/>
-            <TextBlock Text="WS %" Style="{StaticResource HeadMore}"
-                       ToolTip="Weaponskill damage out of the damage this target took"/>
+          <!-- Each heading orders the table (v:SortHead); the line for
+               what named nothing stays last. -->
+          <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1" v:SortHead.Sort="{Binding Filter.Sort, ElementName=Self}">
+            <v:SortHead Column="name" Words="True">
+              <TextBlock Text="{Binding Filter.Word, ElementName=Self}" Style="{StaticResource HeadText}" Padding="14,0,8,0"/>
+            </v:SortHead>
+            <v:SortHead Column="damage">
+              <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="2,0,8,0"/>
+            </v:SortHead>
+            <v:SortHead Column="share">
+              <TextBlock Text="Share" Style="{StaticResource Head}" Padding="2,0,8,0"
+                         ToolTip="{Binding Filter.ShareTip, ElementName=Self}"/>
+            </v:SortHead>
+            <v:SortHead Column="accuracy" Style="{StaticResource More}">
+              <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="2,0,8,0"
+                         ToolTip="The party's melee and ranged attacks at this target that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted"/>
+            </v:SortHead>
+            <v:SortHead Column="wsAvg" Style="{StaticResource More}">
+              <TextBlock Text="WS Avg" Style="{StaticResource Head}" Padding="2,0,8,0"
+                         ToolTip="Average damage to this target of the weaponskills that dealt it damage"/>
+            </v:SortHead>
+            <v:SortHead Column="wsShare" Style="{StaticResource More}">
+              <TextBlock Text="WS %" Style="{StaticResource Head}" Padding="2,0,8,0"
+                         ToolTip="Weaponskill damage out of the damage this target took"/>
+            </v:SortHead>
           </v:Cells>
           <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
         </Grid>

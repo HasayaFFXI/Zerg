@@ -66,6 +66,8 @@ public sealed partial class TallyRow(string key, Action<string> flip) : Row(key)
     /// weaponskills' average and share of the damage to it
     /// (<see cref="Counting.ByTarget"/>); dashes where there is nothing to measure.</summary>
     [ObservableProperty] private string accuracy = "";
+    /// <summary>The same Accuracy as a rate, for the low accuracy mark; null for a dash.</summary>
+    [ObservableProperty] private double? accuracyRate;
     [ObservableProperty] private string wsAvg = "";
     [ObservableProperty] private string wsShare = "";
     /// <summary>Damage is isolated to this one, alone or among others.</summary>
@@ -227,6 +229,8 @@ public sealed partial class PickFilter : ObservableObject
     /// first, each a row to press (<c>Views/TallyCard</c>). Empty over two
     /// runs: the Compare section's tables are its sheet's.</summary>
     public ObservableCollection<TallyRow> Table { get; } = [];
+    /// <summary>The table's order, as its headings set it; null over two runs, which have no table.</summary>
+    public ColumnSort? Sort { get; set; }
     /// <summary>The table has a line: something was dealt, or something is picked.</summary>
     [ObservableProperty] private bool hasTable;
     /// <summary>What the table's pane says after its title (<see cref="NoteOf"/>).</summary>
@@ -363,8 +367,10 @@ public sealed partial class PickFilter : ObservableObject
         // The same as a table, in the table's order (a target's by what it
         // took, a type's its own), whatever is picked that came to nothing
         // among them, then what named nothing to pick. A row is kept from
-        // one count to the next and moved when its place changes.
+        // one count to the next and moved when its place changes. Ordered
+        // by a heading, the line that names nothing stays last.
         var lines = words.Order(list, picked);
+        if (Sort != null) lines = Sort.Order(lines, column => KeyOf(column, draw, figures));
         double rest = Targets.Unnamed(list, whole);
         if (rest > 0) lines.Add(new TargetTotal(Rest, rest));
         Zerg.Rows.Sync(Table, lines, t => t.Name, t => new TallyRow(t.Name, Flip), (row, t) =>
@@ -376,6 +382,7 @@ public sealed partial class PickFilter : ObservableObject
             row.Fraction = hit ? RowMarks.Fraction(t.Total, most) : 0;
             SplitFigures? f = figures != null && figures.TryGetValue(row.CanPick ? t.Name : "", out var x) ? x : null;
             row.Accuracy = Percent(f?.AutoAcc);
+            row.AccuracyRate = f?.AutoAcc;
             row.WsAvg = f?.WsAvg is double avg ? Format.Int(avg) : None;
             row.WsShare = Percent(f?.WsShare);
             Mark(row);
@@ -385,6 +392,23 @@ public sealed partial class PickFilter : ObservableObject
     }
 
     static string Percent(double? x) => x is double v ? Format.Num(v * 100, 1) + "%" : None;
+
+    /// <summary>What each column of the table is ordered by: what it
+    /// prints, a dash (a pick that came to nothing) being nothing. Share is
+    /// the damage over one whole, so it goes as Damage does.</summary>
+    SortKey<TargetTotal>? KeyOf(string column, Func<string, string> draw, IReadOnlyDictionary<string, SplitFigures>? figures)
+    {
+        SplitFigures? Of(TargetTotal t) => figures != null && figures.TryGetValue(t.Name, out var f) ? f : null;
+        return column switch
+        {
+            "name" => SortKey<TargetTotal>.Of(t => draw(called(t.Name))),
+            "damage" or "share" => SortKey<TargetTotal>.Of(t => t.Total),
+            "accuracy" => SortKey<TargetTotal>.Of(t => Of(t)?.AutoAcc),
+            "wsAvg" => SortKey<TargetTotal>.Of(t => Of(t)?.WsAvg),
+            "wsShare" => SortKey<TargetTotal>.Of(t => Of(t)?.WsShare),
+            _ => null,
+        };
+    }
 
     /// <summary>The list over two runs: each one's damage in each.</summary>
     /// <param name="wholeA">The damage to them all in run A.</param>

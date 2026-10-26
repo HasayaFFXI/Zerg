@@ -202,16 +202,32 @@
           <!-- 14 units are kept clear at the right of the headings and of
                every row's cells: the room the list's scroll bar is drawn in. -->
           <Grid Height="{StaticResource ColumnHeadHeight}">
-            <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
-              <TextBlock Text="Heal" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
-              <TextBlock Text="Casts" Style="{StaticResource Head}" ToolTip="One per cast, however many people it reached"/>
-              <TextBlock Text="Total" Style="{StaticResource Head}"/>
-              <TextBlock Text="Avg" Style="{StaticResource Head}" ToolTip="Total divided by casts"/>
-              <TextBlock Text="Min" Style="{StaticResource HeadSheds}"
-                         ToolTip="The least one target was healed for, above nothing: a cure on someone at full health is not it"/>
-              <TextBlock Text="Max" Style="{StaticResource Head}" ToolTip="The most one target was healed for"/>
-              <TextBlock Text="Share" Style="{StaticResource Head}"
-                         ToolTip="Out of everything under this character's heading, their pet's heals included"/>
+            <!-- Each heading orders every character's heals under them
+                 (v:SortHead); the characters stay largest first. -->
+            <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding HealsSort}">
+              <v:SortHead Column="name" Words="True">
+                <TextBlock Text="Heal" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
+              </v:SortHead>
+              <v:SortHead Column="casts">
+                <TextBlock Text="Casts" Style="{StaticResource Head}" ToolTip="One per cast, however many people it reached"/>
+              </v:SortHead>
+              <v:SortHead Column="total">
+                <TextBlock Text="Total" Style="{StaticResource Head}"/>
+              </v:SortHead>
+              <v:SortHead Column="avg">
+                <TextBlock Text="Avg" Style="{StaticResource Head}" ToolTip="Total divided by casts"/>
+              </v:SortHead>
+              <v:SortHead Column="min" Style="{StaticResource Sheds}">
+                <TextBlock Text="Min" Style="{StaticResource Head}"
+                           ToolTip="The least one target was healed for, above nothing: a cure on someone at full health is not it"/>
+              </v:SortHead>
+              <v:SortHead Column="max">
+                <TextBlock Text="Max" Style="{StaticResource Head}" ToolTip="The most one target was healed for"/>
+              </v:SortHead>
+              <v:SortHead Column="share">
+                <TextBlock Text="Share" Style="{StaticResource Head}"
+                           ToolTip="Out of everything under this character's heading, their pet's heals included"/>
+              </v:SortHead>
             </v:Cells>
             <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
           </Grid>

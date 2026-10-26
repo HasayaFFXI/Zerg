@@ -179,6 +179,35 @@ public sealed partial class MainViewModel : ObservableObject
     /// together.</summary>
     public PickFilter TypeFilter { get; } = PickFilter.OfTypes(paired: false);
 
+    // ------------------------------------------------------------- sorting
+
+    /// <summary>The order of the Damage by character table, and of its strip.</summary>
+    public ColumnSort BarsSort { get; }
+    /// <summary>The order of each character's actions in the Actions table.
+    /// The headings stay in the table's own order: largest first.</summary>
+    public ColumnSort ActionsSort { get; }
+    /// <summary>The order of the Healing by character table, and of its strip.</summary>
+    public ColumnSort HealersSort { get; }
+    /// <summary>The order of each character's heals in the Heals table.</summary>
+    public ColumnSort HealsSort { get; }
+
+    /// <summary>
+    /// A table whose heading was pressed is listed again from the last
+    /// count; nothing is counted. The By target and By damage type tables
+    /// are each their filter's, and a drill-down's list its own.
+    /// </summary>
+    void ListOnSort()
+    {
+        BarsSort.Changed += () => { if (snapshot is { } c) DrawBars(c); };
+        ActionsSort.Changed += () => { if (snapshot is { } c) DrawActions(c); };
+        HealersSort.Changed += () => { if (snapshot is { } c) DrawHealBars(c); };
+        HealsSort.Changed += () => { if (snapshot is { } c) DrawHeals(c); };
+        TargetFilter.Sort!.Changed += () => { if (snapshot is { } c) DrawTargets(c); };
+        TypeFilter.Sort!.Changed += () => { if (snapshot is { } c) DrawTargets(c); };
+        DamageDrill.Sort.Changed += () => { if (snapshot is { } c) DrawDrill(c); };
+        HealingDrill.Sort.Changed += () => { if (snapshot is { } c) DrawHealDrill(c); };
+    }
+
     /// <summary>The cards that can float over the game, and their opacity.</summary>
     public PanelSet Panels { get; }
 
@@ -196,9 +225,16 @@ public sealed partial class MainViewModel : ObservableObject
         excluded = new HashSet<string>(settings.Excluded, StringComparer.Ordinal);
         Panels = new PanelSet(settings);
         DamageDrill = new DrillView(DrillWords.Damage, Panels["actions"], CloseDrillCommand, SwapDrillCommand,
-                                    MakeDamagePick());
+                                    MakeDamagePick(), new ColumnSort("hits", settings));
         HealingDrill = new DrillView(DrillWords.Healing, Panels["hactions"], CloseHealDrillCommand, SwapHealDrillCommand,
-                                     MakeHealPick());
+                                     MakeHealPick(), new ColumnSort("casts", settings));
+        BarsSort = new ColumnSort("bars", settings);
+        ActionsSort = new ColumnSort("actions", settings);
+        HealersSort = new ColumnSort("healers", settings);
+        HealsSort = new ColumnSort("heals", settings);
+        TargetFilter.Sort = new ColumnSort("targets", settings);
+        TypeFilter.Sort = new ColumnSort("types", settings);
+        ListOnSort();
         Panels.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(PanelSet.OutCount) or nameof(PanelSet.ClickThrough))

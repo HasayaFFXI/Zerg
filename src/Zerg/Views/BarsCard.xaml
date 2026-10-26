@@ -186,7 +186,7 @@
 
        The pane says how its rows are drawn (v:Shading), to both forms. -->
   <v:Pane Title="Damage by character" Note="Total dealt since the session started"
-          Hint="Total dealt since the session started. Hover a column heading for how it is counted."
+          Hint="Total dealt since the session started. Hover a column heading for how it is counted, and press one to sort by it."
           PopOutCommand="{Binding Panels[bars].PopOutCommand}"
           v:Shading.Characters="{Binding ShadeCharacters}" v:Shading.LowAccuracy="{Binding LowAccuracy}">
     <Grid>
@@ -313,33 +313,64 @@
                   <v:Caps Text="Pet" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
               </v:Cells>
-              <v:Cells Style="{StaticResource Table}" Margin="0,16,14,1">
-                <TextBlock Text="Character" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
-                <TextBlock Text="Job" Style="{StaticResource HeadText}"
-                           Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
-                <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
-                           ToolTip="Everything this character dealt: attacks, weaponskills, job abilities, magic, additional effects, counters and spikes, their pet, and the skillchains they closed while Include Skillchains is on"/>
-                <TextBlock Text="Damage %" Style="{StaticResource Head}" Padding="0,0,8,0"
-                           ToolTip="This character's damage out of the whole party's"/>
-                <TextBlock Text="DPS" Style="{StaticResource Head}" Padding="0,0,8,0" ToolTip="Damage divided by the session clock"/>
-                <TextBlock Text="Accuracy" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
-                           ToolTip="Melee and ranged attacks that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted. Weaponskills, job abilities and the pet are not included"/>
-                <TextBlock Text="Damage" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
-                           ToolTip="Total weaponskill damage. Skillchain damage is not part of it"/>
-                <TextBlock Text="Avg" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
-                           ToolTip="Average damage of the weaponskills that dealt damage"/>
-                <TextBlock Text="%" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
-                           ToolTip="Weaponskill damage out of this character's damage"/>
-                <TextBlock Text="Acc" Style="{StaticResource HeadShedsLate}" Padding="0,0,8,0"
-                           ToolTip="Weaponskills that dealt damage, out of all used"/>
-                <TextBlock Text="Damage" Style="{StaticResource HeadSheds}" Padding="0,0,8,0"
-                           ToolTip="Total damage of the skillchains this character closed. Empty while Include Skillchains is off"/>
-                <TextBlock Text="%" Style="{StaticResource HeadSheds}" Padding="0,0,8,0"
-                           ToolTip="Skillchain damage out of this character's damage"/>
-                <TextBlock Text="Damage" Style="{StaticResource HeadSheds}" Padding="0,0,8,0"
-                           ToolTip="Everything this character's pet dealt. Already part of Damage"/>
-                <TextBlock Text="Acc" Style="{StaticResource HeadSheds}" Padding="0,0,8,0"
-                           ToolTip="The pet's melee attacks that connected, out of all attempted"/>
+              <!-- Each heading orders the table (v:SortHead); a column that
+                   goes in a narrow pane takes its heading with it. Where two
+                   say the same, a script and a reader tell them apart by
+                   the group's name. -->
+              <v:Cells Style="{StaticResource Table}" Margin="0,16,14,1" v:SortHead.Sort="{Binding BarsSort}">
+                <v:SortHead Column="name" Words="True">
+                  <TextBlock Text="Character" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
+                </v:SortHead>
+                <v:SortHead Column="job" Words="True" Visibility="{Binding ShowJob, Converter={StaticResource Visible}}">
+                  <TextBlock Text="Job" Style="{StaticResource HeadText}"/>
+                </v:SortHead>
+                <v:SortHead Column="damage">
+                  <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Everything this character dealt: attacks, weaponskills, job abilities, magic, additional effects, counters and spikes, their pet, and the skillchains they closed while Include Skillchains is on"/>
+                </v:SortHead>
+                <v:SortHead Column="share">
+                  <TextBlock Text="Damage %" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="This character's damage out of the whole party's"/>
+                </v:SortHead>
+                <v:SortHead Column="dps">
+                  <TextBlock Text="DPS" Style="{StaticResource Head}" Padding="0,0,8,0" ToolTip="Damage divided by the session clock"/>
+                </v:SortHead>
+                <v:SortHead Column="accuracy" Style="{StaticResource ShedsLate}">
+                  <TextBlock Text="Accuracy" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Melee and ranged attacks that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted. Weaponskills, job abilities and the pet are not included"/>
+                </v:SortHead>
+                <v:SortHead Column="wsDamage" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill damage">
+                  <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Total weaponskill damage. Skillchain damage is not part of it"/>
+                </v:SortHead>
+                <v:SortHead Column="wsAvg" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill average">
+                  <TextBlock Text="Avg" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Average damage of the weaponskills that dealt damage"/>
+                </v:SortHead>
+                <v:SortHead Column="wsShare" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill share">
+                  <TextBlock Text="%" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Weaponskill damage out of this character's damage"/>
+                </v:SortHead>
+                <v:SortHead Column="wsAccuracy" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill accuracy">
+                  <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Weaponskills that dealt damage, out of all used"/>
+                </v:SortHead>
+                <v:SortHead Column="scDamage" Style="{StaticResource Sheds}" AutomationProperties.Name="Skillchain damage">
+                  <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Total damage of the skillchains this character closed. Empty while Include Skillchains is off"/>
+                </v:SortHead>
+                <v:SortHead Column="scShare" Style="{StaticResource Sheds}" AutomationProperties.Name="Skillchain share">
+                  <TextBlock Text="%" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Skillchain damage out of this character's damage"/>
+                </v:SortHead>
+                <v:SortHead Column="petDamage" Style="{StaticResource Sheds}" AutomationProperties.Name="Pet damage">
+                  <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Everything this character's pet dealt. Already part of Damage"/>
+                </v:SortHead>
+                <v:SortHead Column="petAccuracy" Style="{StaticResource Sheds}" AutomationProperties.Name="Pet accuracy">
+                  <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="The pet's melee attacks that connected, out of all attempted"/>
+                </v:SortHead>
               </v:Cells>
               <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
             </Grid>

@@ -11,8 +11,21 @@ takes its number when the version is cut.
   ranged accuracy at each target; WS Avg, the average of the weaponskills
   that dealt it damage; and WS %, the part of what it took that came from
   weaponskills. Each reads what the Party line reads with that target
-  isolated. In a pane too narrow for them they go, and the table is the
-  three columns it was.
+  isolated. Acc has the low accuracy mark, as a character's Accuracy does,
+  at the threshold set on the Settings page. In a pane too narrow for them
+  they go, and the table is the three columns it was.
+- Columns sort. Press a column heading in Damage by character, Healing by
+  character, Actions, Heals, By target, By damage type or a drill-down's
+  list of hits: largest first (names A to Z), again for the other way, a
+  third time for the table's usual order. A caret beside the heading says
+  which column and which way; the headings take the keyboard (Enter or
+  Space). Dashes go last either way, and rows that come out equal keep
+  their usual order. In Actions and Heals the characters stay largest
+  first and their actions or heals are sorted under them; By target keeps
+  the line for unnamed damage last; a drill-down's Damage and vs avg sort
+  its hits, newest first being its usual order. A floating panel lists its
+  rows as the docked table does. Each table's order is kept in
+  settings.json (`sorts`).
 
 ## 1.2.0 — 2026-10-21
 

@@ -132,7 +132,8 @@ public sealed partial class MainViewModel
         // Everyone who healed anything, a pet's heals counting: a character
         // whose pet did all of it has a row, with no bar to speak of and the
         // figure under Pet Healing.
-        var actors = c.Healing.Actors.Where(a => a.Total + a.PetTotal > 0).ToList();
+        // Largest first, or as the headings order it; the strip the same.
+        var actors = HealersSort.Order(c.Healing.Actors.Where(a => a.Total + a.PetTotal > 0), HealerKey);
 
         // The row is the bar, to the leading healer's own healing: a pet's
         // is not in it, as it is not in Healing.
@@ -189,6 +190,32 @@ public sealed partial class MainViewModel
         });
     }
 
+    /// <summary>What each column of the Healing by character table is
+    /// ordered by: what it prints, a dash being nothing. Healing % and HPS go
+    /// as Healing does.</summary>
+    SortKey<HealerTotals>? HealerKey(string column) => column switch
+    {
+        "name" => SortKey<HealerTotals>.Of(a => NameOf(a.Name)),
+        "job" => SortKey<HealerTotals>.Of(a => Roster.JobLabel(a.Name)),
+        "healing" or "share" or "hps" => SortKey<HealerTotals>.Of(a => a.Total),
+        "casts" => SortKey<HealerTotals>.Of(a => a.Casts),
+        "avg" => SortKey<HealerTotals>.Of(a => a.Avg),
+        "petHealing" => SortKey<HealerTotals>.Of(a => a.PetTotal != 0 ? (double?)a.PetTotal : null),
+        _ => null,
+    };
+
+    /// <summary>What each column of a character's heals is ordered by.</summary>
+    static SortKey<HealAction>? HealKey(string column) => column switch
+    {
+        "name" => SortKey<HealAction>.Of(x => x.Name),
+        "casts" => SortKey<HealAction>.Of(x => x.Casts),
+        "total" or "share" => SortKey<HealAction>.Of(x => x.Total),
+        "avg" => SortKey<HealAction>.Of(x => x.Avg),
+        "min" => SortKey<HealAction>.Of(x => x.Min),
+        "max" => SortKey<HealAction>.Of(x => x.Max),
+        _ => null,
+    };
+
     // ----------------------------------------------------------------- heals
 
     public ObservableCollection<HealRow> Heals { get; } = [];
@@ -221,7 +248,7 @@ public sealed partial class MainViewModel
             items.Add((a, null, top));
             if (!openHeals.Contains(a.Name)) continue;
             double most = RowMarks.Largest(a.ActionList.Select(x => x.Total));
-            foreach (var act in a.ActionList) items.Add((a, act, most));
+            foreach (var act in HealsSort.Order(a.ActionList, HealKey)) items.Add((a, act, most));
         }
         HasHeals = items.Count > 0;
         var fills = FillsOf(healDrill);
