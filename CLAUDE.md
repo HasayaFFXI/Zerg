@@ -436,9 +436,11 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
 
 ## Status and what's next
 
-- **Current: 1.3.0** (2026-10-26): By target's Acc, WS Avg and WS %
-  columns (Acc with the low accuracy mark), and tables sorted by pressing a
-  column heading. 1.2.0 was Replay, an addon event file read whole into a
+- **Current: 1.4.0** (2026-10-30): buffs, status removals and wards no
+  longer counted as damage but listed in the Healing section's Support pane,
+  and the Actions table's Acc column (its share bar gone). 1.3.0 was By
+  target's Acc, WS Avg and WS % columns and tables sorted by pressing a
+  column heading; 1.2.0 was Replay, an addon event file read whole into a
   View tab, cropped to a range and exported as a parse; 1.1.0 compared two
   different actions side by side; 1.0.0 was the first version for
   distribution, with an installer (`Zerg-<version>-setup.exe`) beside the zip.

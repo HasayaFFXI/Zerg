@@ -7,6 +7,8 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 1.4.0 — 2026-10-30
+
 - Support: buffs, status removals and wards (Protect, Haste, Erase, an
   avatar's ward) are no longer counted as damage. Anything one of the party
   did to one of the party that was not a heal was read as a magic attack
