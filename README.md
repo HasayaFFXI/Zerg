@@ -1,4 +1,4 @@
-# Zerg
+![Zerg](assets/banner.png)
 
 **Real-time damage and healing analysis for Final Fantasy XI.**
 
@@ -33,24 +33,6 @@ compared and shared. Zerg is free and open source, for Windows 10 and 11.
    starts at the first hit that counts. Press **Pause** when the fight ends.
    Pressing Start during a session asks for confirmation first, so a
    recording is not discarded by accident.
-
-## At a glance
-
-- **Overlay panels.** Any view can be placed over the game as a transparent,
-  always-on-top panel.
-- **Session overview.** Total damage, Party DPS, the top contributor and the
-  biggest hit. Each character's damage, share, DPS, accuracy, weaponskill,
-  skillchain and pet figures are updated live.
-- **Action and hit detail.** Every attack, weaponskill and spell, down to
-  each individual hit, with its distribution.
-- **Breakdowns by target and damage type.** Isolate a single target or type,
-  and every other view recalculates to match.
-- **Healing.** Each healer's output, every heal, and Party HPS.
-- **Run comparison.** Compare two runs side by side, with the change in every
-  figure, down to individual actions.
-- **Replay.** Any event file VibeXI has recorded can be opened, narrowed to a
-  time range and saved as a session.
-
 
 ## Features
 
