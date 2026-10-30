@@ -77,15 +77,18 @@ public class ReadingTests
     }
 
     [Fact]
-    public void Blank_lines_and_the_addons_own_notices_are_not_unreadable()
+    public void Blank_lines_and_an_older_addons_notices_are_not_unreadable()
     {
         var r = new EventReader();
         r.Feed("");
         r.Feed("   ");
-        // The startup probe has fields of every type; none of them is ours.
-        r.Feed("{\"kind\":\"meta\",\"v\":\"0.3.0\",\"t\":1785434520,\"chunkData\":\"string\",\"actionId\":\"x\",\"dmg\":[1]}");
+        // The startup probe and unknown-message notice an older addon wrote,
+        // as it wrote them: no actor, so no row, and nothing to count against it.
+        Assert.Null(r.Feed("{\"kind\":\"meta\",\"v\":\"0.3.0\",\"t\":1785434520,\"chunkData\":\"string\"," +
+                           "\"injected\":\"boolean\",\"dataLen\":104,\"selfName\":\"Hasaya\",\"path\":\"C:\\\\x.jsonl\"}"));
+        Assert.Null(r.Feed("{\"kind\":\"meta\",\"unknownMsg\":431,\"category\":4,\"actionId\":245}"));
         Assert.Equal(0, r.Unreadable);
-        Assert.Equal(3, r.LineNo);
+        Assert.Equal(4, r.LineNo);
     }
 
     [Fact]

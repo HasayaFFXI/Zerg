@@ -58,12 +58,8 @@ One line is one `(action, target, result)` row. A field of the wrong JSON type (
   `addons/VibeXI/vx_emit.lua` writes. Diff against `vx_emit.encode` when
   either changes.
 
-Three kinds of line are not rows, and `EventReader` files each elsewhere:
+Two kinds of line are not rows, and `EventReader` files each elsewhere:
 
-- **`kind:"meta"`**: the addon's startup probe, and one notice per game message
-  id it did not recognise. Skipped. An unrecognised id is still damage nobody
-  is credited with, so when a total seems low, search the event file for
-  `"kind":"meta"`; the fix is a new entry in `vx_enums.lua`.
 - **`kind:"job"`**: one party member's jobs. It goes on the roster, never in
   the rows: a zero-damage row would land in every count.
 
@@ -90,6 +86,12 @@ Three kinds of line are not rows, and `EventReader` files each elsewhere:
 
   Which actions are heals is the addon's decision, by action id, as the
   reference parser decides it. `via` is `magic`, `ability` or `pet`.
+
+Any other line with no `actor` is no row: it is passed over and not counted
+as unreadable. Files from an older addon begin with a `kind:"meta"` startup
+probe and carry `kind:"meta"` notices of message ids it did not recognise;
+they are read that way. The addon no longer writes them, and nothing in Zerg
+needs one.
 
 ## `use` is per swing, not per action
 
@@ -536,8 +538,8 @@ An addon event file read whole, cropped to a range and exported (`Replay`,
 - Monster TP moves and pet abilities are named `#<id>`.
 - A few job abilities share an id with a weaponskill (Jump among them). The
   addon now writes them as `kind:"ability"` under their own names, but a file
-  whose `meta` line has no `"horizon":1` still has them as `kind:"ws"` under
-  the weaponskill's name, so there they land in the WS columns.
+  from an older addon still has them as `kind:"ws"` under the weaponskill's
+  name, so there they land in the WS columns.
 - Absorbed and "no effect" outcomes are misses, except in Accuracy, where a
   swing into shadows is a hit.
 - Nothing reports double, triple or quad attack rates.

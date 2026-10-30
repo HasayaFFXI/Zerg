@@ -33,7 +33,7 @@ p.add_argument('--extras', action='store_true')
 a = p.parse_args()
 
 rows = [json.loads(line) for line in open(a.source, encoding='ascii') if line.strip()]
-first = min(r['t'] for r in rows if r.get('kind') not in ('meta', 'job'))
+first = min(r['t'] for r in rows if r.get('kind') != 'job' and 'actor' in r)
 base = int(time.time()) + 1
 for r in rows:
     if 't' in r:

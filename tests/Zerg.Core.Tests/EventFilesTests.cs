@@ -21,7 +21,7 @@ public class EventFilesTests
     public void Times_are_read_off_the_first_and_last_records_with_a_time()
     {
         using var t = new TempDir();
-        var path = t.Write("A.jsonl", "{\"kind\":\"meta\",\"t\":100}\n" + "not json\n" +
+        var path = t.Write("A.jsonl", "{\"kind\":\"job\",\"t\":100,\"actor\":\"A\"}\n" + "not json\n" +
                                       "{\"t\":105,\"kind\":\"melee\",\"actor\":\"A\"}\n" +
                                       "{\"t\":230,\"kind\":\"melee\",\"actor\":\"A\"}\n" + "{\"t\":231,\"ki");
         Assert.Equal((100d, 230d), EventFiles.Times(path));

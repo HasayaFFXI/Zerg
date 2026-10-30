@@ -71,10 +71,6 @@ public sealed class EventReader
 
     CombatEvent? Ingest(EventRecord raw)
     {
-        // The addon's own notices (its startup probe, and message ids it did
-        // not recognise). Not events; they stay in the file for anyone
-        // searching it, and what else they hold is theirs to shape.
-        if (raw.Kind == "meta") return null;
         if (raw.Malformed)
         {
             Unreadable++;
@@ -101,7 +97,8 @@ public sealed class EventReader
         }
 
         // Everything after this is on the clock, and a row with no time
-        // cannot be put on it.
+        // cannot be put on it. A line with no actor is no row: the notices an
+        // older addon wrote (kind "meta") are passed over here.
         if (raw.Kind.Length == 0 || raw.Actor.Length == 0) return null;
         if (raw.T is not double t)
         {

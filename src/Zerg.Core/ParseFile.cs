@@ -402,9 +402,9 @@ public static class ParseFile
         int skipped = 0;
         foreach (var ev in events.EnumerateArray())
         {
-            // A job or meta record here would be filed, not counted; nothing
-            // Export writes puts one in this list, so it is refused, not obeyed.
-            if (KindOf(ev) is "job" or "meta" || r.Feed(EventRecord.Read(ev)) == null)
+            // A job record here would be filed, not counted; nothing Export
+            // writes puts one in this list, so it is refused, not obeyed.
+            if (KindOf(ev) == "job" || r.Feed(EventRecord.Read(ev)) == null)
                 skipped++;
         }
 

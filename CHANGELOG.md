@@ -7,6 +7,10 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- Zerg no longer looks for the addon's `meta` lines, which the addon has
+  stopped writing. Event files from an older addon, which have them, read
+  as before.
+
 ## 1.3.0 — 2026-10-26
 
 - The By target pane has three more columns: Acc, the party's melee and
