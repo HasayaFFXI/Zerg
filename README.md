@@ -64,7 +64,7 @@ totals them. Each row is shaded to the character's share of the leader.
 Accuracy below a threshold you set is marked, which makes accuracy problems
 visible at once.
 
-### Action and hit detail
+### Action details
 
 ![The Actions table: each character's attacks and weaponskills, with hits, misses, total, average, min, max and share](assets/screenshots/actions.png)
 
