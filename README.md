@@ -2,10 +2,10 @@
 
 **Real-time damage and healing analysis for Final Fantasy XI.**
 
-Zerg shows the damage, accuracy, weaponskills and healing of every character
-in your party or alliance as the fight happens, in a desktop window or in
-transparent panels over the game. Recorded sessions can be saved, reviewed,
-compared and shared. Zerg is free and open source, for Windows 10 and 11.
+Zerg shows damage and healing  as the fight happens,
+in a desktop window or in transparent panels over the game. 
+
+Recorded sessions can be saved, compared and shared.
 
 **[Download the latest release](https://github.com/HasayaFFXI/Zerg/releases/latest)**
 · requires the [VibeXI](https://github.com/HasayaFFXI/VibeXI) addon
