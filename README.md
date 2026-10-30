@@ -112,20 +112,17 @@ biggest heal.
 
 ![Two sessions compared: each run's name, start and length, and A's and B's total damage, length, Party DPS, accuracy, weaponskill and skillchain damage, with the change in each](assets/screenshots/compare-summary.png)
 
-Load two sessions as A and B, saved or in progress, and every figure shows
-the change from A to B, for damage or healing: by character or job, target
-and damage type.
+Load two sessions (saved or in progress) and compare damage or healing.
 
 ![One character's actions compared between two runs, with A's and B's hits on one histogram beside their hits, median, average, 90th percentile, maximum, standard deviation and critical hit rate](assets/screenshots/compare-actions.png)
 
-Open an action to see both runs' hits on one histogram, with their
-statistics side by side: the measure of a change in equipment or
-weaponskill.
+Compare a single action's change between runs.
 
 ![Two different weaponskills compared within one session: MNK/WAR's Raging Fists (A) against Hasaya's Tachi: Jinpu (B), with both actions' hits on one histogram beside their hits, accuracy, min, median, average, 90th percentile, max and standard deviation, and the change from A to B](assets/screenshots/compare-weaponskills.png)
 
-Any two actions can be paired, in one session or across two, such as one
-weaponskill against another.
+Compare actions against each other (even across characters!).
+
+Comparisons can be done by character, job, target, or damage type.
 
 ### Replay of recorded sessions
 
