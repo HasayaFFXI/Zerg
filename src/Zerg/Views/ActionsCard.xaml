@@ -4,32 +4,23 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:v="clr-namespace:Zerg.Views">
   <UserControl.Resources>
-    <!-- Action, Hits, Miss, Total, Avg, Min, Max, the "least, average,
-         greatest" mark, Share, and a blank column that ends the row: the
-         widths the design draws them at in a pane 940 wide, as shares, each
-         with the least it may be (a figure column its longest figure, Share
-         its bar and its figure). So a narrower pane takes the room from the
-         name first; and when even the leasts do not fit, the table drops
-         columns, in two steps (v:Shed, on the scroll viewer below): the
-         mark first, which is how the design draws the table floating over
-         the game; then Miss and Min as well, when what is left without
-         the mark (LessColumns) does not fit either. -->
-    <sys:String x:Key="Columns">278*150,50*40,50*40,76*60,60*48,56*48,60*52,160*112,104*100,32*0</sys:String>
-    <sys:String x:Key="LessColumns">278*150,50*40,50*40,76*60,60*48,56*48,60*52,104*100,32*0</sys:String>
+    <!-- Action, Hits, Miss, Acc, Total, Avg, Min, Max, the "least,
+         average, greatest" mark, Share, and a blank column that ends the
+         row: the widths the design draws them at in a pane 940 wide, as
+         shares, each with the least it may be (a figure column its longest
+         figure, Acc its figure and the low accuracy mark). So a narrower
+         pane takes the room from the name first; and when even the leasts
+         do not fit, the table drops columns, in two steps (v:Shed, on the
+         scroll viewer below): the mark first, which is how the design
+         draws the table floating over the game; then Miss, Acc and Min as
+         well, when what is left without the mark (LessColumns) does not
+         fit either. -->
+    <sys:String x:Key="Columns">278*150,50*40,50*40,60*52,76*60,60*48,56*48,60*52,160*112,60*52,32*0</sys:String>
+    <sys:String x:Key="LessColumns">278*150,50*40,50*40,60*52,76*60,60*48,56*48,60*52,60*52,32*0</sys:String>
 
-    <!-- The small bar beside a heading's share, in the character's colour:
-         in a floating panel, in the colour they have there. -->
-    <Style x:Key="HeadingBar" TargetType="v:SmallBar">
-      <Setter Property="Fill" Value="{Binding Swatch}"/>
-      <Style.Triggers>
-        <Trigger Property="v:Float.On" Value="True">
-          <Setter Property="Fill" Value="{Binding PanelSwatch}"/>
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-
-    <!-- A character's heading: who, what they dealt in all under Total,
-         and their share of the party under Share. On the raised surface,
+    <!-- A character's heading: who, their uses under Hits and Miss, what
+         they dealt in all under Total, and their share of the party under
+         Share. On the raised surface,
          shaded in their colour to their damage out of the leader's, as
          their row in the table above is. Picking it shows their actions
          under it; picking it again puts them away. -->
@@ -72,19 +63,18 @@
               <TextBlock Text="{Binding Job}" Style="{StaticResource Badge}" Foreground="{DynamicResource Text2Brush}"
                          TextTrimming="CharacterEllipsis"/>
             </DockPanel>
-            <!-- A heading has nothing under Hits, Miss, Avg, Min, Max or
-                 the mark. The blanks hold the columns' places, and the
-                 three that go in a narrow pane go here too. -->
-            <Border/>
+            <TextBlock Text="{Binding Hits}" Style="{StaticResource Cell}"/>
+            <TextBlock Text="{Binding Misses}" Style="{StaticResource SubFigQuietShedsLate}"/>
+            <!-- A heading has nothing under Acc, Avg, Min, Max or the mark.
+                 The blanks hold the columns' places, and the three that go
+                 in a narrow pane go here too. -->
             <Border Style="{StaticResource ShedsLate}"/>
             <TextBlock Text="{Binding Total}" Style="{StaticResource Cell}" FontWeight="SemiBold"/>
             <Border/>
             <Border Style="{StaticResource ShedsLate}"/>
             <Border/>
             <Border Style="{StaticResource Sheds}"/>
-            <v:SmallBar For="Character" Length="42" Value="{Binding Fraction}" Style="{StaticResource HeadingBar}">
-              <TextBlock Text="{Binding Share}" Style="{StaticResource Cell}"/>
-            </v:SmallBar>
+            <TextBlock Text="{Binding Share}" Style="{StaticResource Cell}"/>
           </v:Cells>
         </Grid>
       </Button>
@@ -113,9 +103,11 @@
       </Style.Triggers>
     </Style>
 
-    <!-- One action: its figures, its least, average and greatest hit on one
-         line, and its share as a small bar beside the figure (or as the
-         row's own shade, while "shade actions and heals" is on). Picking it
+    <!-- One action: its figures, its accuracy (marked when low, as a
+         character's is: v:LowMark, one unit higher in this shorter row),
+         its least, average and greatest hit on one line, and its share
+         (drawn as the row's own shade too, while "shade actions and heals"
+         is on). Picking it
          opens the drill-down, and the row is then on the selected surface
          with an accent edge at its left; picking it again closes it. -->
     <Style x:Key="ActionPick" TargetType="Button" BasedOn="{StaticResource RowPick}">
@@ -141,15 +133,16 @@
               <TextBlock x:Name="Name" Text="{Binding Name}" Style="{StaticResource CellText}" Padding="42,0,8,0"/>
               <TextBlock Text="{Binding Hits}" Style="{StaticResource Cell}"/>
               <TextBlock Text="{Binding Misses}" Style="{StaticResource SubFigQuietShedsLate}"/>
+              <v:LowMark Rate="{Binding AccuracyRate}" Raise="1" Style="{StaticResource ShedsLate}">
+                <TextBlock Text="{Binding Accuracy}" Style="{StaticResource Cell}"/>
+              </v:LowMark>
               <TextBlock Text="{Binding Total}" Style="{StaticResource Cell}" FontWeight="SemiBold"/>
               <TextBlock Text="{Binding Avg}" Style="{StaticResource Cell}"/>
               <TextBlock Text="{Binding Min}" Style="{StaticResource SubFigQuietShedsLate}"/>
               <TextBlock Text="{Binding Max}" Style="{StaticResource SubFigQuiet}"/>
               <v:Spread Style="{StaticResource Sheds}" Min="{Binding SpreadMin}" Avg="{Binding SpreadAvg}"
                         Max="{Binding SpreadMax}"/>
-              <v:SmallBar For="Action" Length="42" Value="{Binding ShareFraction}" Fill="{DynamicResource Text3Brush}">
-                <TextBlock Text="{Binding Share}" Style="{StaticResource Cell}"/>
-              </v:SmallBar>
+              <TextBlock Text="{Binding Share}" Style="{StaticResource Cell}"/>
             </v:Cells>
           </Grid>
         </Button>
@@ -174,16 +167,18 @@
        still and the rows scroll under them, in whatever height the pane
        has. In a floating panel the list takes the panel's height.
 
-       The pane says how its rows are drawn (v:Shading). The scroll viewer
-       says whether there is room for every column (v:Shed.Full, and
-       v:Shed.Less for the second step): in a pane or a panel too narrow
-       for them all the mark goes, and in a narrower one Miss and Min too.
+       The pane says how its rows are drawn and under what accuracy is
+       marked (v:Shading). The scroll viewer says whether there is room for
+       every column (v:Shed.Full, and v:Shed.Less for the second step): in
+       a pane or a panel too narrow for them all the mark goes, and in a
+       narrower one Miss, Acc and Min too.
        Under the least width the columns that are left can have, it
        scrolls sideways. -->
   <v:Pane Title="Actions"
           Note="Every attack and weaponskill. Select a character to show theirs, and an action to drill down"
           PopOutCommand="{Binding Panels[actions].PopOutCommand}"
-          v:Shading.Characters="{Binding ShadeCharacters}" v:Shading.Actions="{Binding ShadeActions}">
+          v:Shading.Characters="{Binding ShadeCharacters}" v:Shading.Actions="{Binding ShadeActions}"
+          v:Shading.LowAccuracy="{Binding LowAccuracy}">
     <DockPanel>
       <TextBlock DockPanel.Dock="Top" Text="{Binding EmptyText}" Style="{StaticResource Label}" FontSize="12"
                  Margin="0,18,0,8" HorizontalAlignment="Center"
@@ -223,7 +218,11 @@
               </v:SortHead>
               <v:SortHead Column="misses" Style="{StaticResource ShedsLate}">
                 <TextBlock Text="Miss" Style="{StaticResource Head}"
-                           ToolTip="Uses that dealt none. A swing taken by shadows is a miss here, though it counts as a hit in Accuracy"/>
+                           ToolTip="Uses that dealt none. A swing taken by shadows is a miss here, though it counts as a hit in Acc"/>
+              </v:SortHead>
+              <v:SortHead Column="accuracy" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Accuracy">
+                <TextBlock Text="Acc" Style="{StaticResource Head}"
+                           ToolTip="Uses that got through, out of all attempted: a swing into shadows got through, a weaponskill only if it dealt damage"/>
               </v:SortHead>
               <v:SortHead Column="total">
                 <TextBlock Text="Total" Style="{StaticResource Head}"/>

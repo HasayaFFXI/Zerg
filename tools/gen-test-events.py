@@ -65,8 +65,6 @@ WHAT IS IN HERE ON PURPOSE, and what each case catches:
     writes them: single cures, a Curaga that is one use across four targets with
     a 0 on a full-HP target, and a Reward by the beastmaster on his pet. The
     reader must file every one with the heals and move no damage figure.
-  * META LINES: the startup environment probe on line 1, and an unknown-message
-    notice. Consumers must skip these.
   * JOB LINES -- `kind:"job"`, one per party member, written when the job is
     first read and again whenever it changes. Four things ride on these and each
     is here on purpose: a member who NEVER ACTS (the white mage) and therefore
@@ -83,37 +81,12 @@ WHAT IS IN HERE ON PURPOSE, and what each case catches:
 import argparse
 import json
 import random
-import re
 import sys
 import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SEED = 20260730
-
-# The addon's own version, read out of the addon rather than copied here.
-#
-# It was copied here once, and it went stale twice -- the fixture's probe line
-# claimed 0.1.0 through two releases, because a constant that has to be updated
-# in two places by hand only ever gets updated in one. The probe line is supposed
-# to be byte-identical to what `vibexi.lua` writes, and the version is the one
-# field of it that moves, so it is read from the source of truth.
-ADDON_LUA = HERE.parents[2] / 'addons' / 'VibeXI' / 'vibexi.lua'
-
-
-def addon_version(default='0.0.0'):
-    """`addon.version` as declared in vibexi.lua.
-
-    Falls back rather than raising: the fixture is still worth generating from a
-    copy of this script sitting outside the repo, and a wrong version string in a
-    line nothing reads is not worth a hard failure over.
-    """
-    try:
-        text = ADDON_LUA.read_text(encoding='utf-8')
-    except OSError:
-        return default
-    m = re.search(r"""addon\.version\s*=\s*['"]([^'"]+)['"]""", text)
-    return m.group(1) if m else default
 
 # Message ids, from addons/VibeXI/vx_enums.lua. Named here so the fixture reads
 # as game outcomes rather than as numbers.
@@ -348,22 +321,11 @@ def generate(seed=SEED, start=None):
     def roll(mean, sd, floor=1):
         return max(floor, int(round(rand.gauss(mean, sd))))
 
-    # ---- line 1: the startup environment probe, exactly as vibexi.lua writes it
-    w.raw({
-        'kind': 'meta', 'v': addon_version(), 't': w.t,
-        'chunkData': 'string', 'injected': 'boolean', 'dataLen': 104,
-        'isZoningType': 'number', 'selfName': 'Hasaya', 'selfSpawnFlags': 525,
-        'abilProbeId': 5, 'abilRaw': 'Combo', 'abilOffset': 'Berserk',
-        'spellLookup': 'Cure', 'wsLookup': 'Combo',
-        # Where the probe says its file is: a player's folder, not anyone's in particular.
-        'path': 'C:\\Users\\Player\\AppData\\Local\\VibeXI\\events\\Hasaya_2026.07.30.jsonl',
-    })
-
     # ---- the party, before anybody swings
     #
     # The addon writes these the first time it reads the party table, which is on
-    # the first action packet of the session -- so in a real file they land just
-    # after the probe, exactly as they do here. It writes one again only when a
+    # the first action packet of the session -- so in a real file they come first,
+    # exactly as they do here. It writes one again only when a
     # job CHANGES; there is no periodic re-statement to parse around.
     for name, main, main_lvl, sub, sub_lvl in PARTY_JOBS:
         w.job(name, main, main_lvl, sub, sub_lvl)
@@ -595,10 +557,6 @@ def generate(seed=SEED, start=None):
             w.write(w.next_use(), 'melee', NPC, 'npc', 'Attack', 0,
                     mob, 'mob', roll(30, 8), True, MSG['hit'])
 
-        # One unknown-message notice, exactly as note_unknown() writes it.
-        if fight == 0:
-            w.raw({'kind': 'meta', 'unknownMsg': 431, 'category': 4, 'actionId': 245})
-
         w.advance(110 + rand.randrange(200))   # downtime between fights
 
         # Rhyllis changes job in the downtime. Written AFTER the advance, so it
@@ -639,17 +597,14 @@ def to_export(w, owner, file_name, now_iso):
             kinds[name] = kind
 
     for r in recs:
-        k = r.get('kind')
-        if k == 'meta':
-            continue
-        if k == 'job':
+        if r.get('kind') == 'job':
             note(r['actor'], 'player')
             jobs[r['actor']] = r            # last write wins
             continue
         note(r.get('actor'), r.get('actorKind'))
         note(r.get('target'), r.get('targetKind'))
 
-    timed = [r for r in recs if r.get('kind') not in ('meta', 'job')]
+    timed = [r for r in recs if r.get('kind') != 'job']
     first = min(r['t'] for r in timed if r['kind'] != 'heal' and r['actorKind'] in OURS)
     last = max(r['t'] for r in timed)
     started = first * 1000

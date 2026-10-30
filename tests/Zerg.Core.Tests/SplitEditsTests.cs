@@ -692,8 +692,10 @@ public class SplitEditsTests
         var tree = PaneLayouts.Read(layouts, "Healing");
 
         // The Heals table is put back under the per-character table, where
-        // it is installed, with the share it is installed with.
-        Assert.Equal(Columns(0.7, Rows(0.4, Rows(0.318, Pane("hbars"), Pane("hactions")), Pane("hline", folded: true)), Pane("hdrill")), tree);
+        // it is installed, with the share it is installed with; Support
+        // over the drill-down, likewise.
+        Assert.Equal(Columns(0.7, Rows(0.4, Rows(0.318, Pane("hbars"), Pane("hactions")), Pane("hline", folded: true)),
+                             Rows(0.5, Pane("hsupport"), Pane("hdrill"))), tree);
         Assert.Same(PaneLayouts.Compare, PaneLayouts.Read(layouts, "Compare"));
     }
 

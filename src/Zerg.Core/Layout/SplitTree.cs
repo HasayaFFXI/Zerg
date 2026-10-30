@@ -375,6 +375,9 @@ public static partial class PaneLayouts
     public const string Types = "types", Targets = "targets";
     /// <summary>The Healing section's four, each the twin of a Damage pane.</summary>
     public const string HealBars = "hbars", HealActions = "hactions", HealLine = "hline", HealDrill = "hdrill";
+    /// <summary>The Healing section's fifth, with no twin: how often each
+    /// buff, removal and ward was cast (Zerg.Core's Support).</summary>
+    public const string HealSupport = "hsupport";
 
     /// <summary>
     /// Damage, in a body 1440 by 706: the tables in a column 940 wide, as
@@ -399,11 +402,16 @@ public static partial class PaneLayouts
     /// Healing, as sheet 02 draws it: the tables in a column 940 wide and
     /// the chart 296 tall over the drill-down beside them; the
     /// per-character table, which has eight columns and few rows, 224 tall.
+    /// Support came later (2026-10-30) and stands between the chart and the
+    /// drill-down, as the Damage section's side tables do: it has the
+    /// column below the chart while the drill-down is its heading, and half
+    /// of it once one is open.
     /// </summary>
     public static SplitNode Healing { get; } =
         new PaneSplit(SplitWay.Columns, 0.653,
             new PaneSplit(SplitWay.Rows, 0.318, new PaneLeaf(HealBars), new PaneLeaf(HealActions)),
-            new PaneSplit(SplitWay.Rows, 0.42, new PaneLeaf(HealLine), new PaneLeaf(HealDrill)));
+            new PaneSplit(SplitWay.Rows, 0.42, new PaneLeaf(HealLine),
+                new PaneSplit(SplitWay.Rows, 0.5, new PaneLeaf(HealSupport), new PaneLeaf(HealDrill))));
 
     /// <summary>The Compare section's four: who (by character or by job;
     /// comparing healing, by healer), both runs on one clock, what kind (by

@@ -11,6 +11,9 @@ dist/
 __pycache__/
 *.pyc
 
+# Claude Code's local skills and settings
+.claude/
+
 # OS / OneDrive noise
 desktop.ini
 Thumbs.db

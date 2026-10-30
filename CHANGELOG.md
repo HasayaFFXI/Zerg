@@ -7,6 +7,37 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- Support: buffs, status removals and wards (Protect, Haste, Erase, an
+  avatar's ward) are no longer counted as damage. Anything one of the party
+  did to one of the party that was not a heal was read as a magic attack
+  that missed: it could start the clock and hold it open, and it was
+  listed in Actions as a spell that missed. An older addon's Protect and
+  Shell even counted 40 damage each. They now have a pane of their own in
+  the Healing section, Support, which lists how many times each character
+  cast each one, and nothing else: they are not healing either, so they are
+  in no total, average or rate. They start no clock and end none, and are
+  counted over the same session as heals. Support can float like the other
+  cards. Parses saved before this open with their buffs moved to Support.
+  Beside Casts, Hit and Miss say on how many of the people reached it
+  took effect and on how many it had none (an Erase that found nothing,
+  a Protect on someone with a stronger one), and Hit % is the share it
+  took on. In a narrow pane Miss and Hit % go. Pressing an action (or
+  Enter or Space on it) lists everyone it reached under it, pets too,
+  each with the casts that reached them, their hits, misses and Hit %;
+  pressing it again puts them away.
+  The count is as complete as the addon that wrote the file: an addon
+  before the one that writes support which took effect wrote only the
+  casts that had none (an Erase that found nothing to remove).
+- The Actions table has an Acc column after Miss: each action's accuracy,
+  counted as a character's Accuracy is (a swing into shadows got through,
+  a weaponskill only if it dealt damage), with the low accuracy mark. A
+  character's heading now reads their Hits and Miss over all their
+  actions. Acc sorts, and goes with Miss and Min in a narrow pane. Share
+  is the figure alone: the small bar beside it is gone.
+- Zerg no longer looks for the addon's `meta` lines, which the addon has
+  stopped writing. Event files from an older addon, which have them, read
+  as before.
+
 ## 1.3.0 — 2026-10-26
 
 - The By target pane has three more columns: Acc, the party's melee and

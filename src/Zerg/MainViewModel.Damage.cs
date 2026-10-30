@@ -345,6 +345,7 @@ public sealed partial class MainViewModel
         "name" => SortKey<ActionTotals>.Of(x => x.Name),
         "hits" => SortKey<ActionTotals>.Of(x => x.Hits),
         "misses" => SortKey<ActionTotals>.Of(x => x.Misses != 0 ? (double?)x.Misses : null),
+        "accuracy" => SortKey<ActionTotals>.Of(x => Tried(x)),
         "total" or "share" => SortKey<ActionTotals>.Of(x => x.Total),
         "avg" => SortKey<ActionTotals>.Of(x => x.Avg),
         "min" => SortKey<ActionTotals>.Of(x => x.Min),
@@ -356,6 +357,9 @@ public sealed partial class MainViewModel
     // weaponskills has no weaponskill accuracy, and 0% would say every one missed.
     static string Percent(double? x) => x is double v ? Format.Num(v * 100, 1) + "%" : None;
     static string Whole(double? x) => x is double v ? Format.Int(v) : None;
+    /// <summary>An action's accuracy, or null with nothing
+    /// attempted (a melee Perfect Dodge is not an attempt).</summary>
+    static double? Tried(Bucket b) => b.Tries != 0 ? b.Accuracy : null;
 
     // --------------------------------------------------------------- actions
 
@@ -410,6 +414,8 @@ public sealed partial class MainViewModel
                 row.PanelShade = PanelHeadingShadeOf(a.Name);
                 row.Fraction = RowMarks.Fraction(a.Total, most);
                 row.Job = JobBadge(a.Name);
+                row.Hits = Format.Int(a.Hits);
+                row.Misses = a.Misses != 0 ? Format.Int(a.Misses) : None;
                 row.Total = Format.Int(a.Total);
                 row.Share = Format.Num(a.Share * 100, 1) + "%";
                 row.Open = openActions.Contains(a.Name);
@@ -419,6 +425,8 @@ public sealed partial class MainViewModel
             row.Name = act.Name;
             row.Hits = Format.Int(act.Hits);
             row.Misses = act.Misses != 0 ? Format.Int(act.Misses) : None;
+            row.AccuracyRate = Tried(act);
+            row.Accuracy = Percent(row.AccuracyRate);
             row.Total = Format.Int(act.Total);
             row.Avg = Format.Int(act.Avg);
             row.Min = Format.Int(act.Min);

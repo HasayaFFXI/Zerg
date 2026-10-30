@@ -126,8 +126,8 @@ notice (a feature, layout, counting rule, settings key, `.zerg` format),
 tools and notes move nothing. The owner sometimes overrides this; 1.0.0 is
 theirs to call.
 
-Independent numbers, not this one: `addon.version` in the addon (the event
-file's `meta` `v`), `ParseFile.Version` (`.zerg` format, raised only when an
+Independent numbers, not this one: `addon.version` in the addon (no longer
+written into the event file), `ParseFile.Version` (`.zerg` format, raised only when an
 older Zerg couldn't read the file), `assemblyIdentity version` in
 `app.manifest` (leave at 1.0.0.0).
 
@@ -308,7 +308,7 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
    # past the second (~27 s). Pausing earlier cuts the session short silently; a whole
    # one with --extras reads 153,687 damage in 00:24. Then one line that counts nothing,
    # so a count happens after the last row:
-   printf '{"kind":"meta","t":%s}\n' "$(date +%s)" >> <dir>/Hasaya_2026.10.03.jsonl
+   printf '{"t":%s}\n' "$(date +%s)" >> <dir>/Hasaya_2026.10.03.jsonl
    dotnet run --file tools/drive.cs -- click <pid> Pause
    ```
    `tools/drive.cs` commands: `front`, `fg`, `snap <png>`, `text` (all text,

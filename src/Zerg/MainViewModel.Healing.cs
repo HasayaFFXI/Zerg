@@ -57,6 +57,7 @@ public sealed partial class MainViewModel
         DrawHealBars(c);
         DrawHeals(c);
         DrawHealDrill(c);
+        DrawSupport(c);
     }
 
     void DrawHealTiles(Snapshot c, IReadOnlyList<CombatEvent> own)
@@ -288,6 +289,96 @@ public sealed partial class MainViewModel
             row.ShareFraction = RowMarks.Fraction(act.Total, most);
             (row.Selected, row.Side, row.SideFill, row.PanelSideFill) = MarkOf(healDrill, fills, a.Name, act.Name);
             row.Label = NameOf(a.Name) + ", " + act.Name;
+        });
+    }
+
+    // --------------------------------------------------------------- support
+
+    /// <summary>Every buff, removal and ward, under the character who cast
+    /// it: casts, and of the people reached, on how many it took (Zerg.Core's
+    /// Support says why there is nothing more).</summary>
+    public ObservableCollection<SupportRow> SupportRows { get; } = [];
+    [ObservableProperty] private bool hasSupport;
+    /// <summary>The casts in all, for the pane's heading.</summary>
+    [ObservableProperty] private string supportNote = "";
+    [ObservableProperty] private string supportEmptyText = "";
+
+    /// <summary>The actions whose people are listed under them, by the
+    /// caster's real name and the action (<see cref="KeyGap"/> between).
+    /// Every action starts closed.</summary>
+    readonly HashSet<string> openSupport = new(StringComparer.Ordinal);
+
+    /// <summary>Pressing an action lists the people it reached under it;
+    /// pressing it again puts them away.</summary>
+    [RelayCommand]
+    void ToggleSupport(SupportRow row)
+    {
+        if (row.IsHeading || row.IsUnder) return;
+        if (!openSupport.Remove(row.Key)) openSupport.Add(row.Key);
+        // Nothing is counted again: the last count, with more or fewer of its lines.
+        if (snapshot is { } c) DrawSupport(c);
+    }
+
+    void DrawSupport(Snapshot c)
+    {
+        SupportEmptyText = SessionText.Empty(Shown.Session, Viewing, what: "support");
+        var items = new List<(SupportCaster Caster, SupportAction? Action, SupportTarget? Target)>();
+        foreach (var a in c.Support.Casters)
+        {
+            items.Add((a, null, null));
+            foreach (var act in a.Actions)
+            {
+                items.Add((a, act, null));
+                if (!openSupport.Contains(a.Name + KeyGap + act.Name)) continue;
+                foreach (var p in act.Targets) items.Add((a, act, p));
+            }
+        }
+        HasSupport = items.Count > 0;
+        SupportNote = c.Support.Casts > 0 ? Format.Int(c.Support.Casts) + " cast" + (c.Support.Casts == 1 ? "" : "s") : "";
+
+        static string Key((SupportCaster Caster, SupportAction? Action, SupportTarget? Target) i) =>
+            i.Action == null ? i.Caster.Name
+            : i.Target == null ? i.Caster.Name + KeyGap + i.Action.Name
+            : i.Caster.Name + KeyGap + i.Action.Name + KeyGap + i.Target.Name;
+
+        Rows.Sync(SupportRows, items, Key, i => new SupportRow(Key(i), i.Caster.Name, i.Action?.Name, i.Target?.Name),
+            (row, i) =>
+        {
+            var (a, act, p) = i;
+            if (act == null)
+            {
+                row.Name = NameOf(a.Name);
+                row.Swatch = SwatchOf(a.Name);
+                row.PanelSwatch = Solid(PanelColorOf(a.Name));
+                row.Job = JobBadge(a.Name);
+                row.Casts = Format.Int(a.Casts);
+                row.Hits = Format.Int(a.Hits);
+                row.Misses = Format.Int(a.Misses);
+                row.HitRate = Percent(a.HitRate);
+                row.Label = "Support of " + NameOf(a.Name);
+                return;
+            }
+            if (p != null)
+            {
+                row.Name = NameOf(p.Name);
+                row.Swatch = SwatchOf(p.Name);
+                row.PanelSwatch = Solid(PanelColorOf(p.Name));
+                row.Casts = Format.Int(p.Casts);
+                row.Hits = Format.Int(p.Hits);
+                row.Misses = Format.Int(p.Misses);
+                row.HitRate = Percent(p.HitRate);
+                row.Label = NameOf(a.Name) + ", " + act.Name + " on " + NameOf(p.Name) + ", " + row.Casts + " cast" +
+                            (p.Casts == 1 ? "" : "s") + ", " + row.Hits + " hit, " + row.Misses + " missed, " + row.HitRate;
+                return;
+            }
+            row.Name = act.Name;
+            row.Casts = Format.Int(act.Casts);
+            row.Hits = Format.Int(act.Hits);
+            row.Misses = Format.Int(act.Misses);
+            row.HitRate = Percent(act.HitRate);
+            row.Open = openSupport.Contains(row.Key);
+            row.Label = NameOf(a.Name) + ", " + act.Name + ", " + row.Casts + " cast" + (act.Casts == 1 ? "" : "s") +
+                        ", " + row.Hits + " hit, " + row.Misses + " missed, " + row.HitRate;
         });
     }
 

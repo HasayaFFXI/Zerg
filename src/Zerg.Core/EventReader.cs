@@ -45,6 +45,12 @@ public sealed class EventReader
     /// <summary>Heals, kept apart from <see cref="Events"/> so no damage count can see them.</summary>
     public List<HealEvent> Heals { get; } = [];
 
+    /// <summary>Support: what one of ours did to one of ours that was not
+    /// a heal (Protect, Haste, Erase, a ward). In the damage row's shape, as
+    /// the file has it, and kept apart from <see cref="Events"/> for the
+    /// reason heals are (<see cref="IsSupport"/>).</summary>
+    public List<CombatEvent> Support { get; } = [];
+
     /// <summary>How many records have been fed, blank and unreadable lines included.</summary>
     public int LineNo { get; private set; }
 
@@ -71,10 +77,6 @@ public sealed class EventReader
 
     CombatEvent? Ingest(EventRecord raw)
     {
-        // The addon's own notices (its startup probe, and message ids it did
-        // not recognise). Not events; they stay in the file for anyone
-        // searching it, and what else they hold is theirs to shape.
-        if (raw.Kind == "meta") return null;
         if (raw.Malformed)
         {
             Unreadable++;
@@ -101,7 +103,8 @@ public sealed class EventReader
         }
 
         // Everything after this is on the clock, and a row with no time
-        // cannot be put on it.
+        // cannot be put on it. A line with no actor is no row: the notices an
+        // older addon wrote (kind "meta") are passed over here.
         if (raw.Kind.Length == 0 || raw.Actor.Length == 0) return null;
         if (raw.T is not double t)
         {
@@ -163,9 +166,26 @@ public sealed class EventReader
             Owner = NullIfEmpty(raw.Owner),
             Pet = NullIfEmpty(raw.Pet),
         };
+        if (IsSupport(raw.ActorKind, raw.TargetKind))
+        {
+            Support.Add(e);
+            return null;
+        }
         Events.Add(e);
         return e;
     }
+
+    /// <summary>
+    /// A row one of ours aimed at one of ours is support, not damage: a
+    /// Protect, a Haste, an Erase, an avatar's ward. Among the damage rows
+    /// it would be a magic miss, start the clock and hold it open, and an
+    /// older addon wrote some with the buff's own figure as damage
+    /// (Protect "dealt" 40). Asked of the row's own kinds, which the addon
+    /// read from the spawn flags, not of the roster: a row is filed once,
+    /// as it arrives.
+    /// </summary>
+    public static bool IsSupport(string actorKind, string targetKind) =>
+        Roster.IsOurs(actorKind) && Roster.IsOurs(targetKind);
 
     static string? NullIfEmpty(string s) => s.Length > 0 ? s : null;
 
@@ -181,6 +201,7 @@ public sealed class EventReader
     {
         Events.Clear();
         Heals.Clear();
+        Support.Clear();
         LineNo = 0;
         Unreadable = 0;
         dropped = 0;
@@ -202,6 +223,7 @@ public sealed class EventReader
         dropped += Events.Count;
         Events.Clear();
         Heals.Clear();
+        Support.Clear();
     }
 
     // ------------------------------------------------------------ file names

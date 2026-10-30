@@ -64,6 +64,7 @@ public sealed class Replay
         double first = double.PositiveInfinity, last = double.NegativeInfinity;
         foreach (var e in reader.Events) (first, last) = (Math.Min(first, e.T), Math.Max(last, e.T));
         foreach (var h in reader.Heals) (first, last) = (Math.Min(first, h.T), Math.Max(last, h.T));
+        foreach (var e in reader.Support) (first, last) = (Math.Min(first, e.T), Math.Max(last, e.T));
         (First, Last) = double.IsFinite(first) ? (first, last + Session.Second) : (0, 0);
     }
 

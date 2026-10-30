@@ -58,12 +58,8 @@ One line is one `(action, target, result)` row. A field of the wrong JSON type (
   `addons/VibeXI/vx_emit.lua` writes. Diff against `vx_emit.encode` when
   either changes.
 
-Three kinds of line are not rows, and `EventReader` files each elsewhere:
+Two kinds of line are not rows, and `EventReader` files each elsewhere:
 
-- **`kind:"meta"`**: the addon's startup probe, and one notice per game message
-  id it did not recognise. Skipped. An unrecognised id is still damage nobody
-  is credited with, so when a total seems low, search the event file for
-  `"kind":"meta"`; the fix is a new entry in `vx_enums.lua`.
 - **`kind:"job"`**: one party member's jobs. It goes on the roster, never in
   the rows: a zero-damage row would land in every count.
 
@@ -90,6 +86,26 @@ Three kinds of line are not rows, and `EventReader` files each elsewhere:
 
   Which actions are heals is the addon's decision, by action id, as the
   reference parser decides it. `via` is `magic`, `ability` or `pet`.
+
+One kind of row is not damage either, and `EventReader` files it apart:
+
+- **Support: a row one of ours aimed at one of ours** (`EventReader.IsSupport`:
+  both `actorKind` and `targetKind` are `player` or `pet`), and not a heal.
+  Protect, Haste, Erase, Utsusemi on oneself, an avatar's ward. The addon
+  writes them as ordinary rows with `dmg:0`: `hit:false` when the cast had
+  no effect (`msg` 75, 323), and, from the addon's `E.Support` table on,
+  `hit:true` when it took effect (230 gains the effect, 83 and 341 a status
+  removed, ...). Before that table only the casts with no effect were
+  written. Among the damage rows each was a magic miss that started the
+  clock, and an older addon wrote Protect and Shell with the buff's own
+  figure as damage (`"dmg":40,"hit":true`). Asked of the row's own kinds,
+  as it arrives, not of the roster. See "Support" below.
+
+Any other line with no `actor` is no row: it is passed over and not counted
+as unreadable. Files from an older addon begin with a `kind:"meta"` startup
+probe and carry `kind:"meta"` notices of message ids it did not recognise;
+they are read that way. The addon no longer writes them, and nothing in Zerg
+needs one.
 
 ## `use` is per swing, not per action
 
@@ -161,6 +177,11 @@ its way, with percentages to one decimal. Every figure is rounded on its value, 
   attempt, and a weaponskill connects only if it dealt damage. The Actions
   table's Hits and Miss columns are damage counts, so a shadowed swing is a
   Miss there and a hit in Accuracy. Two questions, two answers.
+- **The Actions table's Acc is `Connects` over that action's uses.** A dash
+  with nothing attempted (a melee Perfect Dodge is not an attempt). A
+  character's heading has none: over every use of theirs it would be a
+  third accuracy beside the per-character table's (melee and ranged alone).
+  The heading's Hits and Miss are the rows under it together.
 - **A pet's row is the owner's damage, never the owner's swing.** A pet's
   melee must not reach the owner's Accuracy, nor a pet's move WS.
 - **Null means "nothing to measure" and prints as a dash.** A mage with no
@@ -202,8 +223,9 @@ Every number is measured from the session's zero, and there is no other clock
   armed state is shown loudly.
 - **A miss starts the clock.** Waiting for damage would put the misses before
   it outside the session and out of accuracy.
-- **A heal does not.** Only a counted damage row latches; a second definition
-  of "counted" would be needed otherwise.
+- **A heal does not, nor does support.** Only a counted damage row latches; a
+  second definition of "counted" would be needed otherwise. A Protect cast
+  before the pull is before the zero, and is not counted.
 - **The arming time is floored to the second**, since the wire clock is whole
   seconds: a swing in the same second as the press is counted, not dropped.
 - **The latch is sticky.** A later filter change cannot re-date a running
@@ -392,6 +414,50 @@ filter does, and credits a pet's heal to its owner.
   already has for the party: Healing, casts, total over casts, and what the
   pets healed, apart. Nothing new is counted for it.
 
+## Support
+
+Buffs, status removals and wards (`Support`), listed in the Healing
+section's Support pane.
+
+- **Casts, hits and misses, and nothing else.** A buff has no amount:
+  there is no total, share, average or rate to give of one, and it is in
+  none of Healing's. Healing's Casts and Avg / cast are of heals alone.
+- **A cast is one use**, however many it reached: a Protectra on six is one.
+  One that took effect and one that had none are both casts.
+- **Hit and Miss count the people reached**, not casts: each person a cast
+  reached is a hit if it took effect on them and a miss if it had none
+  (the addon's `hit`). A Protectra on six that took on four is one cast,
+  four hits and two misses. Counting casts instead would make that
+  Protectra one hit and hide the two it was wasted on. Hit % is hits out of
+  hits and misses; a character's line adds up their actions'. There is no
+  low mark on it: an Erase that found nothing to remove is a miss and
+  often meant to be.
+- **Per person reached**, under an action opened: the same three for each
+  person (or pet) it reached. Casts there are the casts that reached them,
+  each once however many results it had on them, so a person's Casts can
+  be fewer than the action's but never more. Most hits first.
+- **Only what the party did, and never a debuff on the party.** A monster's
+  Slow on a character is not in the file (the addon writes only actions one
+  of ours took), and a support row needs both ends ours. On a target of
+  ours the addon writes only actions on its support list, by action id:
+  spells and abilities the game lets nobody aim at an enemy. A message
+  can't be trusted for this (the server answers Slow with the same message
+  as Haste). So a charmed member's Lullaby or attack on the party is never
+  written. A file from an older addon may still hold such a row, filed here.
+- **Only as complete as the addon that wrote the file.** An event file
+  from before the addon wrote support that took effect has only the casts
+  that had none: an Erase that found nothing to remove, a Protect on
+  someone who had a stronger one.
+- **The session's window and exclusions, as heals have them**: from the zero
+  to the end, a pause's casts left out, an excluded character's too, a
+  pet's credited to its owner under the pet's name (`Titan: Earthen Ward`;
+  an older addon's file has `Titan: #564`).
+- **It starts and ends no clock.** The zero and the end are damage rows'.
+- **Exported among the events, as the file has them**, and filed apart again
+  when read, so a parse saved before support was filed apart opens with
+  its buffs out of the damage.
+- Compare does not list support.
+
 ## Export, import and Compare
 
 - **Export only while paused** (`ParseFile.Export`): a running clock would be
@@ -536,8 +602,8 @@ An addon event file read whole, cropped to a range and exported (`Replay`,
 - Monster TP moves and pet abilities are named `#<id>`.
 - A few job abilities share an id with a weaponskill (Jump among them). The
   addon now writes them as `kind:"ability"` under their own names, but a file
-  whose `meta` line has no `"horizon":1` still has them as `kind:"ws"` under
-  the weaponskill's name, so there they land in the WS columns.
+  from an older addon still has them as `kind:"ws"` under the weaponskill's
+  name, so there they land in the WS columns.
 - Absorbed and "no effect" outcomes are misses, except in Accuracy, where a
   swing into shadows is a hit.
 - Nothing reports double, triple or quad attack rates.

@@ -8,7 +8,7 @@ public class ColumnsTests
     // ActionsCard.xaml, HealActionsCard.xaml): the design's widths at 930
     // as weights, with the least each may be.
     const string Damage = "134*,70*,68*,64*,58*,62*,68*,52*,54*,58*,64*,54*,66*,58*";
-    const string Actions = "278*150,50*40,50*40,76*60,60*48,56*48,60*52,160*112,104*100,32*0";
+    const string Actions = "278*150,50*40,50*40,60*52,76*60,60*48,56*48,60*52,160*112,60*52,32*0";
     const string Heals = "360*150,56*44,110*64,96*52,96*52,96*52,104*100,8*0";
 
     static double[] Widths(string text, double width, params int[] gone)
@@ -45,7 +45,7 @@ public class ColumnsTests
     public void At_the_sheets_width_a_table_written_in_the_sheets_widths_is_as_drawn()
     {
         Assert.Equal([134, 70, 68, 64, 58, 62, 68, 52, 54, 58, 64, 54, 66, 58], Widths(Damage, 930));
-        Assert.Equal([278, 50, 50, 76, 60, 56, 60, 160, 104, 32], Widths(Actions, 926).Select(w => Math.Round(w, 6)));
+        Assert.Equal([278, 50, 50, 60, 76, 60, 56, 60, 160, 60, 32], Widths(Actions, 942).Select(w => Math.Round(w, 6)));
         // The figures' right-hand edges on the sheet, 8 in from each column's end.
         var w = Widths(Damage, 930);
         double x = 0;
@@ -85,8 +85,8 @@ public class ColumnsTests
         var c = Columns.Parse(Actions);
         for (int i = 0; i < w.Length; i++) Assert.True(w[i] >= c[i].Least - 1e-9, $"column {i}: {w[i]}");
         Assert.Equal(700, w.Sum(), 6);
-        Assert.Equal(100, w[8]);                // Share, with its bar, is held
-        Assert.True(w[0] < 278 * 700 / 926.0);  // and the name pays for it
+        Assert.Equal(52, w[3]);                 // Acc, with its mark, is held
+        Assert.True(w[0] < 278 * 700 / 942.0);  // and the name pays for it
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class ColumnsTests
     [Fact]
     public void The_narrowest_a_table_can_be_is_its_fixed_widths_and_every_least()
     {
-        Assert.Equal(650, Columns.Least(Actions));
+        Assert.Equal(654, Columns.Least(Actions));
         Assert.Equal(514, Columns.Least(Heals));
         // Written with no leasts: the per-character tables keep their
         // proportions and scroll sideways instead (their own least width).
@@ -136,28 +136,28 @@ public class ColumnsTests
     public void Without_the_columns_it_drops_a_table_can_be_narrower()
     {
         var actions = Columns.Parse(Actions);
-        // Miss, Min and the mark gone.
-        bool[] present = [true, true, false, true, true, false, true, false, true, true];
-        Assert.Equal(450, Columns.Least(actions, present));
+        // Miss, Acc, Min and the mark gone.
+        bool[] present = [true, true, false, false, true, true, false, true, false, true, true];
+        Assert.Equal(402, Columns.Least(actions, present));
         var heals = Columns.Parse(Heals);
         // Min gone.
         Assert.Equal(462, Columns.Least(heals, [true, true, true, true, false, true, true, true]));
     }
 
     // The Actions table without its mark: what is left after the first step.
-    const string ActionsLess = "278*150,50*40,50*40,76*60,60*48,56*48,60*52,104*100,32*0";
+    const string ActionsLess = "278*150,50*40,50*40,60*52,76*60,60*48,56*48,60*52,60*52,32*0";
 
     [Theory]
     // The Actions pane on the design's sheet, 940 wide: everything.
     [InlineData(940, false, false)]
-    [InlineData(664, false, false)]
+    [InlineData(668, false, false)]
     // The mark goes first: the table as the design draws it floating over
     // the game, 660 wide less its panel's edges.
-    [InlineData(663.9, true, false)]
+    [InlineData(667.9, true, false)]
     [InlineData(645, true, false)]
-    [InlineData(552, true, false)]
-    // Then Miss and Min: sheet 10's narrow pane, and the least a pane may be.
-    [InlineData(551.9, true, true)]
+    [InlineData(556, true, false)]
+    // Then Miss, Acc and Min: sheet 10's narrow pane, and the least a pane may be.
+    [InlineData(555.9, true, true)]
     [InlineData(499, true, true)]
     [InlineData(320, true, true)]
     public void The_actions_table_sheds_columns_in_two_steps(double pane, bool mark, bool missAndMin)

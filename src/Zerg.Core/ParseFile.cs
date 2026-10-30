@@ -167,7 +167,9 @@ public static class ParseFile
         }
 
         var sb = new StringBuilder(Encoding.UTF8.GetString(buffer.WrittenSpan), buffer.WrittenCount + 1024);
-        List(sb, "events", reader.Events.Where(e => keep(e.T)), WriteRow);
+        // Support rows are damage rows on the wire, and go back among them
+        // in the order they were read: a reader files them apart again.
+        List(sb, "events", reader.Events.Concat(reader.Support).Where(e => keep(e.T)).OrderBy(e => e.Line), WriteRow);
         List(sb, "heals", reader.Heals.Where(h => keep(h.T)), WriteHeal);
         sb.Append("\n}\n");
         return sb.ToString();
@@ -402,9 +404,11 @@ public static class ParseFile
         int skipped = 0;
         foreach (var ev in events.EnumerateArray())
         {
-            // A job or meta record here would be filed, not counted; nothing
-            // Export writes puts one in this list, so it is refused, not obeyed.
-            if (KindOf(ev) is "job" or "meta" || r.Feed(EventRecord.Read(ev)) == null)
+            // A job record here would be filed, not counted; nothing Export
+            // writes puts one in this list, so it is refused, not obeyed. A
+            // support row is no damage row and is filed, not skipped.
+            int support = r.Support.Count;
+            if (KindOf(ev) == "job" || (r.Feed(EventRecord.Read(ev)) == null && r.Support.Count == support))
                 skipped++;
         }
 

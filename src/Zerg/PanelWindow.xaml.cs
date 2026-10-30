@@ -103,6 +103,7 @@ public partial class PanelWindow : Window
             PanelSet.Targets => new TallyCard { Filter = model.TargetFilter, Info = info },
             PanelSet.HealLine => new HealLineCard(),
             PanelSet.HealActions => new HealActionsCard(),
+            PanelSet.HealSupport => new SupportCard(),
             _ => Scrolling(new HealBarsCard()),
         };
         Body.Margin = Margins();
@@ -137,7 +138,7 @@ public partial class PanelWindow : Window
             {
                 int i = Array.IndexOf([PanelSet.Line, PanelSet.Bars, PanelSet.Actions,
                                        PanelSet.HealLine, PanelSet.HealBars, PanelSet.HealActions,
-                                       PanelSet.Types, PanelSet.Targets], info.Key);
+                                       PanelSet.Types, PanelSet.Targets, PanelSet.HealSupport], info.Key);
                 int step = 36 * (i % 3), across = 48 * (i / 3);
                 WindowPlacement.MoveFrame(this, at.X + 60 + step + across, at.Y + 140 + step);
             }
@@ -332,9 +333,9 @@ public partial class PanelWindow : Window
             // The design's width; the headings, then a row each, three rows at least.
             PanelSet.Bars => (440, PanelFit.StripHeight(model.Strip.Count, scale)),
             PanelSet.HealBars => (440, PanelFit.StripHeight(model.HealStrip.Count, scale)),
-            // A side table: three columns, and room for eight rows under
-            // the bar and the headings.
-            PanelSet.Types or PanelSet.Targets => (360, 250),
+            // A side table (Support among them): a few columns, and room
+            // for eight rows under the bar and the headings.
+            PanelSet.Types or PanelSet.Targets or PanelSet.HealSupport => (360, 250),
             // Room for a few rows and the drill-down that opens under one.
             _ => (660, 520),
         };

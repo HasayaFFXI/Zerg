@@ -66,9 +66,11 @@ public sealed partial class PanelSet : ObservableObject
     public const string Types = "types", Targets = "targets";
     /// <summary>The Healing section's three, each the twin of one of the first three.</summary>
     public const string HealLine = "hline", HealBars = "hbars", HealActions = "hactions";
+    /// <summary>The Healing section's Support table: casts by character and action.</summary>
+    public const string HealSupport = "hsupport";
 
     /// <summary>Whether a panel holds one of the Healing section's cards.</summary>
-    public static bool IsHealing(string key) => key is HealLine or HealBars or HealActions;
+    public static bool IsHealing(string key) => key is HealLine or HealBars or HealActions or HealSupport;
 
     readonly Settings settings;
     readonly PanelOpacities opacities;
@@ -101,6 +103,7 @@ public sealed partial class PanelSet : ObservableObject
         Add(HealLine, "Cumulative healing");
         Add(HealBars, "Healing by character");
         Add(HealActions, "Heals");
+        Add(HealSupport, "Support");
 
         // A slider reports every step of a drag; the file is written once it settles.
         saver = new Debouncer(Save);

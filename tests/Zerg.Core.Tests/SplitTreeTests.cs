@@ -90,7 +90,7 @@ public class SplitTreeTests
         Assert.DoesNotContain(SplitTree.Keys(PaneLayouts.Healing), k => k is PaneLayouts.Types or PaneLayouts.Targets);
         var all = SplitTree.Keys(PaneLayouts.Damage).Concat(SplitTree.Keys(PaneLayouts.Healing))
                            .Concat(SplitTree.Keys(PaneLayouts.Compare)).ToList();
-        Assert.Equal(14, all.Count);
+        Assert.Equal(15, all.Count);
         Assert.Equal(all.Count, all.Distinct().Count());
     }
 
@@ -103,7 +103,18 @@ public class SplitTreeTests
         Assert.Equal(new Box(0, 0, 940, 224), a.Panes["hbars"]);
         Assert.Equal(new Box(0, 225, 940, 481), a.Panes["hactions"]);
         Assert.Equal(new Box(941, 0, 499, 296), a.Panes["hline"]);
-        Assert.Equal(new Box(941, 297, 499, 409), a.Panes["hdrill"]);
+        // Support came later, and has half of what the chart leaves.
+        Assert.Equal(new Box(941, 297, 499, 204), a.Panes["hsupport"]);
+        Assert.Equal(new Box(941, 502, 499, 204), a.Panes["hdrill"]);
+    }
+
+    [Fact]
+    public void Support_has_the_column_under_the_chart_while_the_drill_down_is_its_heading()
+    {
+        var a = SplitTree.Arrange(PaneLayouts.Healing, W, H, Limits, null, new HashSet<string> { "hdrill" });
+
+        Assert.Equal(new Box(941, 297, 499, 378), a.Panes["hsupport"]);
+        Assert.Equal(new Box(941, 676, 499, 30), a.Panes["hdrill"]);
     }
 
     [Fact]
@@ -135,7 +146,7 @@ public class SplitTreeTests
         // Down the left-hand column, then down the right: the order they
         // stand in when a narrow window has one column.
         Assert.Equal(new[] { "bars", "actions", "line", "types", "targets", "drill" }, SplitTree.Keys(PaneLayouts.Damage));
-        Assert.Equal(new[] { "hbars", "hactions", "hline", "hdrill" }, SplitTree.Keys(PaneLayouts.Healing));
+        Assert.Equal(new[] { "hbars", "hactions", "hline", "hsupport", "hdrill" }, SplitTree.Keys(PaneLayouts.Healing));
         Assert.Equal(new[] { "only" }, SplitTree.Keys(Pane("only")));
     }
 
@@ -143,7 +154,8 @@ public class SplitTreeTests
     public void The_installed_layouts_need_two_least_panes_across_and_as_many_down_as_their_longer_column()
     {
         Assert.Equal((641.0, 265.0), SplitTree.Least(Four, Limits));
-        Assert.Equal((641.0, 265.0), SplitTree.Least(PaneLayouts.Healing, Limits));
+        // Healing: three down its second column.
+        Assert.Equal((641.0, 398.0), SplitTree.Least(PaneLayouts.Healing, Limits));
         // Damage: four down its second column, three of them and a heading
         // while the drill-down has nothing picked.
         Assert.Equal((641.0, 531.0), SplitTree.Least(PaneLayouts.Damage, Limits));
@@ -332,11 +344,12 @@ public class SplitTreeTests
     public void A_stand_in_takes_its_own_height_and_its_neighbour_the_rest()
     {
         // Sheet 02: the chart is floating; its stand-in is 46 tall and the
-        // drill-down under it has the column.
+        // two panes under it have the column.
         var a = SplitTree.Arrange(PaneLayouts.Healing, W, H, Limits, Own(("hline", 46)));
 
         Assert.Equal(new Box(941, 0, 499, 46), a.Panes["hline"]);
-        Assert.Equal(new Box(941, 47, 499, 659), a.Panes["hdrill"]);
+        Assert.Equal(new Box(941, 47, 499, 329), a.Panes["hsupport"]);
+        Assert.Equal(new Box(941, 377, 499, 329), a.Panes["hdrill"]);
         Assert.True(a.Dividers.Single(d => d.Path == "1").Held);
         // The other column is as it was.
         Assert.Equal(new Box(0, 0, 940, 224), a.Panes["hbars"]);

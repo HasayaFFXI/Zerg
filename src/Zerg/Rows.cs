@@ -148,6 +148,9 @@ public sealed partial class ActionRow(string key, string actor, string? action) 
     [ObservableProperty] private string job = "";
     [ObservableProperty] private string hits = "";
     [ObservableProperty] private string misses = "";
+    [ObservableProperty] private string accuracy = "";
+    /// <summary>The same accuracy as a rate, for the low accuracy mark; null for a dash.</summary>
+    [ObservableProperty] private double? accuracyRate;
     [ObservableProperty] private string total = "";
     [ObservableProperty] private string avg = "";
     [ObservableProperty] private string min = "";
@@ -192,6 +195,8 @@ public sealed partial class ActionRow(string key, string actor, string? action) 
 public interface IGroupedRow
 {
     bool IsHeading { get; }
+    /// <summary>A line under an action (the Support table's person reached).</summary>
+    bool IsUnder => false;
 }
 
 /// <summary>One character in the Healing section's per-character table.</summary>
@@ -307,6 +312,42 @@ public sealed partial class HealRow(string key, string actor, string? action) : 
     [ObservableProperty] private double shareFraction;
 
     public override string ToString() => IsHeading ? Name : Label;
+}
+
+/// <summary>One line of the Support table: a character's heading, an
+/// action under it, or a person the action reached under that. Every
+/// character's actions are always listed; an action is pressed to list the
+/// people it reached.</summary>
+public sealed partial class SupportRow(string key, string actor, string? action, string? target = null)
+    : Row(key), IGroupedRow
+{
+    public string Actor { get; } = actor;
+    /// <summary>The action, or null on a character's heading.</summary>
+    public string? Action { get; } = action;
+    /// <summary>The person reached, by real name, or null.</summary>
+    public string? Target { get; } = target;
+    public bool IsHeading => Action == null;
+    public bool IsUnder => Target != null;
+
+    /// <summary>On an action, whether its people are listed under it.</summary>
+    [ObservableProperty] private bool open;
+
+    /// <summary>On a heading the character as drawn; on an action its name.</summary>
+    [ObservableProperty] private string name = "";
+    [ObservableProperty] private Brush? swatch;
+    /// <summary>The swatch in a floating panel's colours.</summary>
+    [ObservableProperty] private Brush? panelSwatch;
+    [ObservableProperty] private string job = "";
+    [ObservableProperty] private string casts = "";
+    /// <summary>The people it took effect on, and those it had none on.</summary>
+    [ObservableProperty] private string hits = "";
+    [ObservableProperty] private string misses = "";
+    /// <summary>Hits out of everyone reached.</summary>
+    [ObservableProperty] private string hitRate = "";
+    /// <summary>What a screen reader, or a script, calls the row.</summary>
+    [ObservableProperty] private string label = "";
+
+    public override string ToString() => Label;
 }
 
 /// <summary>A small labelled figure.</summary>
