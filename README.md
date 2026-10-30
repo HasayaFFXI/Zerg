@@ -66,7 +66,7 @@ passes to the game.
 
 ### Session overview
 
-![Zerg's Damage view of a replayed three-hour event file: the file's activity with the whole file selected, then total damage, elapsed time, Party DPS, top DPS and biggest hit, above the character table, a weaponskill's hit distribution, cumulative damage, and damage by type and by target](assets/screenshots/damage-window.png)
+![Zerg's Damage view of a saved three-hour session: total damage, elapsed time, Party DPS, top DPS and biggest hit, above the Damage by character table with its weaponskill figures, one character's actions, a weaponskill's hit distribution, cumulative damage, and damage by type and by target](assets/screenshots/damage-window.png)
 
 The band across the top summarises the session: total damage, elapsed time,
 Party DPS, the top contributor and the biggest single hit.
@@ -130,24 +130,20 @@ biggest heal.
 
 ![Two sessions compared: each run's name, start and length, and A's and B's total damage, length, Party DPS, accuracy, weaponskill and skillchain damage, with the change in each](assets/screenshots/compare-summary.png)
 
-Two sessions can be loaded as A (the baseline) and B: two saved sessions, or
-one saved session and the session being recorded. Every figure then shows
-the change from A to B, by character or by job, by target and by damage
-type, for damage or for healing.
+Load two sessions as A and B, saved or in progress, and every figure shows
+the change from A to B, for damage or healing: by character or job, target
+and damage type.
 
 ![One character's actions compared between two runs, with A's and B's hits on one histogram beside their hits, median, average, 90th percentile, maximum, standard deviation and critical hit rate](assets/screenshots/compare-actions.png)
 
-Expanding a character compares each of their actions across the two runs.
-Opening an action places both runs' hits on one histogram, next to a table of
-their median, average, 90th percentile, maximum, standard deviation and
-critical hit rate. This measures the effect of a change in equipment or
-weaponskill choice. An action can also be compared against a different
-action, such as one weaponskill against another.
+Open an action to see both runs' hits on one histogram, with their
+statistics side by side: the measure of a change in equipment or
+weaponskill.
 
 ![Two different weaponskills compared within one session: MNK/WAR's Raging Fists (A) against Hasaya's Tachi: Jinpu (B), with both actions' hits on one histogram beside their hits, accuracy, min, median, average, 90th percentile, max and standard deviation, and the change from A to B](assets/screenshots/compare-weaponskills.png)
 
-The same pairing works within a single session, shown here as one
-character's Raging Fists against another's Tachi: Jinpu.
+Any two actions can be paired, in one session or across two, such as one
+weaponskill against another.
 
 ### Replay of recorded sessions
 
