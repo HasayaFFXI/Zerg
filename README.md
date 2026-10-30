@@ -144,7 +144,10 @@ critical hit rate. This measures the effect of a change in equipment or
 weaponskill choice. An action can also be compared against a different
 action, such as one weaponskill against another.
 
-<!-- Insert screenshot here of cross-weaponskill comparison -->
+![Two different weaponskills compared within one session: MNK/WAR's Raging Fists (A) against Hasaya's Tachi: Jinpu (B), with both actions' hits on one histogram beside their hits, accuracy, min, median, average, 90th percentile, max and standard deviation, and the change from A to B](assets/screenshots/compare-weaponskills.png)
+
+The same pairing works within a single session, shown here as one
+character's Raging Fists against another's Tachi: Jinpu.
 
 ### Replay of recorded sessions
 
