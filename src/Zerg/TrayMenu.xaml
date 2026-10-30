@@ -172,6 +172,7 @@
     <MenuItem Style="{StaticResource PanelItem}" DataContext="{Binding Panels[hline]}"/>
     <MenuItem Style="{StaticResource PanelItem}" DataContext="{Binding Panels[hbars]}"/>
     <MenuItem Style="{StaticResource PanelItem}" DataContext="{Binding Panels[hactions]}"/>
+    <MenuItem Style="{StaticResource PanelItem}" DataContext="{Binding Panels[hsupport]}"/>
   </MenuItem>
   <MenuItem Header="Dock all panels" Command="{Binding Panels.DockAllCommand}"/>
   <Separator/>

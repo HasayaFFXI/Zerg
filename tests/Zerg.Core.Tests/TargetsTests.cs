@@ -72,6 +72,23 @@ public class TargetsTests
     }
 
     [Fact]
+    public void An_action_has_its_own_accuracy_and_a_character_their_actions_hits_and_misses()
+    {
+        // The Actions table's Acc: two swings landed of three, and the one
+        // weaponskill dealt damage.
+        var c = Session(
+            Lines.Hit(10, "Hasaya", 100),
+            Lines.Hit(12, "Hasaya", 0, hit: false),
+            Lines.Hit(14, "Hasaya", 120),
+            Lines.Hit(16, "Hasaya", 900, kind: "ws", action: "Tachi: Fudo")).Count(Nobody, true, 30_000);
+        var hasaya = c.Totals.Actors.Single();
+        Assert.Equal(2.0 / 3, hasaya.Actions["Attack"].Accuracy);
+        Assert.Equal(1, hasaya.Actions["Tachi: Fudo"].Accuracy);
+        // The heading's Hits and Miss are every use.
+        Assert.Equal((3, 1), (hasaya.Hits, hasaya.Misses));
+    }
+
+    [Fact]
     public void An_area_attack_counts_what_it_dealt_to_the_isolated_target_as_one_use()
     {
         // One Fireball on three targets: one use, a row each.

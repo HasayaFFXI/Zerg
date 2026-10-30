@@ -1012,6 +1012,21 @@
           <v:Away DataContext="{Binding Panels[hline]}"/>
         </Grid>
 
+        <!-- Support: how often each buff, removal and ward was cast. -->
+        <Grid v:SplitPanel.Key="hsupport" v:SplitPanel.Title="Support">
+          <Grid.Style>
+            <Style TargetType="Grid">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding Panels[hsupport].IsOut}" Value="True">
+                  <Setter Property="v:SplitPanel.Fixed" Value="{StaticResource StandInHeight}"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Grid.Style>
+          <v:SupportCard Visibility="{Binding Panels[hsupport].IsOut, Converter={StaticResource Hidden}}"/>
+          <v:Away DataContext="{Binding Panels[hsupport]}"/>
+        </Grid>
+
         <Grid x:Name="HealDrill" v:SplitPanel.Key="hdrill" v:SplitPanel.Title="Heal drill-down">
           <Grid.Style>
             <Style TargetType="Grid">

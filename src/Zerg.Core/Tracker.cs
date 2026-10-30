@@ -23,6 +23,10 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     /// <summary>The party's healing, over those heals.</summary>
     public HealTotals Healing { get; init; } = new();
 
+    /// <summary>How often each buff, removal and ward was cast, over the
+    /// same window and exclusions as the heals (<see cref="Zerg.Core.Support"/>).</summary>
+    public SupportTotals Support { get; init; } = SupportTotals.None;
+
     /// <summary>The targets damage is isolated to, by name; none while every
     /// target counts. Healing is never isolated: a heal's target is who it
     /// healed.</summary>
@@ -463,10 +467,14 @@ public sealed class Tracker
         var healShown = Healing.Filter(healScoped, new FilterOptions { Actors = actors });
         var healing = Healing.Totals(healShown);
         var healers = healShown.Count == healScoped.Count ? healing : Healing.Totals(healScoped);
+        // Support likewise: kept apart from the damage rows, so a Protect
+        // before the pull neither starts the clock nor is counted, since it
+        // falls before the zero.
+        var support = Zerg.Core.Support.Totals(Zerg.Core.Support.Filter(SupportScoped(), new FilterOptions { Actors = actors }));
 
         return new Snapshot(shown, totals, listed, elapsed, latched)
         {
-            Heals = healShown, Healing = healing, Healers = healers.Actors,
+            Heals = healShown, Healing = healing, Healers = healers.Actors, Support = support,
             Isolated = only != null ? Targets.Sorted(only) : [],
             Targets = Targets.Pickable(byTarget.Keys).Select(n => new TargetTotal(n, byTarget[n])).ToList(),
             AllTargets = byTarget.Values.Sum(),
@@ -488,10 +496,11 @@ public sealed class Tracker
     Scope Now(bool skillchains) => new(Reader, Session, Session.StartedAt, Session.Spans.Count, Session.PausedAt,
                                        Session.EndedAt, Reader.Roster.Version, skillchains);
 
-    Scope? rowsScope, healsScope;
+    Scope? rowsScope, healsScope, supportScope;
     readonly List<CombatEvent> rowsKept = [];
     readonly List<HealEvent> healsKept = [];
-    int rowsRead, healsRead;
+    readonly List<CombatEvent> supportKept = [];
+    int rowsRead, healsRead, supportRead;
 
     /// <summary>The rows the session covers, credited and on its clock, with
     /// skillchains as asked: <see cref="Counting.Filter"/> with the session,
@@ -534,5 +543,25 @@ public sealed class Tracker
             healsRead = all.Count;
         }
         return healsKept;
+    }
+
+    /// <summary>The same for the support rows (<see cref="Zerg.Core.Support.Filter"/>).</summary>
+    List<CombatEvent> SupportScoped()
+    {
+        var scope = Now(true);
+        var all = Reader.Support;
+        if (supportScope != scope || supportRead > all.Count)
+        {
+            supportScope = scope;
+            supportKept.Clear();
+            supportRead = 0;
+        }
+        if (supportRead < all.Count)
+        {
+            var fresh = supportRead == 0 ? all : all.GetRange(supportRead, all.Count - supportRead);
+            supportKept.AddRange(Zerg.Core.Support.Filter(fresh, new FilterOptions { Session = Session, Roster = Reader.Roster }));
+            supportRead = all.Count;
+        }
+        return supportKept;
     }
 }
