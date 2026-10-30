@@ -1,93 +1,195 @@
 # Zerg
 
-Zerg is a native Windows app (C#, WPF, .NET 10) that shows your party's damage
-and healing in FFXI, live, as you play.
+**Real-time damage and healing analysis for Final Fantasy XI parties and alliances.**
 
-![A Zerg panel floating over the game, showing each character's damage, share and accuracy](assets/screenshots/overlay.png)
+Zerg shows the damage, accuracy, weaponskills and healing of every character
+in your party or alliance as the fight happens, in a desktop window or in
+transparent panels over the game. Recorded sessions can be saved, reviewed,
+compared and shared. Zerg is free and open source, for Windows 10 and 11.
 
-**Panels over the game.** Pop any card out into its own see-through panel and
-lay it over FFXI. Panels stay on top, never take the keyboard from the game,
-and can be made click-through (Ctrl+Alt+Z) so your mouse passes straight to
-the game.
+**[Download the latest release](https://github.com/HasayaFFXI/Zerg/releases/latest)**
+· requires the [VibeXI](https://github.com/HasayaFFXI/VibeXI) addon
 
-![Zerg's summary: total damage, time, party DPS, top DPS and biggest hit, with a chip per character](assets/screenshots/summary.png)
+![A Zerg panel over the game, its clock, damage, share and accuracy figures updating and its rows reordering as a fight progresses](assets/screenshots/live-overlay.gif)
 
-**The fight at a glance.** Total damage, party DPS, the top damage dealer and
-the biggest hit, kept up to date as you play. Turn characters on and off with
-one press.
+## Getting started
+
+1. **Install the VibeXI addon.** Zerg's data comes from VibeXI, an Ashita v4
+   addon that records combat as you play. Download `VibeXI-<version>.zip`
+   from its [latest release](https://github.com/HasayaFFXI/VibeXI/releases/latest),
+   unzip it into your Ashita folder, and load it in game with
+   `/addon load vibexi`. The [VibeXI README](https://github.com/HasayaFFXI/VibeXI)
+   has the full instructions, including its setting for your server.
+2. **Install Zerg.** From the
+   [latest release](https://github.com/HasayaFFXI/Zerg/releases/latest),
+   download either:
+   - `Zerg-<version>-setup.exe`, which installs Zerg for the current user
+     (no administrator rights needed), or
+   - the zip, a portable `Zerg.exe` that runs from any folder.
+
+   Neither needs .NET installed separately. Zerg is not code-signed, so
+   Windows may show "Windows protected your PC". If it does, select
+   **More info**, then **Run anyway**.
+3. **Record a session.** Press **Start** in Zerg before the fight. The clock
+   starts at the first hit that counts. Press **Pause** when the fight ends.
+   Pressing Start during a session asks for confirmation first, so a
+   recording is not discarded by accident.
+
+Zerg does not interact with the game. Its only input is the event files
+VibeXI writes to `%LOCALAPPDATA%\VibeXI\events\`.
+
+## At a glance
+
+- **Session overview.** Total damage, Party DPS, the top contributor and the
+  biggest hit, for everyone in your party or alliance. Each character's
+  damage, share, DPS, accuracy, weaponskill, skillchain and pet figures are
+  updated during the fight.
+- **Action and hit detail.** Every attack, weaponskill and spell, down to
+  each individual hit, with its distribution.
+- **Breakdowns by target and damage type.** Isolate a single target or type,
+  and every other view recalculates to match.
+- **Healing.** Each healer's output, every heal, and Party HPS.
+- **Run comparison.** Two sessions side by side, with the change in every
+  figure, down to individual actions.
+- **Replay.** Any event file VibeXI has recorded can be opened, narrowed to a
+  time range and saved as a session.
+- **Overlay panels.** Any view can be placed over the game as a transparent,
+  always-on-top panel that never takes keyboard focus.
+
+## Features
+
+### Overlay panels
+
+Any pane can be popped out of the main window into its own panel and placed
+over the game. Panels stay on top, are transparent at an adjustable opacity,
+and never take keyboard focus from the game. A hot key (Ctrl+Alt+Z by
+default, changeable in Settings) makes them click-through, so mouse input
+passes to the game.
+
+<!-- Retake when convenient: the panel over a recognisable, mid-tone scene, all rows visible with no scroll bar, the in-game party list and chat log out of frame. -->
+![A Zerg panel over the game, listing each character's damage, share and accuracy](assets/screenshots/overlay.jpg)
+
+### Session overview
+
+![Zerg's Damage view of a replayed three-hour event file: the file's activity with the whole file selected, then total damage, elapsed time, Party DPS, top DPS and biggest hit, above the character table, a weaponskill's hit distribution, cumulative damage, and damage by type and by target](assets/screenshots/damage-window.png)
+
+The band across the top summarises the session: total damage, elapsed time,
+Party DPS, the top contributor and the biggest single hit. Below it, every
+view of the session is visible in one window. The session shown is a
+three-hour recording opened as a replay. Characters can be included or
+excluded with one press on their name.
+
+### Per-character breakdown
+
+![The Damage by character table: each character's damage, share, DPS and accuracy, weaponskill damage, average, share and accuracy, skillchain and pet figures, and a Party line](assets/screenshots/by-character.png)
+
+Each character's damage, share of the total, DPS and accuracy,
+followed by weaponskill, skillchain and pet figures, with a Party line that
+totals them. Each row is shaded to the character's share of the leader.
+Accuracy below a threshold you set is marked, which makes accuracy problems
+visible at once.
+
+### Action and hit detail
 
 ![The Actions table: each character's attacks and weaponskills, with hits, misses, total, average, min, max and share](assets/screenshots/actions.png)
 
-**Every action.** Open any character to see each attack and weaponskill they
-used, with hits, misses, total, average, min, max and its share of their
-damage.
+Expanding a character lists every action they used: hits, misses, total,
+average, minimum, maximum and share of their damage.
 
-![A drill-down into one weaponskill: min, average, max, median, spread and accuracy, a chart of its hits, and every single hit](assets/screenshots/drill-down.png)
+![A drill-down into one weaponskill: min, average, max, median, standard deviation and accuracy, a histogram of its hits, and every individual hit](assets/screenshots/drill-down.png)
 
-**Drill into one action.** Pick an action to see its average, median, spread
-and accuracy, a chart of how its hits landed, and every single hit, with the
-time and target.
+Selecting an action opens its distribution: minimum, average, maximum,
+median, standard deviation, accuracy, a histogram of every hit, and a list of
+each hit with its time, target and difference from the average. Two actions
+can be opened side by side, from the same character or from two characters,
+to compare them on one chart.
 
-![The Cumulative damage chart: each character's running total over a three-hour fight](assets/screenshots/cumulative.png)
+### Damage over time
 
-**Who's ahead, and when.** A running total per character across the whole
-fight, with small contributors grouped so the leaders stay readable.
+![The Cumulative damage chart: each character's running total over a three-hour session](assets/screenshots/cumulative.png)
 
-![The By damage type and By target tables: damage from melee, weaponskills, magic and pets, and each target's damage, share, accuracy and weaponskill figures](assets/screenshots/type-and-target.png)
+Each character's running total across the session. Characters below 5 % of
+the total can be grouped into one line so the leading lines stay legible.
 
-**Where the damage came from, and where it went.** Damage by type (melee,
-weaponskills, magic, pets, job abilities) and by target, with accuracy and
-weaponskill figures per target, low accuracy marked. Select a target or a type
-to isolate it, and everything else follows.
+### Damage by type and by target
 
-![Two runs of the same fight compared: A's and B's total damage, length, party DPS, accuracy and weaponskill damage, with the change in each](assets/screenshots/compare-summary.png)
+![The By damage type and By target tables: damage from melee, weaponskills, magic, pets and job abilities, and each target's damage, share, accuracy and weaponskill figures](assets/screenshots/type-and-target.png)
 
-**Compare your runs.** Open two parses as A and B and every figure shows what
-changed: damage, DPS, accuracy and weaponskills, for the party, each character
-or each job, each target and each damage type.
+Damage is broken down by type (melee, weaponskills, magic, pets, job
+abilities, skillchains) and by target. Each target also shows the overall
+accuracy against it and its weaponskill figures. Selecting a target or a type
+isolates it, and every other view recalculates. Use this to evaluate a single
+enemy, or to see how much of the damage came from weaponskills.
 
-![One character's actions compared between two runs, with the Attack drill-down laying A's and B's hits over each other beside a table of hits, median, average, 90th percentile, max, spread and crit rate](assets/screenshots/compare-actions.png)
+### Healing
 
-**Action against action.** Open a character to compare each of their actions
-between the two runs: uses, accuracy, average, max and total, each with its
-change. Open an action to lay A's hits over B's on one chart, with the two
-side by side on hits, median, average, 90th percentile, max, spread and crit
-rate. Try a different weaponskill or a new set of gear and see exactly what it
-was worth. You can even set one action against a different one.
+Healing is tracked the same way as damage, in its own section:
+- **Healing by character**: each character's healing, casts and average,
+  with pets' healing in a separate column.
+- **Heals**: every cure, waltz and pet heal per character, each with its own
+  drill-down.
+- **Cumulative healing**.
 
-![A replay of a three-hour event file: the activity across the whole file, with an hour picked from the middle, 23:38 to 00:42, and the figures for just that range](assets/screenshots/replay.png)
+Its summary band shows total healing, Party HPS, the top healer and the
+biggest heal.
 
-**Replay any night.** Open an event file the addon wrote, even one you never
-pressed Start for, and see its activity laid out across the whole file. Drag
-the range to just the fight you want and every figure follows; export that
-range as a parse to keep or compare.
+### Run comparison
 
-**Keep your parses.** Export a session as a `.zerg` parse and open it again
-later. Hide names before you share a screenshot.
+![Two sessions compared: each run's name, start and length, and A's and B's total damage, length, Party DPS, accuracy, weaponskill and skillchain damage, with the change in each](assets/screenshots/compare-summary.png)
 
-## Requirement: the VibeXI addon
+Two sessions can be loaded as A (the baseline) and B: two saved sessions, or
+one saved session and the session being recorded. Every figure then shows
+the change from A to B, by character or by job, by target and by damage
+type, for damage or for healing.
 
-**Zerg needs the [VibeXI](https://github.com/HasayaFFXI/VibeXI) Ashita addon.**
-The addon is Zerg's only data source: it reads the game's action packets and
-writes one line per event to `%LOCALAPPDATA%\VibeXI\events\`, and Zerg reads
-those files. Without the addon running in game, Zerg has nothing to show.
+![One character's actions compared between two runs, with A's and B's hits on one histogram beside their hits, median, average, 90th percentile, maximum, standard deviation and critical hit rate](assets/screenshots/compare-actions.png)
 
-**Before using Zerg, install VibeXI by following the installation instructions
-in the [VibeXI repository](https://github.com/HasayaFFXI/VibeXI).** Those
-instructions are the authority on setting up the addon; this repository does
-not repeat them.
+Expanding a character compares each of their actions across the two runs.
+Opening an action places both runs' hits on one histogram, next to a table of
+their median, average, 90th percentile, maximum, standard deviation and
+critical hit rate. This measures the effect of a change in equipment or
+weaponskill choice. An action can also be compared against a different
+action, such as one weaponskill against another.
 
-## Getting Zerg
+### Replay of recorded sessions
 
-Download Zerg from the [latest release](https://github.com/HasayaFFXI/Zerg/releases/latest):
-an installer, `Zerg-<version>-setup.exe`, or a zip with one `Zerg.exe` in
-it (Windows 10 or 11, 64-bit; nothing else to install) and a `README.txt`
-that says how to start. Both are made with `python tools/package.py` (the
-installer needs Inno Setup 6: `winget install JRSoftware.InnoSetup`); a new
-version merged to main is built and released by
-`.github/workflows/release.yml`.
+![A replay of a three-hour event file: damage across the whole file, with one hour selected, and the figures for that range](assets/screenshots/replay.png)
 
-## Building from source
+Any event file VibeXI has written can be opened in full, including sessions
+for which Start was never pressed. Its damage is plotted across the whole
+file. Drag the range handles, or type the times, to select one fight; every
+figure is recalculated for that range, which can be exported as a saved
+session.
+
+### Saved sessions and sharing
+
+- **Saving.** A paused session can be exported as a `.zerg` file. Each file
+  opened gets its own tab, so several sessions can be reviewed at once.
+- **Opening.** `.zerg` files open with a double-click once the file
+  association is set (the installer offers it), or by dropping them onto
+  Zerg.
+- **Sharing.** A `.zerg` file can be sent to anyone who uses Zerg.
+- **Privacy.** **Hide names** replaces character names with their jobs, for
+  screenshots and recordings.
+
+### Layout and display
+
+- **Panes.** Every pane can be resized, folded, moved or popped out. Zerg
+  remembers the arrangement of each section, and it can be locked.
+- **Sorting.** The character, action, heal, target, damage type and hit
+  tables sort by any column heading.
+- **Theme.** Light and dark themes.
+- **Skillchains.** Skillchain damage can be included or left out.
+
+## Files and support
+
+Settings and logs are kept in `%LOCALAPPDATA%\VibeXI\zerg\`. If something
+goes wrong, attach `logs\zerg.log` from that folder to an
+[issue](https://github.com/HasayaFFXI/Zerg/issues).
+
+## For developers
+
+Zerg is a native Windows app written in C# with WPF on .NET 10.
 
 ```
 dotnet build Zerg.slnx
@@ -95,9 +197,11 @@ dotnet test Zerg.slnx
 dotnet run --project src/Zerg
 ```
 
-`CLAUDE.md` has the full development notes, `RULES.md` the event contract and
-the reason behind every number Zerg prints, and `CHANGELOG.md` what each
-version changed.
+`python tools/package.py` makes both downloads (the installer needs Inno
+Setup 6: `winget install JRSoftware.InnoSetup`). A new version merged to main
+is built and released by `.github/workflows/release.yml`. `CLAUDE.md` has the
+development notes, `RULES.md` the event contract and the reason behind every
+number Zerg prints, and `CHANGELOG.md` what each version changed.
 
 ## License
 
