@@ -1,6 +1,6 @@
 # Zerg
 
-**Real-time damage and healing analysis for Final Fantasy XI parties and alliances.**
+**Real-time damage and healing analysis for Final Fantasy XI.**
 
 Zerg shows the damage, accuracy, weaponskills and healing of every character
 in your party or alliance as the fight happens, in a desktop window or in
@@ -15,7 +15,7 @@ compared and shared. Zerg is free and open source, for Windows 10 and 11.
 ## Getting started
 
 1. **Install the VibeXI addon.** Zerg's data comes from VibeXI, an Ashita v4
-   addon that records combat as you play. Download `VibeXI-<version>.zip`
+   addon. Download `VibeXI-<version>.zip`
    from its [latest release](https://github.com/HasayaFFXI/VibeXI/releases/latest),
    unzip it into your Ashita folder, and load it in game with
    `/addon load vibexi`. The [VibeXI README](https://github.com/HasayaFFXI/VibeXI)
@@ -27,34 +27,30 @@ compared and shared. Zerg is free and open source, for Windows 10 and 11.
      (no administrator rights needed), or
    - the zip, a portable `Zerg.exe` that runs from any folder.
 
-   Neither needs .NET installed separately. Zerg is not code-signed, so
-   Windows may show "Windows protected your PC". If it does, select
-   **More info**, then **Run anyway**.
-3. **Record a session.** Press **Start** in Zerg before the fight. The clock
+   Zerg is not code-signed, so Windows may show "Windows protected your PC".
+   If it does, select **More info**, then **Run anyway**.
+4. **Record a session.** Press **Start** in Zerg before the fight. The clock
    starts at the first hit that counts. Press **Pause** when the fight ends.
    Pressing Start during a session asks for confirmation first, so a
    recording is not discarded by accident.
 
-Zerg does not interact with the game. Its only input is the event files
-VibeXI writes to `%LOCALAPPDATA%\VibeXI\events\`.
-
 ## At a glance
 
+- **Overlay panels.** Any view can be placed over the game as a transparent,
+  always-on-top panel.
 - **Session overview.** Total damage, Party DPS, the top contributor and the
-  biggest hit, for everyone in your party or alliance. Each character's
-  damage, share, DPS, accuracy, weaponskill, skillchain and pet figures are
-  updated during the fight.
+  biggest hit. Each character's damage, share, DPS, accuracy, weaponskill,
+  skillchain and pet figures are updated live.
 - **Action and hit detail.** Every attack, weaponskill and spell, down to
   each individual hit, with its distribution.
 - **Breakdowns by target and damage type.** Isolate a single target or type,
   and every other view recalculates to match.
 - **Healing.** Each healer's output, every heal, and Party HPS.
-- **Run comparison.** Two sessions side by side, with the change in every
+- **Run comparison.** Compare two runs side by side, with the change in every
   figure, down to individual actions.
 - **Replay.** Any event file VibeXI has recorded can be opened, narrowed to a
   time range and saved as a session.
-- **Overlay panels.** Any view can be placed over the game as a transparent,
-  always-on-top panel that never takes keyboard focus.
+
 
 ## Features
 
@@ -66,7 +62,6 @@ and never take keyboard focus from the game. A hot key (Ctrl+Alt+Z by
 default, changeable in Settings) makes them click-through, so mouse input
 passes to the game.
 
-<!-- Retake when convenient: the panel over a recognisable, mid-tone scene, all rows visible with no scroll bar, the in-game party list and chat log out of frame. -->
 ![A Zerg panel over the game, listing each character's damage, share and accuracy](assets/screenshots/overlay.jpg)
 
 ### Session overview
@@ -74,10 +69,8 @@ passes to the game.
 ![Zerg's Damage view of a replayed three-hour event file: the file's activity with the whole file selected, then total damage, elapsed time, Party DPS, top DPS and biggest hit, above the character table, a weaponskill's hit distribution, cumulative damage, and damage by type and by target](assets/screenshots/damage-window.png)
 
 The band across the top summarises the session: total damage, elapsed time,
-Party DPS, the top contributor and the biggest single hit. Below it, every
-view of the session is visible in one window. The session shown is a
-three-hour recording opened as a replay. Characters can be included or
-excluded with one press on their name.
+Party DPS, the top contributor and the biggest single hit.
+Characters can be included or excluded with one press on their name.
 
 ### Per-character breakdown
 
@@ -151,6 +144,8 @@ critical hit rate. This measures the effect of a change in equipment or
 weaponskill choice. An action can also be compared against a different
 action, such as one weaponskill against another.
 
+<!-- Insert screenshot here of cross-weaponskill comparison -->
+
 ### Replay of recorded sessions
 
 ![A replay of a three-hour event file: damage across the whole file, with one hour selected, and the figures for that range](assets/screenshots/replay.png)
@@ -180,28 +175,6 @@ session.
   tables sort by any column heading.
 - **Theme.** Light and dark themes.
 - **Skillchains.** Skillchain damage can be included or left out.
-
-## Files and support
-
-Settings and logs are kept in `%LOCALAPPDATA%\VibeXI\zerg\`. If something
-goes wrong, attach `logs\zerg.log` from that folder to an
-[issue](https://github.com/HasayaFFXI/Zerg/issues).
-
-## For developers
-
-Zerg is a native Windows app written in C# with WPF on .NET 10.
-
-```
-dotnet build Zerg.slnx
-dotnet test Zerg.slnx
-dotnet run --project src/Zerg
-```
-
-`python tools/package.py` makes both downloads (the installer needs Inno
-Setup 6: `winget install JRSoftware.InnoSetup`). A new version merged to main
-is built and released by `.github/workflows/release.yml`. `CLAUDE.md` has the
-development notes, `RULES.md` the event contract and the reason behind every
-number Zerg prints, and `CHANGELOG.md` what each version changed.
 
 ## License
 
