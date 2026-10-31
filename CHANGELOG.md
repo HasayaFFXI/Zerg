@@ -7,6 +7,8 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 1.5.0 — 2026-10-30
+
 - Heals: three tabs in the pane's heading list the heals three lines deep.
   By spell, as before, is each character's heals, and pressing a heal lists
   the people it reached under it. By caster is each character's people

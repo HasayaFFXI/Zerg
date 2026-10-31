@@ -436,9 +436,11 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
 
 ## Status and what's next
 
-- **Current: 1.4.0** (2026-10-30): buffs, status removals and wards no
-  longer counted as damage but listed in the Healing section's Support pane,
-  and the Actions table's Acc column (its share bar gone). 1.3.0 was By
+- **Current: 1.5.0** (2026-10-30): the Heals pane's By spell, By caster and
+  By target tabs, three lines deep, and Support at the top of the Healing
+  section's right column as installed. 1.4.0 was buffs, status removals and
+  wards no longer counted as damage but listed in the Healing section's
+  Support pane, and the Actions table's Acc column (its share bar gone). 1.3.0 was By
   target's Acc, WS Avg and WS % columns and tables sorted by pressing a
   column heading; 1.2.0 was Replay, an addon event file read whole into a
   View tab, cropped to a range and exported as a parse; 1.1.0 compared two
