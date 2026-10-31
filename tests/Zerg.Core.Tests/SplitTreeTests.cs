@@ -102,18 +102,19 @@ public class SplitTreeTests
         // Sheet 02: the per-character table ends at y 394 (224 tall).
         Assert.Equal(new Box(0, 0, 940, 224), a.Panes["hbars"]);
         Assert.Equal(new Box(0, 225, 940, 481), a.Panes["hactions"]);
-        Assert.Equal(new Box(941, 0, 499, 296), a.Panes["hline"]);
-        // Support came later, and has half of what the chart leaves.
-        Assert.Equal(new Box(941, 297, 499, 204), a.Panes["hsupport"]);
+        // Support came later and took the chart's place; the chart has half
+        // of what Support leaves.
+        Assert.Equal(new Box(941, 0, 499, 296), a.Panes["hsupport"]);
+        Assert.Equal(new Box(941, 297, 499, 204), a.Panes["hline"]);
         Assert.Equal(new Box(941, 502, 499, 204), a.Panes["hdrill"]);
     }
 
     [Fact]
-    public void Support_has_the_column_under_the_chart_while_the_drill_down_is_its_heading()
+    public void The_chart_has_the_column_under_Support_while_the_drill_down_is_its_heading()
     {
         var a = SplitTree.Arrange(PaneLayouts.Healing, W, H, Limits, null, new HashSet<string> { "hdrill" });
 
-        Assert.Equal(new Box(941, 297, 499, 378), a.Panes["hsupport"]);
+        Assert.Equal(new Box(941, 297, 499, 378), a.Panes["hline"]);
         Assert.Equal(new Box(941, 676, 499, 30), a.Panes["hdrill"]);
     }
 
@@ -146,7 +147,7 @@ public class SplitTreeTests
         // Down the left-hand column, then down the right: the order they
         // stand in when a narrow window has one column.
         Assert.Equal(new[] { "bars", "actions", "line", "types", "targets", "drill" }, SplitTree.Keys(PaneLayouts.Damage));
-        Assert.Equal(new[] { "hbars", "hactions", "hline", "hsupport", "hdrill" }, SplitTree.Keys(PaneLayouts.Healing));
+        Assert.Equal(new[] { "hbars", "hactions", "hsupport", "hline", "hdrill" }, SplitTree.Keys(PaneLayouts.Healing));
         Assert.Equal(new[] { "only" }, SplitTree.Keys(Pane("only")));
     }
 
@@ -343,12 +344,12 @@ public class SplitTreeTests
     [Fact]
     public void A_stand_in_takes_its_own_height_and_its_neighbour_the_rest()
     {
-        // Sheet 02: the chart is floating; its stand-in is 46 tall and the
-        // two panes under it have the column.
-        var a = SplitTree.Arrange(PaneLayouts.Healing, W, H, Limits, Own(("hline", 46)));
+        // Support is floating; its stand-in is 46 tall and the two panes
+        // under it have the column.
+        var a = SplitTree.Arrange(PaneLayouts.Healing, W, H, Limits, Own(("hsupport", 46)));
 
-        Assert.Equal(new Box(941, 0, 499, 46), a.Panes["hline"]);
-        Assert.Equal(new Box(941, 47, 499, 329), a.Panes["hsupport"]);
+        Assert.Equal(new Box(941, 0, 499, 46), a.Panes["hsupport"]);
+        Assert.Equal(new Box(941, 47, 499, 329), a.Panes["hline"]);
         Assert.Equal(new Box(941, 377, 499, 329), a.Panes["hdrill"]);
         Assert.True(a.Dividers.Single(d => d.Path == "1").Held);
         // The other column is as it was.

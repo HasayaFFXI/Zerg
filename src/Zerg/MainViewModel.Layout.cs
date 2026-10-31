@@ -27,7 +27,7 @@ public sealed partial class MainViewModel
     /// is given the other two where they are installed (SplitTree.Repair).</summary>
     [ObservableProperty] private SplitNode damageLayout = PaneLayouts.Damage;
 
-    /// <summary>The Healing section's panes: hbars, hactions, hline, hdrill.</summary>
+    /// <summary>The Healing section's panes: hbars, hactions, hsupport, hline, hdrill.</summary>
     [ObservableProperty] private SplitNode healingLayout = PaneLayouts.Healing;
 
     /// <summary>The Compare section's panes, under its bands: cactors, cpace,

@@ -44,9 +44,10 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>What the last count was of: the session, or a saved parse.</summary>
     Tracker? drawn;
 
-    /// <summary>What one parse was being looked into with: its two
-    /// drill-downs and the targets and types isolated in it.</summary>
-    sealed record Looking(DrillOn? Drill, DrillOn? HealDrill, string[] Targets, string[] Types);
+    /// <summary>What one parse was being looked into with: its
+    /// drill-downs (a heal one for each of the Heals table's three ways) and the
+    /// targets and types isolated in it.</summary>
+    sealed record Looking(DrillOn? Drill, DrillOn? HealDrill, DrillOn? PersonDrill, DrillOn? HealedDrill, string[] Targets, string[] Types);
 
     /// <summary>
     /// What each parse that is not on screen was left being looked into
@@ -248,6 +249,7 @@ public sealed partial class MainViewModel : ObservableObject
         skillchains = settings.Skillchains;
         hideNames = settings.HideNames;
         groupSmallLines = settings.GroupSmallLines;
+        healsBy = settings.HealsBy is HealsByCaster or HealsByTarget ? settings.HealsBy : HealsBySpell;
         charactersOpen = settings.CharactersOpen;
         shadeCharacters = settings.ShadeCharacters;
         shadeActions = settings.ShadeActions;
@@ -346,7 +348,7 @@ public sealed partial class MainViewModel : ObservableObject
             live.Follow(u.File);
             if (!Viewing)
             {
-                drill = healDrill = null;
+                drill = healDrill = personDrill = healedDrill = null;
                 // The targets were the old file's, and what was isolated with them.
                 TargetFilter.Reset();
                 TypeFilter.Reset();
@@ -446,7 +448,7 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
         askTimer?.Stop();
-        drill = healDrill = null;
+        drill = healDrill = personDrill = healedDrill = null;
         // The next pull has targets of its own, and none yet: a filter kept
         // from this one would count nothing, with nothing listed to untick.
         // The types go with them: one pull's question, not the next one's.
@@ -474,7 +476,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (Viewing) return;
         bool armed = live.Session.Armed, asking = live.Asking;
-        if (armed) drill = healDrill = null;
+        if (armed) drill = healDrill = personDrill = healedDrill = null;
         live.Second();
         if (asking) askTimer?.Stop();
         LogSession(asking ? "restart called off" : armed ? "cancelled"
@@ -560,7 +562,7 @@ public sealed partial class MainViewModel : ObservableObject
         // there empty. The heal one only when it was the healers who were
         // listed: from the Damage section its healer may not be among them.
         drill = null;
-        if (IsHealing) healDrill = null;
+        if (IsHealing) healDrill = personDrill = healedDrill = null;
         ExclusionsChanged();
     }
 
@@ -587,10 +589,10 @@ public sealed partial class MainViewModel : ObservableObject
         // and the one that comes gets back what it was left with.
         if (!ReferenceEquals(drawn, Shown))
         {
-            if (drawn != null) looking[drawn] = new(drill, healDrill, [.. TargetFilter.Picked], [.. TypeFilter.Picked]);
+            if (drawn != null) looking[drawn] = new(drill, healDrill, personDrill, healedDrill, [.. TargetFilter.Picked], [.. TypeFilter.Picked]);
             drawn = Shown;
             looking.Remove(drawn, out var back);
-            (drill, healDrill) = (back?.Drill, back?.HealDrill);
+            (drill, healDrill, personDrill, healedDrill) = (back?.Drill, back?.HealDrill, back?.PersonDrill, back?.HealedDrill);
             TargetFilter.Set(back?.Targets ?? []);
             TypeFilter.Set(back?.Types ?? []);
         }

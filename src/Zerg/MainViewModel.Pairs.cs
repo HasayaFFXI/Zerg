@@ -81,13 +81,17 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>A side as a heading names it: the action, after the
-    /// character when it is not the drill-down's own.</summary>
-    string SideName(DrillOn on) =>
-        on.ActorB == on.Actor ? on.ActionB! : NameOf(on.ActorB!) + Dot + on.ActionB;
+    /// character when it is not the drill-down's own. <paramref name="what"/>
+    /// words an action that is not its own name (a heal drill-down's pick).</summary>
+    string SideName(DrillOn on, Func<string, string>? what = null)
+    {
+        var b = what != null ? what(on.ActionB!) : on.ActionB!;
+        return on.ActorB == on.Actor ? b : NameOf(on.ActorB!) + Dot + b;
+    }
 
     /// <summary>The heading of a pair: what each side is, and whose.</summary>
-    (string Title, string Who) Heading(DrillOn on) =>
-        (on.Action + " vs " + SideName(on),
+    (string Title, string Who) Heading(DrillOn on, Func<string, string>? what = null) =>
+        ((what != null ? what(on.Action) : on.Action) + " vs " + SideName(on, what),
          on.ActorB == on.Actor ? NameOf(on.Actor) : NameOf(on.Actor) + " vs " + NameOf(on.ActorB!));
 
     static string Versus(double a, double b) => Format.Int(a) + " vs " + Format.Int(b);
@@ -100,12 +104,12 @@ public sealed partial class MainViewModel
     /// <param name="actors">Every character with what they did, as the table lists them, and how many times.</param>
     IReadOnlyList<PairGroup> PairGroups(DrillOn? on, DrillWords words,
                                         IEnumerable<(string Actor, IEnumerable<(string Action, double Uses)> Actions)> actors,
-                                        Action<DrillOn?> set)
+                                        Action<DrillOn?> set, Func<string, string>? what = null)
     {
         if (on == null) return [];
         string Uses(double n) => Format.Int(n) + " " + words.Unit + (n == 1 ? "" : "s");
         PairOption Option(string actor, string action, double uses) =>
-            new(action, Uses(uses), on.IsB(actor, action), () => set(on with { ActorB = actor, ActionB = action }));
+            new(what != null ? what(action) : action, Uses(uses), on.IsB(actor, action), () => set(on with { ActorB = actor, ActionB = action }));
 
         var groups = new List<PairGroup>();
         var mine = new List<PairOption>();
@@ -123,9 +127,9 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>What a drill-down's pick button reads, for the pair it is open on.</summary>
-    void DescribePick(PairPick pick, DrillOn? on, DrillWords words)
+    void DescribePick(PairPick pick, DrillOn? on, DrillWords words, Func<string, string>? what = null)
     {
-        pick.Label = on is { Paired: true } ? SideName(on) : words.Nobody;
+        pick.Label = on is { Paired: true } ? SideName(on, what) : words.Nobody;
         pick.Tip = "Set another " + words.Side + " beside this one, this character’s or anyone’s. " +
                    "Or hold Ctrl and select its row in the table";
     }
@@ -159,18 +163,22 @@ public sealed partial class MainViewModel
 
     // -------------------------------------------------------------- healing
 
+    /// <summary>By spell, every character's heals; By caster and By
+    /// target, the people they healed.</summary>
     PairPick MakeHealPick() => new("Compare with another heal", () =>
         snapshot is not { } c ? []
-        : PairGroups(healDrill, DrillWords.Healing,
-                     c.Healing.Actors.Select(a => (a.Name, a.ActionList.Select(x => (x.Name, (double)x.Casts)))),
-                     SetHealDrill));
+        : PairGroups(HealOn, DrillWords.Healing,
+                     c.Healing.Actors.Select(a => (a.Name, ByPerson || ByHealed
+                         ? a.Targets.Select(p => (HealPick(null, p.Name), (double)p.Casts))
+                         : a.ActionList.Select(x => (x.Name, (double)x.Casts)))),
+                     SetHealDrill, HealWords));
 
     void SetHealDrill(DrillOn? on)
     {
-        healDrill = on;
+        HealOn = on;
         Recount();
     }
 
     [RelayCommand]
-    void SwapHealDrill() => SetHealDrill(healDrill?.Swapped);
+    void SwapHealDrill() => SetHealDrill(HealOn?.Swapped);
 }

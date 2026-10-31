@@ -413,6 +413,28 @@ filter does, and credits a pet's heal to its owner.
 - **The Party line under Healing by character** prints what `Healing.Totals`
   already has for the party: Healing, casts, total over casts, and what the
   pets healed, apart. Nothing new is counted for it.
+- **The Heals table lists the heals three ways** (saved as `healsBy`),
+  each three lines deep: By spell, character → heal → person reached; By
+  caster, character → person healed → heal; By target, person healed →
+  character → heal. All come from `Healing.Totals` (`HealAction.Targets`,
+  `HealerTotals.Targets`, `HealTotals.Targets`).
+  - **On a person, a cast is one that reached them**: a Curaga on five is a
+    cast for each of the five, and Avg is what one of those casts healed
+    that person. Min and Max are the same per-target figures as a heal's.
+  - **A person's line holds the pet's heals on them too**, under the pet's
+    name a line further in, so a character's people add up to everything
+    under their heading, as their heals do. Share on a second line is out of
+    that (the pet's included); on a third, out of the line it is under.
+  - **By target, a person's heading is everything that reached them**, pets'
+    heals included, and its share is of everything healed, so the headings
+    add up to the party's Healing and Pet Healing together. Unlike a
+    character's heading, nothing is said apart: it is what they received,
+    whoever's it was. A pet's heals are under its owner, by the pet's name.
+  - **A drill-down on a person is of every cast that reached them**, each
+    what it healed them alone (`Healing.Distribution` with a target): the
+    same cast is one figure here and another, summed over all it reached, in
+    the heal's own drill-down. One heal on one person is the same drill-down
+    in every way, and so is everything one character cast on one person.
 
 ## Support
 

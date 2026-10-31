@@ -217,78 +217,241 @@ public sealed partial class MainViewModel
         _ => null,
     };
 
+    /// <summary>The same for the people healed, or the heals on one person,
+    /// by the name as drawn.</summary>
+    SortKey<HealPart>? PartKey(string column, bool people) => column switch
+    {
+        "name" => SortKey<HealPart>.Of(x => people ? NameOf(x.Name) : x.Name),
+        "casts" => SortKey<HealPart>.Of(x => x.Casts),
+        "total" or "share" => SortKey<HealPart>.Of(x => x.Total),
+        "avg" => SortKey<HealPart>.Of(x => x.Avg),
+        "min" => SortKey<HealPart>.Of(x => x.Min),
+        "max" => SortKey<HealPart>.Of(x => x.Max),
+        _ => null,
+    };
+
     // ----------------------------------------------------------------- heals
+
+    const string HealsBySpell = "Spell", HealsByCaster = "Caster", HealsByTarget = "Target";
+
+    /// <summary>How the Heals table lists the heals: "Spell" (each
+    /// character, their heals, and under a heal the people it reached),
+    /// "Caster" (each character, the people they healed, and under a person
+    /// the heals that reached them) or "Target" (each person healed, who
+    /// healed them, and under a character with what). Saved.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HealsNote), nameof(HealsNameHead))]
+    private string healsBy = HealsBySpell;
+
+    /// <summary>The second line is a person a character healed (By caster).</summary>
+    bool ByPerson => HealsBy == HealsByCaster;
+    /// <summary>The headings are the people healed (By target).</summary>
+    bool ByHealed => HealsBy == HealsByTarget;
+
+    /// <summary>What the Heals pane's heading says it lists, and its first column's heading.</summary>
+    public string HealsNote => HealsBy switch
+    {
+        HealsByCaster => "Who each character healed. Select a character to show theirs, and a person to see what healed them and drill down",
+        HealsByTarget => "Who was healed. Select a person to show who healed them, and a character to see with what and drill down",
+        _ => "Every cure, waltz and pet heal. Select a character to show theirs, and a heal to see who it reached and drill down",
+    };
+    public string HealsNameHead => HealsBy == HealsBySpell ? "Heal" : "Target";
+
+    /// <summary>Each way keeps its own drill-down and its own open lines:
+    /// switching back finds what was left open. Nothing is counted.</summary>
+    partial void OnHealsByChanged(string value)
+    {
+        settings.HealsBy = value;
+        settings.Save();
+        if (snapshot is not { } c) return;
+        DrawHeals(c);
+        DrawHealDrill(c);
+    }
 
     public ObservableCollection<HealRow> Heals { get; } = [];
     [ObservableProperty] private bool hasHeals;
-    /// <summary>The characters whose heals are showing under their heading,
-    /// by real name. Everyone starts as a heading alone, as in the actions
+    /// <summary>The headings whose lines are showing under them, by real
+    /// name: the characters (By spell and By caster alike) and the people
+    /// healed (By target). Every heading starts alone, as in the actions
     /// table.</summary>
-    readonly HashSet<string> openHeals = new(StringComparer.Ordinal);
+    readonly HashSet<string> openHeals = new(StringComparer.Ordinal), openHealed = new(StringComparer.Ordinal);
+    /// <summary>The second lines whose third is listed under them, in each
+    /// way, by the character's real name and the pick
+    /// (<see cref="HealPick"/>) with <see cref="KeyGap"/> between.</summary>
+    readonly HashSet<string> openSpells = new(StringComparer.Ordinal), openPeople = new(StringComparer.Ordinal),
+                             openFrom = new(StringComparer.Ordinal);
 
-    /// <summary>Selecting a character shows their heals under the heading;
-    /// selecting them again puts the heals away.</summary>
+    HashSet<string> OpenHeadings => ByHealed ? openHealed : openHeals;
+    HashSet<string> OpenLines => ByHealed ? openFrom : ByPerson ? openPeople : openSpells;
+
+    /// <summary>
+    /// What a heal drill-down's action is, as one word: a heal ("Cure IV"), a
+    /// person healed (<see cref="KeyGap"/> and their real name), or a heal on
+    /// one person (the heal, the gap, the person). A heal on one person is
+    /// the same pick in every way, and so is everything one character cast
+    /// on one person.
+    /// </summary>
+    static string HealPick(string? heal, string? target) => target == null ? heal! : heal + KeyGap + target;
+
+    static (string? Heal, string? Target) HealParts(string pick)
+    {
+        int i = pick.IndexOf(KeyGap, StringComparison.Ordinal);
+        return i < 0 ? (pick, null) : (i == 0 ? null : pick[..i], pick[(i + 1)..]);
+    }
+
+    /// <summary>A pick as a drill-down's heading or its pick button names it.</summary>
+    string HealWords(string pick) => HealParts(pick) switch
+    {
+        (var heal, null) => heal!,
+        (null, var who) => NameOf(who),
+        var (heal, who) => heal + " on " + NameOf(who),
+    };
+
+    /// <summary>Selecting a heading shows the lines under it; selecting it
+    /// again puts them away.</summary>
     [RelayCommand]
     void ToggleHeals(HealRow row)
     {
         if (!row.IsHeading) return;
-        if (!openHeals.Remove(row.Actor)) openHeals.Add(row.Actor);
+        if (!OpenHeadings.Remove(row.Actor)) OpenHeadings.Add(row.Actor);
         // Nothing is counted again: the last count, with more or fewer of its lines.
         if (snapshot is { } c) DrawHeals(c);
     }
 
+    /// <summary>A heading of the Heals table: a character, or (By target) a
+    /// person healed. Its total, its share, and what pets healed, apart.</summary>
+    readonly record struct HealsHead(string Name, double Total, double? Share, double Pet);
+
+    /// <summary>A line of the Heals table under a heading: whose (the
+    /// character who cast it), what it is (its pick), the name it is drawn
+    /// with, whether that is a person, whether it is the third line, its
+    /// figures, what its share is out of (Of), and the largest beside it
+    /// (Most).</summary>
+    readonly record struct HealsLine(string Actor, string Pick, string Name, bool Person, bool Under, double Total,
+                                     int Casts, double Avg, double? Min, double Max, double Of, double Most);
+
     void DrawHeals(Snapshot c)
     {
-        // A heading is shaded to the healer's own healing out of the
-        // leading healer's, as in the table above; a heal's share is drawn
-        // to its total out of the largest of that character's heals (Most).
-        var items = new List<(HealerTotals Actor, HealAction? Action, double Most)>();
-        double top = RowMarks.Largest(c.Healing.Actors.Select(a => a.Total));
-        foreach (var a in c.Healing.Actors)
+        // A heading is shaded to its total out of the largest heading's, as
+        // in the table above; a line's share is drawn to its total out of
+        // the largest beside it (Most).
+        var items = new List<(HealsHead Head, HealsLine? Line)>();
+        var heads = OpenHeadings;
+        var lines = OpenLines;
+        bool healed = ByHealed;
+        double top;
+        if (healed)
         {
-            items.Add((a, null, top));
-            if (!openHeals.Contains(a.Name)) continue;
-            double most = RowMarks.Largest(a.ActionList.Select(x => x.Total));
-            foreach (var act in HealsSort.Order(a.ActionList, HealKey)) items.Add((a, act, most));
+            // Everything that reached them, pets' heals included, and its
+            // share of everything healed: the people add up to it.
+            double everything = c.Healing.Total + c.Healing.PetTotal;
+            top = RowMarks.Largest(c.Healing.Targets.Select(p => p.Total));
+            foreach (var p in c.Healing.Targets)
+            {
+                var head = new HealsHead(p.Name, p.Total, everything != 0 ? p.Total / everything : null, 0);
+                items.Add((head, null));
+                if (!heads.Contains(p.Name)) continue;
+                double most = RowMarks.Largest(p.Parts.Select(x => x.Total));
+                foreach (var a in HealsSort.Order(p.Parts, k => PartKey(k, people: true)))
+                {
+                    var pick = HealPick(null, p.Name);
+                    items.Add((head, new HealsLine(a.Name, pick, a.Name, true, false, a.Total, a.Casts, a.Avg, a.Min,
+                                                   a.Max, p.Total, most)));
+                    if (!lines.Contains(a.Name + KeyGap + pick)) continue;
+                    double under = RowMarks.Largest(a.Parts.Select(x => x.Total));
+                    foreach (var h in HealsSort.Order(a.Parts, k => PartKey(k, people: false)))
+                        items.Add((head, new HealsLine(a.Name, HealPick(h.Name, p.Name), h.Name, false, true, h.Total,
+                                                       h.Casts, h.Avg, h.Min, h.Max, a.Total, under)));
+                }
+            }
+        }
+        else
+        {
+            top = RowMarks.Largest(c.Healing.Actors.Select(a => a.Total));
+            foreach (var a in c.Healing.Actors)
+            {
+                var head = new HealsHead(a.Name, a.Total, a.Share, a.PetTotal);
+                items.Add((head, null));
+                if (!heads.Contains(a.Name)) continue;
+                // Out of everything under this heading, the pet's heals too:
+                // they are listed here, so the column adds up to 100. A third
+                // line's is out of the line it is under.
+                double all = a.Total + a.PetTotal;
+                if (!ByPerson)
+                {
+                    double most = RowMarks.Largest(a.ActionList.Select(x => x.Total));
+                    foreach (var act in HealsSort.Order(a.ActionList, HealKey))
+                    {
+                        items.Add((head, new HealsLine(a.Name, act.Name, act.Name, false, false, act.Total, act.Casts,
+                                                       act.Avg, act.Min, act.Max, all, most)));
+                        if (!lines.Contains(a.Name + KeyGap + act.Name)) continue;
+                        double under = RowMarks.Largest(act.Targets.Select(x => x.Total));
+                        foreach (var p in HealsSort.Order(act.Targets, k => PartKey(k, people: true)))
+                            items.Add((head, new HealsLine(a.Name, HealPick(act.Name, p.Name), p.Name, true, true, p.Total,
+                                                           p.Casts, p.Avg, p.Min, p.Max, act.Total, under)));
+                    }
+                    continue;
+                }
+                double mostOn = RowMarks.Largest(a.Targets.Select(x => x.Total));
+                foreach (var p in HealsSort.Order(a.Targets, k => PartKey(k, people: true)))
+                {
+                    var pick = HealPick(null, p.Name);
+                    items.Add((head, new HealsLine(a.Name, pick, p.Name, true, false, p.Total, p.Casts, p.Avg, p.Min,
+                                                   p.Max, all, mostOn)));
+                    if (!lines.Contains(a.Name + KeyGap + pick)) continue;
+                    double under = RowMarks.Largest(p.Parts.Select(x => x.Total));
+                    foreach (var h in HealsSort.Order(p.Parts, k => PartKey(k, people: false)))
+                        items.Add((head, new HealsLine(a.Name, HealPick(h.Name, p.Name), h.Name, false, true, h.Total,
+                                                       h.Casts, h.Avg, h.Min, h.Max, p.Total, under)));
+                }
+            }
         }
         HasHeals = items.Count > 0;
-        var fills = FillsOf(healDrill);
+        var on = HealOn;
+        var fills = FillsOf(on);
 
-        static string Key((HealerTotals Actor, HealAction? Action, double Most) i) =>
-            i.Action == null ? i.Actor.Name : i.Actor.Name + KeyGap + i.Action.Name;
+        // By target the keys stand apart: a person healed and a character
+        // may have the same name, and a row's heading is fixed when it is made.
+        string mark = healed ? ((char)2).ToString() : "";
+        string Key((HealsHead Head, HealsLine? Line) i) =>
+            mark + (i.Line is not { } l ? i.Head.Name : i.Head.Name + KeyGap + l.Actor + KeyGap + l.Pick);
 
-        Rows.Sync(Heals, items, Key, i => new HealRow(Key(i), i.Actor.Name, i.Action?.Name), (row, i) =>
+        Rows.Sync(Heals, items, Key, i => new HealRow(Key(i), i.Line?.Actor ?? i.Head.Name, i.Line?.Pick,
+                                                      i.Line?.Under == true), (row, i) =>
         {
-            var (a, act, most) = i;
-            if (act == null)
+            if (i.Line is not { } l)
             {
-                row.Name = NameOf(a.Name);
-                row.Swatch = SwatchOf(a.Name);
-                row.PanelSwatch = Solid(PanelColorOf(a.Name));
-                row.Shade = HeadingShadeOf(a.Name);
-                row.PanelShade = PanelHeadingShadeOf(a.Name);
-                row.Fraction = RowMarks.Fraction(a.Total, most);
-                row.Job = JobBadge(a.Name);
-                row.Total = Format.Int(a.Total);
-                row.Share = Percent(a.Share);
-                row.Pet = a.PetTotal != 0 ? "+ " + Format.Int(a.PetTotal) + " pet" : "";
-                row.Open = openHeals.Contains(a.Name);
-                row.Label = "Heals of " + NameOf(a.Name);
+                var h = i.Head;
+                row.Name = NameOf(h.Name);
+                row.Swatch = SwatchOf(h.Name);
+                row.PanelSwatch = Solid(PanelColorOf(h.Name));
+                row.Shade = HeadingShadeOf(h.Name);
+                row.PanelShade = PanelHeadingShadeOf(h.Name);
+                row.Fraction = RowMarks.Fraction(h.Total, top);
+                row.Job = JobBadge(h.Name);
+                row.Total = Format.Int(h.Total);
+                row.Share = Percent(h.Share);
+                row.Pet = h.Pet != 0 ? "+ " + Format.Int(h.Pet) + " pet" : "";
+                row.Open = heads.Contains(h.Name);
+                row.Label = (healed ? "Heals on " : "Heals of ") + NameOf(h.Name);
                 return;
             }
-            // Out of everything under this heading, the pet's heals too:
-            // they are listed here, so the column adds up to 100.
-            double all = a.Total + a.PetTotal;
-            row.Name = act.Name;
-            row.Casts = Format.Int(act.Casts);
-            row.Total = Format.Int(act.Total);
-            row.Avg = Format.Int(act.Avg);
-            row.Min = Whole(act.Min);
-            row.Max = Format.Int(act.Max);
-            row.Share = Format.Num(all != 0 ? act.Total / all * 100 : 0, 1) + "%";
-            row.ShareFraction = RowMarks.Fraction(act.Total, most);
-            (row.Selected, row.Side, row.SideFill, row.PanelSideFill) = MarkOf(healDrill, fills, a.Name, act.Name);
-            row.Label = NameOf(a.Name) + ", " + act.Name;
+            // A person is drawn in their colour; a heal has no swatch.
+            row.Name = l.Person ? NameOf(l.Name) : l.Name;
+            row.Swatch = l.Person ? SwatchOf(l.Name) : null;
+            row.PanelSwatch = l.Person ? Solid(PanelColorOf(l.Name)) : null;
+            row.Casts = Format.Int(l.Casts);
+            row.Total = Format.Int(l.Total);
+            row.Avg = Format.Int(l.Avg);
+            row.Min = Whole(l.Min);
+            row.Max = Format.Int(l.Max);
+            row.Share = Format.Num(l.Of != 0 ? l.Total / l.Of * 100 : 0, 1) + "%";
+            row.ShareFraction = RowMarks.Fraction(l.Total, l.Most);
+            row.Open = !l.Under && lines.Contains(l.Actor + KeyGap + l.Pick);
+            (row.Selected, row.Side, row.SideFill, row.PanelSideFill) = MarkOf(on, fills, l.Actor, l.Pick);
+            row.Label = NameOf(l.Actor) + ", " + (HealParts(l.Pick) is (null, { } who)
+                ? "heals on " + NameOf(who)
+                : HealWords(l.Pick));
         });
     }
 
@@ -384,9 +547,22 @@ public sealed partial class MainViewModel
 
     // ------------------------------------------------------------ drill-down
 
-    /// <summary>The heal the drill-down is open on, by the character's real
-    /// name, and the one set beside it.</summary>
-    DrillOn? healDrill;
+    /// <summary>What the drill-down is open on while the Heals table is By
+    /// spell, by the character's real name and a <see cref="HealPick"/>,
+    /// and the one set beside it; <see cref="personDrill"/> the same By
+    /// caster, <see cref="healedDrill"/> By target. <see cref="HealOn"/> is
+    /// the one on screen.</summary>
+    DrillOn? healDrill, personDrill, healedDrill;
+
+    ref DrillOn? HealOn
+    {
+        get
+        {
+            if (ByHealed) return ref healedDrill;
+            if (ByPerson) return ref personDrill;
+            return ref healDrill;
+        }
+    }
 
     /// <summary>The heal drill-down just opened: the window brings it into view.</summary>
     public event Action? HealDrillOpened;
@@ -395,20 +571,32 @@ public sealed partial class MainViewModel
     /// over the heals (Views/DrillCard).</summary>
     public DrillView HealingDrill { get; }
 
-    /// <summary>Selecting a heal opens its drill-down; selecting it again closes it.</summary>
+    /// <summary>
+    /// Selecting a heal or a person opens their drill-down and lists the
+    /// line under them (the people it reached, the heals that reached
+    /// them); selecting it again puts both away. A line under that opens
+    /// its own drill-down, one heal on one person, and nothing under it.
+    /// </summary>
     [RelayCommand]
     void HealDrill(HealRow row)
     {
         if (row.Action == null) return;
-        if (PairedByPress(ref healDrill, row.Actor, row.Action))
+        ref var on = ref HealOn;
+        if (PairedByPress(ref on, row.Actor, row.Action))
         {
             Recount();
             return;
         }
-        bool same = healDrill is { } d && d.IsA(row.Actor, row.Action);
-        healDrill = same ? null : new DrillOn(row.Actor, row.Action);
+        bool same = on is { } d && d.IsA(row.Actor, row.Action);
+        on = same ? null : new DrillOn(row.Actor, row.Action);
+        if (!row.IsUnder)
+        {
+            var line = row.Actor + KeyGap + row.Action;
+            if (same) OpenLines.Remove(line);
+            else OpenLines.Add(line);
+        }
         Recount();
-        if (healDrill != null)
+        if (!same)
         {
             OpenDrillPane(Zerg.Core.Layout.PaneLayouts.HealingSection, Zerg.Core.Layout.PaneLayouts.HealDrill);
             HealDrillOpened?.Invoke();
@@ -418,25 +606,33 @@ public sealed partial class MainViewModel
     [RelayCommand]
     void CloseHealDrill()
     {
-        healDrill = null;
+        HealOn = null;
         Recount();
+    }
+
+    /// <summary>A pick's figures: <see cref="Healing.Distribution"/> over its
+    /// heal, or all of the character's, on its person or on everyone.</summary>
+    static Distribution SpreadOf(Snapshot c, string actor, string pick)
+    {
+        var (heal, who) = HealParts(pick);
+        return Healing.Distribution(c.Heals, actor, heal, who);
     }
 
     void DrawHealDrill(Snapshot c)
     {
-        DescribePick(HealingDrill.Pick, healDrill, DrillWords.Healing);
-        if (healDrill is not { } on)
+        var current = HealOn;
+        DescribePick(HealingDrill.Pick, current, DrillWords.Healing, HealWords);
+        if (current is not { } on)
         {
             HealingDrill.Close();
             return;
         }
         if (on.Paired)
         {
-            var events = Healing.AsEvents(c.Heals);
-            var a = Counting.Distribution(events, on.Actor, on.Action);
-            var b = Counting.Distribution(events, on.ActorB!, on.ActionB!);
-            var (title, who) = Heading(on);
-            HealingDrill.ShowPair(DrillKey(on), title,
+            var a = SpreadOf(c, on.Actor, on.Action);
+            var b = SpreadOf(c, on.ActorB!, on.ActionB!);
+            var (pair, who) = Heading(on, HealWords);
+            HealingDrill.ShowPair(DrillKey(on), pair,
                                   who + Dot + Versus(a.Count, b.Count) + " casts" + Dot + Versus(a.Total, b.Total) + " healed",
                                   SwatchOf(on.Actor), a, b, CompareSheet.Sides(a, b, healing: true), SidesOf(on), NameOf);
             return;
@@ -444,13 +640,17 @@ public sealed partial class MainViewModel
 
         // What each cast healed, summed over everyone it reached: a Curaga
         // on five is one figure, as an area attack is in the damage
-        // drill-down. A pet's heals are here too, under the pet's name.
-        var d = Counting.Distribution(Healing.AsEvents(c.Heals), on.Actor, on.Action);
+        // drill-down. A pet's heals are here too, under the pet's name. On
+        // one person, each cast is what it healed them alone.
+        var d = SpreadOf(c, on.Actor, on.Action);
+        var (_, person) = HealParts(on.Action);
         var note = NameOf(on.Actor) + Dot + Format.Int(d.Count) + " cast" + (d.Count == 1 ? "" : "s") +
                    Dot + Format.Int(d.Total) + " healed";
         // Not accuracy: a heal cannot miss.
         var tiles = DrillTiles(d, new StatTile("Casts", Format.Int(d.Count)));
-        HealingDrill.Show(DrillKey(on), on.Action, note, SwatchOf(on.Actor), d, tiles,
-                          DrillCaption("Healed per cast", d), ColorOf(on.Actor), PanelColorOf(on.Actor), NameOf);
+        var title = HealParts(on.Action) is (null, { } p) ? "Heals on " + NameOf(p) : HealWords(on.Action);
+        var caption = person != null ? "Healed per cast, on " + NameOf(person) + " alone" : "Healed per cast";
+        HealingDrill.Show(DrillKey(on), title, note, SwatchOf(on.Actor), d, tiles,
+                          DrillCaption(caption, d), ColorOf(on.Actor), PanelColorOf(on.Actor), NameOf);
     }
 }

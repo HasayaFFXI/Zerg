@@ -267,14 +267,21 @@ public sealed partial class HealStripRow(string key) : Row(key)
 /// One line of the heals table: a character's heading, or one of their heals
 /// under it.
 /// </summary>
-public sealed partial class HealRow(string key, string actor, string? action) : Row(key), IGroupedRow
+public sealed partial class HealRow(string key, string actor, string? action, bool under = false)
+    : Row(key), IGroupedRow
 {
     public string Actor { get; } = actor;
-    /// <summary>The heal, or null on a character's heading.</summary>
+    /// <summary>What the line is (a heal, a person healed, or one heal on one
+    /// person, as MainViewModel.HealPick words it), or null on a character's
+    /// heading.</summary>
     public string? Action { get; } = action;
     public bool IsHeading => Action == null;
+    /// <summary>The third line: under a heal, a person it reached; under a
+    /// person, a heal that reached them.</summary>
+    public bool IsUnder { get; } = under;
 
-    /// <summary>On a heading the character as drawn; on a heal its name.</summary>
+    /// <summary>On a heading the character as drawn; on a heal its name, on
+    /// a person theirs as drawn.</summary>
     [ObservableProperty] private string name = "";
     [ObservableProperty] private Brush? swatch;
     /// <summary>The swatch in a floating panel's colours.</summary>
@@ -295,7 +302,8 @@ public sealed partial class HealRow(string key, string actor, string? action) : 
     [ObservableProperty] private string side = "";
     [ObservableProperty] private Brush? sideFill;
     [ObservableProperty] private Brush? panelSideFill;
-    /// <summary>On a heading: the character's heals are showing under it.</summary>
+    /// <summary>On a heading: the character's heals are showing under it. On
+    /// a heal or a person: the line under it is.</summary>
     [ObservableProperty] private bool open;
     /// <summary>What a screen reader, or a script, calls the row.</summary>
     [ObservableProperty] private string label = "";

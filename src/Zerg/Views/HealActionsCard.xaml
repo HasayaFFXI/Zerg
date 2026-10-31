@@ -31,12 +31,14 @@
          what they healed in all under Total, and their share of the party
          under Share. Shaded in their colour to their healing out of the
          leading healer's. Picking it shows their heals under it; picking it
-         again puts them away. -->
+         again puts them away. By target the heading is a person healed:
+         everything that reached them, pets' heals included, and its share
+         of everything healed. -->
     <DataTemplate x:Key="Heading">
       <Button Style="{StaticResource RowPick}" Background="{DynamicResource Bg2Brush}"
               Command="{Binding DataContext.ToggleHealsCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
               CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label}"
-              ToolTip="Show or hide this character's heals">
+              ToolTip="Show or hide the lines under it">
         <Grid>
           <Rectangle Margin="0,0,0,1" v:Grow.Share="{Binding Fraction}">
             <Rectangle.Style>
@@ -110,11 +112,24 @@
       </Style.Triggers>
     </Style>
 
-    <!-- One heal: its figures, and its share as a small bar beside the
-         figure (or as the row's own shade, while "shade actions and heals"
-         is on). Picking it opens the drill-down, and the row is then on
-         the selected surface with an accent edge at its left; picking it
-         again closes it. -->
+    <!-- A person's colour before their name, under a character: in a
+         floating panel, the colour they have there. A heal has none, and
+         the mark goes (v:Present on the swatch). -->
+    <Style x:Key="PersonSwatch" TargetType="Rectangle" BasedOn="{StaticResource Swatch}">
+      <Setter Property="Fill" Value="{Binding Swatch}"/>
+      <Style.Triggers>
+        <Trigger Property="v:Float.On" Value="True">
+          <Setter Property="Fill" Value="{Binding PanelSwatch}"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- One heal (By spell) or one person healed (By target): its
+         figures, and its share as a small bar beside the figure (or as the
+         row's own shade, while "shade actions and heals" is on). Picking it
+         opens the drill-down and lists the line under it, and the row is
+         then on the selected surface with an accent edge at its left;
+         picking it again puts both away. -->
     <Style x:Key="ActionPick" TargetType="Button" BasedOn="{StaticResource RowPick}">
       <Style.Triggers>
         <DataTrigger Binding="{Binding Selected}" Value="True">
@@ -129,13 +144,21 @@
       <StackPanel>
         <Button Style="{StaticResource ActionPick}"
                 Command="{Binding DataContext.HealDrillCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label}" ToolTip="Show every cast. With Ctrl, set it beside the heal open">
+                CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label}"
+                ToolTip="Show every cast, and the line under it. With Ctrl, set it beside the one open">
           <Grid>
             <Rectangle Style="{StaticResource SubShade}" Margin="0,0,0,1" v:Grow.Share="{Binding ShareFraction}"/>
             <Rectangle Style="{StaticResource ActionEdge}"/>
             <ContentControl Style="{StaticResource RowSideTag}"/>
             <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
-              <TextBlock x:Name="Name" Text="{Binding Name}" Style="{StaticResource CellText}" Padding="42,0,8,0"/>
+              <!-- The caret stands in the room before the name, which keeps
+                   its place under the heading's. -->
+              <DockPanel Margin="28,0,8,0" VerticalAlignment="Center">
+                <Path Style="{StaticResource RowCaret}" Margin="0,0,6,0"/>
+                <Rectangle Style="{StaticResource PersonSwatch}" Margin="0,0,6,0"
+                           Visibility="{Binding Swatch, Converter={StaticResource Present}}"/>
+                <TextBlock x:Name="Name" Text="{Binding Name}" Style="{StaticResource CellText}" Padding="0"/>
+              </DockPanel>
               <TextBlock Text="{Binding Casts}" Style="{StaticResource Cell}"/>
               <TextBlock Text="{Binding Total}" Style="{StaticResource Cell}" FontWeight="SemiBold"/>
               <TextBlock Text="{Binding Avg}" Style="{StaticResource Cell}"/>
@@ -160,11 +183,60 @@
       </DataTemplate.Triggers>
     </DataTemplate>
 
-    <v:ActionRowTemplates x:Key="Templates" Heading="{StaticResource Heading}" Action="{StaticResource Action}"/>
+    <!-- The third line, a step under the one it belongs to: a person a heal
+         reached (in their colour), or a heal that reached a person. In the
+         quieter ink. Picking it opens the drill-down on that one heal on
+         that one person; it has nothing under it. -->
+    <DataTemplate x:Key="UnderLine">
+      <StackPanel>
+        <Button Style="{StaticResource ActionPick}"
+                Command="{Binding DataContext.HealDrillCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label}"
+                ToolTip="Show every cast of this heal on this person. With Ctrl, set it beside the one open">
+          <Grid>
+            <Rectangle Style="{StaticResource SubShade}" Margin="0,0,0,1" v:Grow.Share="{Binding ShareFraction}"/>
+            <Rectangle Style="{StaticResource ActionEdge}"/>
+            <ContentControl Style="{StaticResource RowSideTag}"/>
+            <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
+              <DockPanel Margin="56,0,8,0" VerticalAlignment="Center">
+                <Rectangle Style="{StaticResource PersonSwatch}" Width="6" Height="6" Margin="0,0,6,0"
+                           Visibility="{Binding Swatch, Converter={StaticResource Present}}"/>
+                <TextBlock x:Name="Name" Text="{Binding Name}" Style="{StaticResource CellText}" Padding="0"
+                           Foreground="{DynamicResource Text2Brush}"/>
+              </DockPanel>
+              <TextBlock Text="{Binding Casts}" Style="{StaticResource SubFigQuiet}"/>
+              <TextBlock Text="{Binding Total}" Style="{StaticResource SubFigQuiet}"/>
+              <TextBlock Text="{Binding Avg}" Style="{StaticResource SubFigQuiet}"/>
+              <TextBlock Text="{Binding Min}" Style="{StaticResource SubFigQuietSheds}"/>
+              <TextBlock Text="{Binding Max}" Style="{StaticResource SubFigQuiet}"/>
+              <v:SmallBar For="Action" Length="42" Value="{Binding ShareFraction}" Fill="{DynamicResource Text3Brush}">
+                <TextBlock Text="{Binding Share}" Style="{StaticResource SubFigQuiet}"/>
+              </v:SmallBar>
+            </v:Cells>
+          </Grid>
+        </Button>
+        <ContentControl Content="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                        Style="{StaticResource Under}"/>
+      </StackPanel>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Selected}" Value="True">
+          <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
+          <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource Text1Brush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Side}" Value="B">
+          <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
+          <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource Text1Brush}"/>
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <v:ActionRowTemplates x:Key="Templates" Heading="{StaticResource Heading}" Action="{StaticResource Action}"
+                          Under="{StaticResource UnderLine}"/>
   </UserControl.Resources>
 
   <!-- Every cure, waltz and pet heal, under the character it belongs to, once that
-       character's heading is opened. A pane: the column headings stand
+       character's heading is opened (or, By target, under the person it
+       healed), three lines deep. A pane: the column headings stand
        still and the rows scroll under them, in whatever height the pane
        has. In a floating panel the list takes the panel's height.
 
@@ -172,10 +244,41 @@
        says whether there is room for every column (v:Shed.Full): in a pane
        or a panel too narrow for them all, Min goes. Under the least width
        the columns that are left can have, it scrolls sideways. -->
-  <v:Pane Title="Heals"
-          Note="Every cure, waltz and pet heal. Select a character to show theirs, and a heal to drill down"
+  <v:Pane Title="Heals" Note="{Binding HealsNote}"
           PopOutCommand="{Binding Panels[hactions].PopOutCommand}"
           v:Shading.Characters="{Binding ShadeCharacters}" v:Shading.Actions="{Binding ShadeActions}">
+    <!-- The three ways to list the heals: each character, their heals,
+         the people each reached; each character, the people they healed,
+         the heals on each; or each person healed, who healed them, with
+         what. Saved, and the same in a floating panel. -->
+    <v:Pane.Tools>
+      <Border>
+        <Border.Style>
+          <Style TargetType="Border" BasedOn="{StaticResource SegmentGroup}">
+            <Style.Triggers>
+              <Trigger Property="v:Float.On" Value="True">
+                <Setter Property="Effect" Value="{StaticResource PanelHalo}"/>
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <StackPanel Orientation="Horizontal">
+          <RadioButton Style="{StaticResource Segment}" GroupName="healsBy" Content="By spell"
+                       IsChecked="{Binding HealsBy, Converter={StaticResource Equals}, ConverterParameter=Spell}"
+                       ToolTip="Each character, their heals, and under a heal the people it reached"
+                       AutomationProperties.Name="Heals by spell"/>
+          <RadioButton Style="{StaticResource Segment}" GroupName="healsBy" Content="By caster"
+                       IsChecked="{Binding HealsBy, Converter={StaticResource Equals}, ConverterParameter=Caster}"
+                       ToolTip="Each character, the people they healed, and under a person the heals that reached them"
+                       AutomationProperties.Name="Heals by caster"/>
+          <RadioButton Style="{StaticResource Segment}" GroupName="healsBy" Content="By target"
+                       IsChecked="{Binding HealsBy, Converter={StaticResource Equals}, ConverterParameter=Target}"
+                       ToolTip="Each person healed, who healed them, and under a character with what"
+                       AutomationProperties.Name="Heals by target"/>
+        </StackPanel>
+      </Border>
+    </v:Pane.Tools>
+
     <DockPanel>
       <TextBlock DockPanel.Dock="Top" Text="{Binding HealEmptyText}" Style="{StaticResource Label}" FontSize="12"
                  Margin="0,18,0,8" HorizontalAlignment="Center"
@@ -206,16 +309,17 @@
                  (v:SortHead); the characters stay largest first. -->
             <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding HealsSort}">
               <v:SortHead Column="name" Words="True">
-                <TextBlock Text="Heal" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
+                <TextBlock Text="{Binding HealsNameHead}" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
               </v:SortHead>
               <v:SortHead Column="casts">
-                <TextBlock Text="Casts" Style="{StaticResource Head}" ToolTip="One per cast, however many people it reached"/>
+                <TextBlock Text="Casts" Style="{StaticResource Head}"
+                           ToolTip="One per cast, however many people it reached. On a person, the casts that reached them"/>
               </v:SortHead>
               <v:SortHead Column="total">
                 <TextBlock Text="Total" Style="{StaticResource Head}"/>
               </v:SortHead>
               <v:SortHead Column="avg">
-                <TextBlock Text="Avg" Style="{StaticResource Head}" ToolTip="Total divided by casts"/>
+                <TextBlock Text="Avg" Style="{StaticResource Head}" ToolTip="Total divided by casts: on a person, what one cast healed them"/>
               </v:SortHead>
               <v:SortHead Column="min" Style="{StaticResource Sheds}">
                 <TextBlock Text="Min" Style="{StaticResource Head}"
@@ -226,7 +330,7 @@
               </v:SortHead>
               <v:SortHead Column="share">
                 <TextBlock Text="Share" Style="{StaticResource Head}"
-                           ToolTip="Out of everything under this character's heading, their pet's heals included"/>
+                           ToolTip="A heading's: of the party's healing, or By target of everything healed, pets' heals included. A line's: out of everything under its heading, pets' heals included, or a step further in, out of the line it is under"/>
               </v:SortHead>
             </v:Cells>
             <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>

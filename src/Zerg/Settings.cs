@@ -54,6 +54,12 @@ public sealed class Settings
     /// <summary>The cumulative chart folds everyone under 5% into one line.</summary>
     public bool GroupSmallLines { get; set; } = true;
 
+    /// <summary>How the Heals table lists the heals: "Spell", as installed
+    /// (each character, their heals, the people each reached), "Caster"
+    /// (each character, the people they healed, the heals on each) or
+    /// "Target" (each person healed, who healed them, with what).</summary>
+    public string HealsBy { get; set; } = "Spell";
+
     /// <summary>The characters' line is opened onto every chip, on as many
     /// lines as they take. As installed it is not: one line of as many chips
     /// as fit, and a chip that says how many do not ("+5"), which opens it.
@@ -229,6 +235,7 @@ public sealed class Settings
         Theme ??= installed.Theme;
         Section ??= installed.Section;
         ViewMode ??= installed.ViewMode;
+        HealsBy ??= installed.HealsBy;
         CompareBy ??= installed.CompareBy;
         CompareMode ??= installed.CompareMode;
         ClickThroughKey ??= installed.ClickThroughKey;

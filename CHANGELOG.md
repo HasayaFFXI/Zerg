@@ -7,6 +7,23 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- Heals: three tabs in the pane's heading list the heals three lines deep.
+  By spell, as before, is each character's heals, and pressing a heal lists
+  the people it reached under it. By caster is each character's people
+  healed, and pressing a person lists the heals that reached them, a pet's
+  among them under its name. By target is everyone healed, with everything
+  that reached them (pets' heals included) and its share of all healing;
+  pressing a person lists who healed them, and pressing a character lists
+  their heals on that person. Pressing a line opens the drill-down too, and
+  pressing it again puts both away. A person's drill-down is every cast that
+  reached them, each what it healed them; a line a step further in drills
+  on that one heal on that one person. A person's Casts are the casts that
+  reached them, and a third line's Share is out of the line it is under.
+  The tab is saved, and each keeps its own drill-down and open lines.
+- Healing section: as installed, Support stands at the top of the right
+  column and Cumulative healing under it, over the drill-down. A layout
+  already rearranged keeps its own until it is reset.
+
 ## 1.4.0 — 2026-10-30
 
 - Support: buffs, status removals and wards (Protect, Haste, Erase, an

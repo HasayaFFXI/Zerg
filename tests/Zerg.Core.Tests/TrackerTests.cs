@@ -758,6 +758,81 @@ public class TrackerTests
         Assert.Equal(250, line.Series[0].Values[^1]);
     }
 
+    [Fact]
+    public void Heals_are_split_by_who_they_reached_both_ways_round()
+    {
+        var t = Following();
+        t.Start(20_000);
+        t.Feed([Lines.Hit(20, "Hasaya", 100),
+                Lines.Heal(21, "Sylviane", 250, "Curaga II", "Hasaya", use: 6001),
+                Lines.Heal(21, "Sylviane", 0, "Curaga II", "Rhyllis", use: 6001),
+                Lines.Heal(23, "Sylviane", 300, "Curaga II", "Rhyllis", use: 6002),
+                Lines.Heal(24, "Sylviane", 500, "Cure IV", "Hasaya"),
+                Lines.Heal(25, "Carbuncle", 120, "Healing Ruby", "Hasaya", owner: "Sylviane")]);
+        var a = Assert.Single(t.Count(Nobody, true, 30_000).Healing.Actors);
+
+        // Under a heal, the people it reached: a cast for each it reached.
+        var curaga = a.Actions["Curaga II"];
+        Assert.Equal(2, curaga.Casts);
+        Assert.Equal(["Rhyllis", "Hasaya"], curaga.Targets.Select(p => p.Name));
+        var rhyllis = curaga.Targets[0];
+        Assert.Equal((2, 300d, 300d, 150d), (rhyllis.Casts, rhyllis.Total, rhyllis.Min, rhyllis.Avg));   // Min above 0
+        Assert.Equal((1, 250d), (curaga.Targets[1].Casts, curaga.Targets[1].Total));
+
+        // Under the character, the people healed, the pet's heals among
+        // theirs under its own name, and under each the heals on them.
+        Assert.Equal(["Hasaya", "Rhyllis"], a.Targets.Select(p => p.Name));
+        var hasaya = a.Targets[0];
+        Assert.Equal((3, 870d, 120d, 500d, 290d), (hasaya.Casts, hasaya.Total, hasaya.Min, hasaya.Max, hasaya.Avg));
+        Assert.Equal(["Cure IV", "Curaga II", "Carbuncle: Healing Ruby"], hasaya.Parts.Select(p => p.Name));
+        Assert.Equal(a.Total + a.PetTotal, a.Targets.Sum(p => p.Total));
+    }
+
+    [Fact]
+    public void Heals_are_split_by_who_was_healed_then_who_healed_them()
+    {
+        var t = Following();
+        t.Start(20_000);
+        t.Feed([Lines.Hit(20, "Hasaya", 100),
+                Lines.Heal(21, "Sylviane", 250, "Curaga II", "Hasaya", use: 8001),
+                Lines.Heal(21, "Sylviane", 90, "Curaga II", "Rhyllis", use: 8001),
+                Lines.Heal(22, "Rhyllis", 200, "Curing Waltz", "Hasaya"),
+                Lines.Heal(23, "Sylviane", 400, "Cure IV", "Hasaya"),
+                Lines.Heal(25, "Carbuncle", 120, "Healing Ruby", "Hasaya", owner: "Sylviane")]);
+        var h = t.Count(Nobody, true, 30_000).Healing;
+
+        // Everything that reached them, pets' heals included: the people add
+        // up to everything healed.
+        Assert.Equal(["Hasaya", "Rhyllis"], h.Targets.Select(p => p.Name));
+        Assert.Equal(h.Total + h.PetTotal, h.Targets.Sum(p => p.Total));
+        var hasaya = h.Targets[0];
+        Assert.Equal((4, 970d), (hasaya.Casts, hasaya.Total));
+        Assert.Equal(["Sylviane", "Rhyllis"], hasaya.Parts.Select(p => p.Name));
+        var sylviane = hasaya.Parts[0];
+        Assert.Equal((3, 770d), (sylviane.Casts, sylviane.Total));
+        Assert.Equal(["Cure IV", "Curaga II", "Carbuncle: Healing Ruby"], sylviane.Parts.Select(p => p.Name));
+    }
+
+    [Fact]
+    public void A_heal_drill_down_on_one_person_is_what_each_cast_healed_them()
+    {
+        var t = Following();
+        t.Start(20_000);
+        t.Feed([Lines.Hit(20, "Hasaya", 100),
+                Lines.Heal(21, "Sylviane", 250, "Curaga II", "Hasaya", use: 7001),
+                Lines.Heal(21, "Sylviane", 90, "Curaga II", "Rhyllis", use: 7001),
+                Lines.Heal(23, "Sylviane", 300, "Curaga II", "Rhyllis", use: 7002),
+                Lines.Heal(24, "Sylviane", 500, "Cure IV", "Rhyllis")]);
+        var heals = t.Count(Nobody, true, 30_000).Heals;
+
+        var all = Healing.Distribution(heals, "Sylviane", "Curaga II");
+        Assert.Equal((2, 640d, 340d), (all.Count, all.Total, all.Max));        // summed over everyone a cast reached
+        var on = Healing.Distribution(heals, "Sylviane", "Curaga II", "Rhyllis");
+        Assert.Equal((2, 390d, 90d), (on.Count, on.Total, on.Min));
+        var person = Healing.Distribution(heals, "Sylviane", null, "Rhyllis");   // every heal on them
+        Assert.Equal((3, 890d), (person.Count, person.Total));
+    }
+
     // ------------------------------------------------------ the two buttons
 
     [Fact]

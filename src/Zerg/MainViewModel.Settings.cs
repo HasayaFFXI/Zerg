@@ -136,7 +136,7 @@ public sealed partial class MainViewModel
             live.Unfollow();
             error = null;
             hasFile = false;
-            if (!Viewing) drill = healDrill = null;
+            if (!Viewing) drill = healDrill = personDrill = healedDrill = null;
             Recount();
         }
         DescribeFolder();
