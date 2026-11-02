@@ -65,6 +65,7 @@ public sealed class Replay
         foreach (var e in reader.Events) (first, last) = (Math.Min(first, e.T), Math.Max(last, e.T));
         foreach (var h in reader.Heals) (first, last) = (Math.Min(first, h.T), Math.Max(last, h.T));
         foreach (var e in reader.Support) (first, last) = (Math.Min(first, e.T), Math.Max(last, e.T));
+        foreach (var e in reader.Enfeebles) (first, last) = (Math.Min(first, e.T), Math.Max(last, e.T));
         (First, Last) = double.IsFinite(first) ? (first, last + Session.Second) : (0, 0);
     }
 

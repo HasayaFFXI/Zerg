@@ -51,6 +51,14 @@ public sealed class EventReader
     /// reason heals are (<see cref="IsSupport"/>).</summary>
     public List<CombatEvent> Support { get; } = [];
 
+    /// <summary>Enfeebles: a status, a dispel or a drain one of ours put on a
+    /// monster (Sleep, Slow, Stun, Dispel, a Lullaby). The addon's own kind of
+    /// line, filed in the damage row's shape so it is counted as support is:
+    /// its kind is the line's <c>via</c>, its damage none, and its hit whether
+    /// it took effect. Kept apart from <see cref="Events"/> for the reason heals
+    /// are.</summary>
+    public List<CombatEvent> Enfeebles { get; } = [];
+
     /// <summary>How many records have been fed, blank and unreadable lines included.</summary>
     public int LineNo { get; private set; }
 
@@ -144,6 +152,32 @@ public sealed class EventReader
         Roster.Note(raw.Actor, raw.ActorKind);
         Roster.Note(raw.Target, raw.TargetKind);
 
+        // An enfeeble is no damage row either: among them a resisted Sleepga
+        // would be a magic miss and could start the clock. Which actions are
+        // enfeebles, and whether one took, are the addon's decision.
+        if (raw.Kind == "enfeeble")
+        {
+            Enfeebles.Add(new CombatEvent
+            {
+                T = t * 1000,
+                Seq = raw.Seq,
+                Use = raw.Use,
+                Kind = raw.Via,
+                Actor = raw.Actor,
+                ActorKind = raw.ActorKind,
+                Action = raw.Action,
+                ActionId = raw.ActionId,
+                Target = raw.Target,
+                TargetKind = raw.TargetKind,
+                Hit = raw.Hit,
+                Msg = raw.Msg,
+                Line = LineNo,
+                Owner = NullIfEmpty(raw.Owner),
+                Pet = NullIfEmpty(raw.Pet),
+            });
+            return null;
+        }
+
         var e = new CombatEvent
         {
             T = t * 1000,
@@ -202,6 +236,7 @@ public sealed class EventReader
         Events.Clear();
         Heals.Clear();
         Support.Clear();
+        Enfeebles.Clear();
         LineNo = 0;
         Unreadable = 0;
         dropped = 0;
@@ -224,6 +259,7 @@ public sealed class EventReader
         Events.Clear();
         Heals.Clear();
         Support.Clear();
+        Enfeebles.Clear();
     }
 
     // ------------------------------------------------------------ file names

@@ -10,7 +10,7 @@
 
        Floating, as that card: the chart fills the panel. -->
   <v:Pane Title="Cumulative healing" Note="Running total per healer"
-          Hint="Running total per healer. Hover for every healer at one instant. Pet heals are not included."
+          Hint="Running total per healer. Hover for every healer at one instant. Pet heals are their owner's."
           PopOutCommand="{Binding Panels[hline].PopOutCommand}">
     <c:LineChart Edge="{Binding Edge}" EmptyText="{Binding HealEmptyText}" EndLabels="True"
                  AutomationProperties.Name="Cumulative healing chart">

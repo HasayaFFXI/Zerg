@@ -97,7 +97,7 @@
       <Button Style="{StaticResource ActionPick}"
               Command="{Binding DataContext.ToggleSupportCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
               CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label}"
-              ToolTip="Show or hide the people it reached">
+              ToolTip="{Binding DataContext.SupportReachedTip, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
         <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
           <DockPanel Margin="14,0,8,0" VerticalAlignment="Center">
             <Path Style="{StaticResource RowCaret}" Margin="0,0,6,0"/>
@@ -118,9 +118,9 @@
       </DataTemplate.Triggers>
     </DataTemplate>
 
-    <!-- One person an opened action reached, in their colour: how many of
-         its casts reached them, and on how many it took effect. In the
-         quieter ink, a step under the action. -->
+    <!-- One person an opened action reached, in their colour (a monster
+         has none): how many of its casts reached them, and on how many it
+         took effect. In the quieter ink, a step under the action. -->
     <DataTemplate x:Key="Under">
       <Border Height="{StaticResource SubRowHeight}">
         <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
@@ -156,14 +156,41 @@
   <!-- Every buff, status removal and ward, under the character who cast
        it, with how often, and on how many of the people it reached it
        took effect: what one of the party did to one of the party that was
-       not a heal. There is no amount, so there is nothing else to say of
-       one. An action is pressed (or Enter or Space, with the keyboard on
-       it) to list the people it reached under it. The column headings stand still and the rows scroll under them, in
-       whatever height the pane or the panel has. The table says whether
-       there is room for every column (v:Shed.Full). -->
-  <v:Pane Title="Support" Note="{Binding SupportNote}"
-          Hint="Buffs, status removals and wards: casts by character and action, and on how many they took. Select an action to show who it reached. Never damage or healing"
+       not a heal. Or, switched to Enfeebles, every enfeeble the party put
+       on a monster, and on how many of the monsters it reached it took.
+       There is no amount, so there is nothing else to say of either. An
+       action is pressed (or Enter or Space, with the keyboard on it) to list
+       who it reached under it. The column headings stand still and the rows
+       scroll under them, in whatever height the pane or the panel has. The
+       table says whether there is room for every column (v:Shed.Full). -->
+  <v:Pane Title="Support" Note="{Binding SupportNote}" Hint="{Binding SupportHint}"
           PopOutCommand="{Binding Panels[hsupport].PopOutCommand}">
+    <!-- What the table lists: buffs or enfeebles. Saved, and the same in a
+         floating panel. -->
+    <v:Pane.Tools>
+      <Border>
+        <Border.Style>
+          <Style TargetType="Border" BasedOn="{StaticResource SegmentGroup}">
+            <Style.Triggers>
+              <Trigger Property="v:Float.On" Value="True">
+                <Setter Property="Effect" Value="{StaticResource PanelHalo}"/>
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <StackPanel Orientation="Horizontal">
+          <RadioButton Style="{StaticResource Segment}" GroupName="supportBy" Content="Buffs"
+                       IsChecked="{Binding SupportBy, Converter={StaticResource Equals}, ConverterParameter=Buffs}"
+                       ToolTip="Buffs, status removals and wards, and under one the people it reached"
+                       AutomationProperties.Name="Support: buffs"/>
+          <RadioButton Style="{StaticResource Segment}" GroupName="supportBy" Content="Enfeebles"
+                       IsChecked="{Binding SupportBy, Converter={StaticResource Equals}, ConverterParameter=Enfeebles}"
+                       ToolTip="Enfeebles on monsters, and under one the monsters it reached"
+                       AutomationProperties.Name="Support: enfeebles"/>
+        </StackPanel>
+      </Border>
+    </v:Pane.Tools>
+
     <DockPanel>
       <TextBlock DockPanel.Dock="Top" Text="{Binding SupportEmptyText}" Style="{StaticResource Label}" FontSize="12"
                  Margin="0,18,0,8" HorizontalAlignment="Center"
@@ -177,11 +204,10 @@
         <Grid Height="{StaticResource ColumnHeadHeight}">
           <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
             <TextBlock Text="Character / action" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
-            <TextBlock Text="Casts" Style="{StaticResource Head}" ToolTip="One per cast, however many people it reached"/>
-            <TextBlock Text="Hit" Style="{StaticResource Head}" ToolTip="The people it took effect on"/>
-            <TextBlock Text="Miss" Style="{StaticResource HeadSheds}"
-                       ToolTip="The people it had no effect on: an Erase that found nothing to remove, a Protect on someone with a stronger one"/>
-            <TextBlock Text="Hit %" Style="{StaticResource HeadSheds}" ToolTip="Hit out of everyone it reached"/>
+            <TextBlock Text="Casts" Style="{StaticResource Head}" ToolTip="{Binding SupportCastsTip}"/>
+            <TextBlock Text="Hit" Style="{StaticResource Head}" ToolTip="{Binding SupportHitTip}"/>
+            <TextBlock Text="Miss" Style="{StaticResource HeadSheds}" ToolTip="{Binding SupportMissTip}"/>
+            <TextBlock Text="Hit %" Style="{StaticResource HeadSheds}" ToolTip="{Binding SupportRateTip}"/>
             <Border/>
           </v:Cells>
           <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>

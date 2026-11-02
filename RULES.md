@@ -58,7 +58,7 @@ One line is one `(action, target, result)` row. A field of the wrong JSON type (
   `addons/VibeXI/vx_emit.lua` writes. Diff against `vx_emit.encode` when
   either changes.
 
-Two kinds of line are not rows, and `EventReader` files each elsewhere:
+Three kinds of line are not rows, and `EventReader` files each elsewhere:
 
 - **`kind:"job"`**: one party member's jobs. It goes on the roster, never in
   the rows: a zero-damage row would land in every count.
@@ -86,6 +86,25 @@ Two kinds of line are not rows, and `EventReader` files each elsewhere:
 
   Which actions are heals is the addon's decision, by action id, as the
   reference parser decides it. `via` is `magic`, `ability` or `pet`.
+- **`kind:"enfeeble"`**: one per monster an enfeeble reached, with `hit`
+  and never `dmg`, `crit` or `burst`.
+
+  ```json
+  {"kind":"enfeeble","t":1785000000,"seq":4,"use":7,"via":"magic","actor":"Mage",
+   "actorKind":"player","action":"Sleepga","actionId":273,"target":"Goblin Smithy",
+   "targetKind":"mob","hit":true,"msg":236}
+  ```
+
+  Which actions are enfeebles is the addon's decision, by action id
+  (`vx_enfeeble_ids.lua`: what can be aimed at an enemy and deals no
+  damage, from the server's tables and scripts). An enfeeble is written
+  only this way, never as an action line, landed or not: as one, a resisted
+  Sleepga was a dmg-0 magic miss no reader could tell from a resisted
+  Stone, and one that landed was not written at all. `hit` is whether it
+  took on that monster; resisted, missed and no effect are all `false`.
+  `use` is one per cast, shared by every monster it reached. `EventReader`
+  files it in the damage row's shape (its kind the line's `via`) in its own
+  list, `Enfeebles`. See "Support" below.
 
 One kind of row is not damage either, and `EventReader` files it apart:
 
@@ -399,8 +418,12 @@ fight, and are found where they always are.
 `Healing.Filter` applies the session window and the exclusions as the damage
 filter does, and credits a pet's heal to its owner.
 
-- **Healing leaves out pet heals**; Pet Healing is a column of its own, as the
-  reference parser has it.
+- **A pet's heals are its owner's healing**, as its damage is their damage:
+  in Healing, Healing %, HPS, Casts, Avg, the top healer, the cumulative
+  chart and Compare. Pet Healing is the pet's part of Healing, said apart.
+  It once left them out, as the reference parser does, and a dragoon whose
+  wyvern did all the healing read 0 under Healing beside a five-figure Pet
+  Healing.
 - **Casts are one per `use`**, however many targets; Avg is total / casts.
 - **There is no overcure, on purpose.** The packet does not carry the target's
   missing HP, and an estimate against the spell's best cast so far was tried
@@ -411,8 +434,8 @@ filter does, and credits a pet's heal to its owner.
   (`Healing.AsEvents`) where every heal is a hit.
 - HPS ticks with DPS, over the same clock.
 - **The Party line under Healing by character** prints what `Healing.Totals`
-  already has for the party: Healing, casts, total over casts, and what the
-  pets healed, apart. Nothing new is counted for it.
+  already has for the party: Healing, casts, total over casts, and how much
+  of it the pets healed. Nothing new is counted for it.
 - **The Heals table lists the heals three ways** (saved as `healsBy`),
   each three lines deep: By spell, character → heal → person reached; By
   caster, character → person healed → heal; By target, person healed →
@@ -427,8 +450,8 @@ filter does, and credits a pet's heal to its owner.
     that (the pet's included); on a third, out of the line it is under.
   - **By target, a person's heading is everything that reached them**, pets'
     heals included, and its share is of everything healed, so the headings
-    add up to the party's Healing and Pet Healing together. Unlike a
-    character's heading, nothing is said apart: it is what they received,
+    add up to the party's Healing. Unlike a character's heading, the pets'
+    part is not said apart: it is what they received,
     whoever's it was. A pet's heals are under its owner, by the pet's name.
   - **A drill-down on a person is of every cast that reached them**, each
     what it healed them alone (`Healing.Distribution` with a target): the
@@ -439,7 +462,10 @@ filter does, and credits a pet's heal to its owner.
 ## Support
 
 Buffs, status removals and wards (`Support`), listed in the Healing
-section's Support pane.
+section's Support pane. Enfeebles (`EventReader.Enfeebles`) are listed in
+the same pane, by the Buffs / Enfeebles switch in its heading, and every
+rule here holds for them too, with the monsters an enfeeble reached for
+the people a buff reached.
 
 - **Casts, hits and misses, and nothing else.** A buff has no amount:
   there is no total, share, average or rate to give of one, and it is in
@@ -454,10 +480,16 @@ section's Support pane.
   hits and misses; a character's line adds up their actions'. There is no
   low mark on it: an Erase that found nothing to remove is a miss and
   often meant to be.
+- **An enfeeble's miss is every monster it did not take on**: one that
+  resisted, and one it had no effect on (already asleep, immune). A Sleepga
+  on a sleeping monster is a cast spent for nothing, as an Erase that found
+  nothing is; one column for both keeps the two views one table.
 - **Per person reached**, under an action opened: the same three for each
   person (or pet) it reached. Casts there are the casts that reached them,
   each once however many results it had on them, so a person's Casts can
   be fewer than the action's but never more. Most hits first.
+- **A monster reached has no colour and no alias**: only the party's names
+  take colour slots and aliases, and asking for a monster's would spend one.
 - **Only what the party did, and never a debuff on the party.** A monster's
   Slow on a character is not in the file (the addon writes only actions one
   of ours took), and a support row needs both ends ours. On a target of
@@ -477,7 +509,12 @@ section's Support pane.
 - **It starts and ends no clock.** The zero and the end are damage rows'.
 - **Exported among the events, as the file has them**, and filed apart again
   when read, so a parse saved before support was filed apart opens with
-  its buffs out of the damage.
+  its buffs out of the damage. Enfeebles go among the events as enfeeble
+  lines, as the addon wrote them.
+- **An event file from before enfeeble lines** has the resisted ones as
+  magic misses among the damage rows, and the landed ones not at all. They
+  are read as they are: the action id that would tell them apart is the
+  addon's list, not Zerg's.
 - Compare does not list support.
 
 ## Export, import and Compare
@@ -629,5 +666,6 @@ An addon event file read whole, cropped to a range and exported (`Replay`,
 - Absorbed and "no effect" outcomes are misses, except in Accuracy, where a
   swing into shadows is a hit.
 - Nothing reports double, triple or quad attack rates.
-- MP drain, enfeebles and TP are not read. Every row carries its `msg`, so
-  adding them is a change to the addon's tables, not to the format.
+- MP drain and TP are not read, except as an enfeeble's (Aspir, Absorb-TP)
+  took-or-not. Every row carries its `msg`, so adding them is a change to
+  the addon's tables, not to the format.

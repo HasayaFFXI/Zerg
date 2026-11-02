@@ -70,7 +70,8 @@ public sealed class HealPart
     }
 }
 
-/// <summary>One character's healing. Pet heals are in <see cref="PetTotal"/> only.</summary>
+/// <summary>One character's healing, their pet's included; <see cref="PetTotal"/>
+/// is the pet's part of it.</summary>
 public sealed class HealerTotals
 {
     public string Name { get; set; } = "";
@@ -92,7 +93,7 @@ public sealed class HealerTotals
     internal readonly OrderedDictionary<string, HealPart> ByTarget = new(StringComparer.Ordinal);
 }
 
-/// <summary>The party's healing: every healer, largest first (pet heals included in the order).</summary>
+/// <summary>The party's healing, pets' included: every healer, largest first.</summary>
 public sealed class HealTotals
 {
     public List<HealerTotals> Actors { get; set; } = [];
@@ -112,9 +113,9 @@ public sealed class HealTotals
 /// Healing, from the addon's heal lines, which never enter the damage rows: no
 /// damage figure can see them and nothing here can move one.
 /// <list type="bullet">
-/// <item>Healing: every heal not from a pet (spells and abilities).</item>
-/// <item>Pet: every heal a pet did, credited to its owner with the pet's name
-/// kept, as pet damage is.</item>
+/// <item>Healing: every heal, spells, abilities and a pet's, which is credited
+/// to its owner with the pet's name kept, as pet damage is.</item>
+/// <item>Pet: the part of that a pet did, said apart as well.</item>
 /// <item>Casts: one per action however many targets; a Curaga on five is one.</item>
 /// <item>Average: total over casts.</item>
 /// <item>Min / Max: one target's heal, raw. Min is the lowest above zero, so a
@@ -224,19 +225,18 @@ public static class Healing
             from.Add(v, h.Use);
             HealPart.Of(from.ByName, h.Action).Add(v, h.Use);
 
+            // A pet's heal is its owner's healing, as its damage is their
+            // damage; Pet Healing says how much of it was the pet's.
+            a.Total += v;
+            if (v > a.Max) a.Max = v;
+            if (newCast) a.Casts++;
+            total += v;
+            if (v > max) max = v;
+            if (newCast) casts++;
             if (pet)
             {
                 a.PetTotal += v;
                 petTotal += v;
-            }
-            else
-            {
-                a.Total += v;
-                if (v > a.Max) a.Max = v;
-                if (newCast) a.Casts++;
-                total += v;
-                if (v > max) max = v;
-                if (newCast) casts++;
             }
         }
 
@@ -254,7 +254,7 @@ public static class Healing
             x.Targets = HealPart.List(x.ByTarget);
             return x;
         }).ToList();
-        actors.SortByDescending(p => p.Total + p.PetTotal);
+        actors.SortByDescending(p => p.Total);
 
         return new HealTotals
         {

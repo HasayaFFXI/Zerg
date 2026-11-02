@@ -168,8 +168,16 @@ public static class ParseFile
 
         var sb = new StringBuilder(Encoding.UTF8.GetString(buffer.WrittenSpan), buffer.WrittenCount + 1024);
         // Support rows are damage rows on the wire, and go back among them
-        // in the order they were read: a reader files them apart again.
-        List(sb, "events", reader.Events.Concat(reader.Support).Where(e => keep(e.T)).OrderBy(e => e.Line), WriteRow);
+        // in the order they were read, with the enfeeble lines as the addon
+        // wrote them: a reader files each apart again.
+        var events = reader.Events.Concat(reader.Support).Select(e => (Row: e, Enfeeble: false))
+                           .Concat(reader.Enfeebles.Select(e => (Row: e, Enfeeble: true)))
+                           .Where(x => keep(x.Row.T)).OrderBy(x => x.Row.Line);
+        List(sb, "events", events, (w, x) =>
+        {
+            if (x.Enfeeble) WriteEnfeeble(w, x.Row);
+            else WriteRow(w, x.Row);
+        });
         List(sb, "heals", reader.Heals.Where(h => keep(h.T)), WriteHeal);
         sb.Append("\n}\n");
         return sb.ToString();
@@ -223,6 +231,29 @@ public static class ParseFile
         w.WriteBoolean("burst", e.Burst);
         Number(w, "msg", e.Msg);
         // As the addon writes them: only a pet's own rows carry these.
+        if (!string.IsNullOrEmpty(e.Owner)) w.WriteString("owner", e.Owner);
+        if (!string.IsNullOrEmpty(e.Pet)) w.WriteString("pet", e.Pet);
+        w.WriteEndObject();
+    }
+
+    /// <summary>An enfeeble → the enfeeble line the addon wrote: its kind is
+    /// the line's <c>via</c> (<see cref="EventReader.Enfeebles"/>).</summary>
+    static void WriteEnfeeble(Utf8JsonWriter w, CombatEvent e)
+    {
+        w.WriteStartObject();
+        w.WriteString("kind", "enfeeble");
+        Number(w, "t", e.T / 1000);
+        Number(w, "seq", e.Seq);
+        Number(w, "use", e.Use);
+        w.WriteString("via", e.Kind);
+        w.WriteString("actor", e.Actor);
+        w.WriteString("actorKind", e.ActorKind);
+        w.WriteString("action", e.Action);
+        Number(w, "actionId", e.ActionId);
+        w.WriteString("target", e.Target);
+        w.WriteString("targetKind", e.TargetKind);
+        w.WriteBoolean("hit", e.Hit);
+        Number(w, "msg", e.Msg);
         if (!string.IsNullOrEmpty(e.Owner)) w.WriteString("owner", e.Owner);
         if (!string.IsNullOrEmpty(e.Pet)) w.WriteString("pet", e.Pet);
         w.WriteEndObject();
@@ -406,9 +437,10 @@ public static class ParseFile
         {
             // A job record here would be filed, not counted; nothing Export
             // writes puts one in this list, so it is refused, not obeyed. A
-            // support row is no damage row and is filed, not skipped.
-            int support = r.Support.Count;
-            if (KindOf(ev) == "job" || (r.Feed(EventRecord.Read(ev)) == null && r.Support.Count == support))
+            // support row or an enfeeble is no damage row and is filed, not
+            // skipped.
+            int filed = r.Support.Count + r.Enfeebles.Count;
+            if (KindOf(ev) == "job" || (r.Feed(EventRecord.Read(ev)) == null && r.Support.Count + r.Enfeebles.Count == filed))
                 skipped++;
         }
 

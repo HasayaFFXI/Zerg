@@ -60,6 +60,10 @@ public sealed class Settings
     /// "Target" (each person healed, who healed them, with what).</summary>
     public string HealsBy { get; set; } = "Spell";
 
+    /// <summary>What the Support table lists: "Buffs", as installed (every
+    /// buff, removal and ward) or "Enfeebles" (every enfeeble on a monster).</summary>
+    public string SupportBy { get; set; } = "Buffs";
+
     /// <summary>The characters' line is opened onto every chip, on as many
     /// lines as they take. As installed it is not: one line of as many chips
     /// as fit, and a chip that says how many do not ("+5"), which opens it.
@@ -236,6 +240,7 @@ public sealed class Settings
         Section ??= installed.Section;
         ViewMode ??= installed.ViewMode;
         HealsBy ??= installed.HealsBy;
+        SupportBy ??= installed.SupportBy;
         CompareBy ??= installed.CompareBy;
         CompareMode ??= installed.CompareMode;
         ClickThroughKey ??= installed.ClickThroughKey;

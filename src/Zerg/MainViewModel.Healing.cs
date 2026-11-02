@@ -16,9 +16,9 @@ namespace Zerg;
 // on every count, whichever section is on screen. Every figure is worked out
 // in Zerg.Core (Healing.Totals); this only words and draws them.
 //
-// Healing leaves a pet's heals out, in the hero tile, the line and the bars
-// alike. They are their owner's, in a column of their own, and in the heals
-// table under the pet's name.
+// A pet's heals are their owner's healing, in the hero tile, the line and the
+// bars alike, as a pet's damage is. How much was the pet's is said apart too:
+// a column of its own, and in the heals table under the pet's name.
 public sealed partial class MainViewModel
 {
     // ----------------------------------------------------------------- tiles
@@ -48,10 +48,9 @@ public sealed partial class MainViewModel
     void DrawHealing(Snapshot c)
     {
         HealEmptyText = SessionText.Empty(Shown.Session, Viewing, what: "healing");
-        // The heals that Healing counts, a pet's left out, as rows a chart
-        // can add up: the cumulative lines and the band's marks are both
-        // drawn from these.
-        var own = Healing.AsEvents(c.Heals.Where(h => !h.IsPets));
+        // The heals as rows a chart can add up: the cumulative lines and the
+        // band's marks are both drawn from these.
+        var own = Healing.AsEvents(c.Heals);
         DrawHealTiles(c, own);
         DrawHealLine(c, own);
         DrawHealBars(c);
@@ -65,7 +64,7 @@ public sealed partial class MainViewModel
         var h = c.Healing;
         HealTotalText = Format.Int(h.Total);
         // Whoever healed anything, their pet's heals included.
-        int n = h.Actors.Count(a => a.Total + a.PetTotal > 0);
+        int n = h.Actors.Count(a => a.Total > 0);
         HpsNote = n > 0 ? n + " healer" + (n == 1 ? "" : "s") : None;
 
         var pulse = Shown.Session.StartedAt != null ? BandMarks.Pulse(own, c.Elapsed) : null;
@@ -73,8 +72,7 @@ public sealed partial class MainViewModel
         HealTotalMark = Kept(HealTotalMark, pulse?.Bars);
         if (pulse != null) HealTotalMarkCaption = BandMarks.Caption(pulse.Bucket);
         HpsMark = Kept(HpsMark, pulse?.Running);
-        // Largest first, by their own healing: a pet's is not in the total
-        // these are shares of.
+        // Largest first, by their healing, a pet's included.
         TopHealerMark = Kept(TopHealerMark, pulse is null ? null
             : h.Actors.Where(a => a.Total > 0).OrderByDescending(a => a.Total)
                .Select(a => new ShareSlice(a.Total, SwatchOf(a.Name))).ToList());
@@ -99,7 +97,7 @@ public sealed partial class MainViewModel
 
     void DrawHealLine(Snapshot c, IReadOnlyList<CombatEvent> rows)
     {
-        // A line for everyone who healed anything themselves. Every healer
+        // A line for everyone who healed anything, or whose pet did. Every healer
         // keeps their own: a party has two or three, so there is no pack to
         // fold into an "others" line as the damage chart does.
         var names = c.Healing.Actors.Where(a => a.Total > 0).Select(a => a.Name).ToList();
@@ -130,14 +128,11 @@ public sealed partial class MainViewModel
 
     void DrawHealBars(Snapshot c)
     {
-        // Everyone who healed anything, a pet's heals counting: a character
-        // whose pet did all of it has a row, with no bar to speak of and the
-        // figure under Pet Healing.
+        // Everyone who healed anything, a pet's heals counting as theirs.
         // Largest first, or as the headings order it; the strip the same.
-        var actors = HealersSort.Order(c.Healing.Actors.Where(a => a.Total + a.PetTotal > 0), HealerKey);
+        var actors = HealersSort.Order(c.Healing.Actors.Where(a => a.Total > 0), HealerKey);
 
-        // The row is the bar, to the leading healer's own healing: a pet's
-        // is not in it, as it is not in Healing.
+        // The row is the bar, to the leading healer's healing.
         double top = RowMarks.Largest(actors.Select(a => a.Total));
 
         string Tip(HealerTotals a) => RowTip(a.Name, a.Avg is double avg ? Format.Int(avg) + " avg per cast" : null);
@@ -344,7 +339,7 @@ public sealed partial class MainViewModel
         {
             // Everything that reached them, pets' heals included, and its
             // share of everything healed: the people add up to it.
-            double everything = c.Healing.Total + c.Healing.PetTotal;
+            double everything = c.Healing.Total;
             top = RowMarks.Largest(c.Healing.Targets.Select(p => p.Total));
             foreach (var p in c.Healing.Targets)
             {
@@ -374,9 +369,9 @@ public sealed partial class MainViewModel
                 items.Add((head, null));
                 if (!heads.Contains(a.Name)) continue;
                 // Out of everything under this heading, the pet's heals too:
-                // they are listed here, so the column adds up to 100. A third
-                // line's is out of the line it is under.
-                double all = a.Total + a.PetTotal;
+                // the column adds up to 100. A third line's is out of the
+                // line it is under.
+                double all = a.Total;
                 if (!ByPerson)
                 {
                     double most = RowMarks.Largest(a.ActionList.Select(x => x.Total));
@@ -431,7 +426,7 @@ public sealed partial class MainViewModel
                 row.Job = JobBadge(h.Name);
                 row.Total = Format.Int(h.Total);
                 row.Share = Percent(h.Share);
-                row.Pet = h.Pet != 0 ? "+ " + Format.Int(h.Pet) + " pet" : "";
+                row.Pet = h.Pet != 0 ? "incl. " + Format.Int(h.Pet) + " pet" : "";
                 row.Open = heads.Contains(h.Name);
                 row.Label = (healed ? "Heals on " : "Heals of ") + NameOf(h.Name);
                 return;
@@ -457,47 +452,87 @@ public sealed partial class MainViewModel
 
     // --------------------------------------------------------------- support
 
-    /// <summary>Every buff, removal and ward, under the character who cast
-    /// it: casts, and of the people reached, on how many it took (Zerg.Core's
-    /// Support says why there is nothing more).</summary>
+    const string SupportByBuffs = "Buffs", SupportByEnfeebles = "Enfeebles";
+
+    /// <summary>What the Support table lists: "Buffs" (every buff, removal
+    /// and ward, and under one the people it reached) or "Enfeebles" (every
+    /// enfeeble, and under one the monsters it reached). The same table and
+    /// the same figures either way. Saved.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SupportHint), nameof(SupportHitTip), nameof(SupportMissTip),
+                              nameof(SupportRateTip), nameof(SupportCastsTip), nameof(SupportReachedTip))]
+    private string supportBy = SupportByBuffs;
+
+    bool ByEnfeebles => SupportBy == SupportByEnfeebles;
+
+    /// <summary>What the pane's heading and the column headings say, of
+    /// what is listed.</summary>
+    public string SupportHint => ByEnfeebles
+        ? "Enfeebles: casts by character and action, and on how many monsters they took. Select an action to show which it reached. Never damage"
+        : "Buffs, status removals and wards: casts by character and action, and on how many they took. Select an action to show who it reached. Never damage or healing";
+    public string SupportCastsTip => ByEnfeebles
+        ? "One per cast, however many monsters it reached" : "One per cast, however many people it reached";
+    public string SupportHitTip => ByEnfeebles ? "The monsters it took effect on" : "The people it took effect on";
+    public string SupportMissTip => ByEnfeebles
+        ? "The monsters it did not take on: resisted, or no effect (already asleep, immune)"
+        : "The people it had no effect on: an Erase that found nothing to remove, a Protect on someone with a stronger one";
+    public string SupportRateTip => ByEnfeebles ? "Hit out of every monster it reached" : "Hit out of everyone it reached";
+    public string SupportReachedTip => ByEnfeebles ? "Show or hide the monsters it reached" : "Show or hide the people it reached";
+
+    /// <summary>Each keeps its own open lines. Nothing is counted.</summary>
+    partial void OnSupportByChanged(string value)
+    {
+        settings.SupportBy = value;
+        settings.Save();
+        if (snapshot is { } c) DrawSupport(c);
+    }
+
+    /// <summary>Every buff, removal and ward (or enfeeble), under the
+    /// character who cast it: casts, and of those reached, on how many it
+    /// took (Zerg.Core's Support says why there is nothing more).</summary>
     public ObservableCollection<SupportRow> SupportRows { get; } = [];
     [ObservableProperty] private bool hasSupport;
     /// <summary>The casts in all, for the pane's heading.</summary>
     [ObservableProperty] private string supportNote = "";
     [ObservableProperty] private string supportEmptyText = "";
 
-    /// <summary>The actions whose people are listed under them, by the
-    /// caster's real name and the action (<see cref="KeyGap"/> between).
-    /// Every action starts closed.</summary>
-    readonly HashSet<string> openSupport = new(StringComparer.Ordinal);
+    /// <summary>The actions whose people (Buffs) or monsters (Enfeebles)
+    /// are listed under them, by the caster's real name and the action
+    /// (<see cref="KeyGap"/> between). Every action starts closed.</summary>
+    readonly HashSet<string> openSupport = new(StringComparer.Ordinal), openEnfeebles = new(StringComparer.Ordinal);
 
-    /// <summary>Pressing an action lists the people it reached under it;
-    /// pressing it again puts them away.</summary>
+    HashSet<string> OpenSupport => ByEnfeebles ? openEnfeebles : openSupport;
+
+    /// <summary>Pressing an action lists who it reached under it; pressing
+    /// it again puts them away.</summary>
     [RelayCommand]
     void ToggleSupport(SupportRow row)
     {
         if (row.IsHeading || row.IsUnder) return;
-        if (!openSupport.Remove(row.Key)) openSupport.Add(row.Key);
+        if (!OpenSupport.Remove(row.Key)) OpenSupport.Add(row.Key);
         // Nothing is counted again: the last count, with more or fewer of its lines.
         if (snapshot is { } c) DrawSupport(c);
     }
 
     void DrawSupport(Snapshot c)
     {
-        SupportEmptyText = SessionText.Empty(Shown.Session, Viewing, what: "support");
+        var enfeebles = ByEnfeebles;
+        var totals = enfeebles ? c.Enfeebles : c.Support;
+        var open = OpenSupport;
+        SupportEmptyText = SessionText.Empty(Shown.Session, Viewing, what: enfeebles ? "enfeebles" : "support");
         var items = new List<(SupportCaster Caster, SupportAction? Action, SupportTarget? Target)>();
-        foreach (var a in c.Support.Casters)
+        foreach (var a in totals.Casters)
         {
             items.Add((a, null, null));
             foreach (var act in a.Actions)
             {
                 items.Add((a, act, null));
-                if (!openSupport.Contains(a.Name + KeyGap + act.Name)) continue;
+                if (!open.Contains(a.Name + KeyGap + act.Name)) continue;
                 foreach (var p in act.Targets) items.Add((a, act, p));
             }
         }
         HasSupport = items.Count > 0;
-        SupportNote = c.Support.Casts > 0 ? Format.Int(c.Support.Casts) + " cast" + (c.Support.Casts == 1 ? "" : "s") : "";
+        SupportNote = totals.Casts > 0 ? Format.Int(totals.Casts) + " cast" + (totals.Casts == 1 ? "" : "s") : "";
 
         static string Key((SupportCaster Caster, SupportAction? Action, SupportTarget? Target) i) =>
             i.Action == null ? i.Caster.Name
@@ -518,19 +553,21 @@ public sealed partial class MainViewModel
                 row.Hits = Format.Int(a.Hits);
                 row.Misses = Format.Int(a.Misses);
                 row.HitRate = Percent(a.HitRate);
-                row.Label = "Support of " + NameOf(a.Name);
+                row.Label = (enfeebles ? "Enfeebles of " : "Support of ") + NameOf(a.Name);
                 return;
             }
             if (p != null)
             {
-                row.Name = NameOf(p.Name);
-                row.Swatch = SwatchOf(p.Name);
-                row.PanelSwatch = Solid(PanelColorOf(p.Name));
+                // A monster has no colour and no alias: asking for either
+                // would give it a colour slot of the party's.
+                row.Name = enfeebles ? p.Name : NameOf(p.Name);
+                row.Swatch = enfeebles ? null : SwatchOf(p.Name);
+                row.PanelSwatch = enfeebles ? null : Solid(PanelColorOf(p.Name));
                 row.Casts = Format.Int(p.Casts);
                 row.Hits = Format.Int(p.Hits);
                 row.Misses = Format.Int(p.Misses);
                 row.HitRate = Percent(p.HitRate);
-                row.Label = NameOf(a.Name) + ", " + act.Name + " on " + NameOf(p.Name) + ", " + row.Casts + " cast" +
+                row.Label = NameOf(a.Name) + ", " + act.Name + " on " + row.Name + ", " + row.Casts + " cast" +
                             (p.Casts == 1 ? "" : "s") + ", " + row.Hits + " hit, " + row.Misses + " missed, " + row.HitRate;
                 return;
             }
@@ -539,7 +576,7 @@ public sealed partial class MainViewModel
             row.Hits = Format.Int(act.Hits);
             row.Misses = Format.Int(act.Misses);
             row.HitRate = Percent(act.HitRate);
-            row.Open = openSupport.Contains(row.Key);
+            row.Open = open.Contains(row.Key);
             row.Label = NameOf(a.Name) + ", " + act.Name + ", " + row.Casts + " cast" + (act.Casts == 1 ? "" : "s") +
                         ", " + row.Hits + " hit, " + row.Misses + " missed, " + row.HitRate;
         });

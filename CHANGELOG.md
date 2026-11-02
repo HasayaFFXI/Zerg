@@ -7,6 +7,27 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- Enfeebles: a Sleep, Slow, Stun, Dispel, Lullaby, Light Shot or a pact's
+  Nightmare is no longer counted as damage. One that was resisted or had no
+  effect was read as a magic attack that missed: it was listed in Actions
+  at 0 % accuracy, could start the clock, and one that landed was not in the
+  file at all. The addon now writes every enfeeble on a monster as a line of
+  its own, landed or not, and the Support pane lists them: a Buffs and
+  Enfeebles switch in its heading picks which. Enfeebles are counted as buffs
+  are: casts by character and action, and under an action the monsters it
+  reached, how many it took on (Hit) and how many resisted it or it had no
+  effect on, an already sleeping one say (Miss). They start and end no
+  clock and are in no damage figure. The switch is saved. Needs the addon
+  that writes them; an event file from before it still has the resisted
+  ones as misses.
+- Healing: a pet's heals are now its owner's healing, as a pet's damage is
+  their damage. A dragoon whose wyvern did the healing had 0 under Healing,
+  no share, no line on the chart and no HPS, with the figure only under Pet
+  Healing. Now Healing, Healing %, HPS, Casts, Avg / cast, the top healer,
+  the healing total and the cumulative chart all count it, in Compare too;
+  Pet Healing still says how much of it was the pet's. In the Heals pane a
+  character's heading reads "incl. 420 pet" where it read "+ 420 pet".
+
 ## 1.5.0 — 2026-10-30
 
 - Heals: three tabs in the pane's heading list the heals three lines deep.

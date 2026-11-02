@@ -710,7 +710,7 @@
                   <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
                   <TextBlock Text="Biggest" Style="{StaticResource Head}"
                              ToolTip="The most one target was healed for by one cast"/>
-                  <TextBlock Text="Pet" Style="{StaticResource Head}" ToolTip="Heals by the character's pet. Not part of Healing"/>
+                  <TextBlock Text="Pet" Style="{StaticResource Head}" ToolTip="Heals by the character's pet. Part of Healing"/>
                 </v:Cells>
                 <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
               </Grid>

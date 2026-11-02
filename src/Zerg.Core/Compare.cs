@@ -240,15 +240,15 @@ public static class Compare
         }
         var heal = Healing.Totals(hl);
 
-        // For Healing mode: the cumulative line (no pet heals, as in the Healing
-        // column), and party healing by spell and by receiver (pet heals
-        // included: these say where healing went, not whose column it is in).
+        // For Healing mode: the cumulative line, and party healing by spell
+        // and by receiver, pet heals included in all three as in the Healing
+        // column.
         var healEvents = new List<CombatEvent>();
         var healSpells = new OrderedDictionary<string, double>(StringComparer.Ordinal);
         var healTargets = new OrderedDictionary<string, double>(StringComparer.Ordinal);
         foreach (var h in hl)
         {
-            if (!h.IsPets) healEvents.Add(new CombatEvent { T = h.T, Hit = true, Dmg = h.Hp });
+            healEvents.Add(new CombatEvent { T = h.T, Hit = true, Dmg = h.Hp });
             Add(healSpells, h.Spell, h.Hp);
             Add(healTargets, h.Target, h.Hp);
         }
@@ -313,7 +313,7 @@ public static class Compare
     static double Size(Bucket? x) => x?.Total ?? 0;
     static double Size(HealAction? x) => x?.Total ?? 0;
     /// <summary>Everything a healer put out, pet included: for ordering and the zero test.</summary>
-    static double HealSize(HealerTotals? x) => x == null ? 0 : x.Total + x.PetTotal;
+    static double HealSize(HealerTotals? x) => x?.Total ?? 0;
 
     static List<Pair<T>> Pairs<T>(OrderedDictionary<string, T> a, OrderedDictionary<string, T> b) where T : class =>
         PairUp(a, b).Select(p => new Pair<T>(p.Key, p.A, p.B)).ToList();

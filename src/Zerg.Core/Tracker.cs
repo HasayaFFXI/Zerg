@@ -27,6 +27,12 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     /// same window and exclusions as the heals (<see cref="Zerg.Core.Support"/>).</summary>
     public SupportTotals Support { get; init; } = SupportTotals.None;
 
+    /// <summary>How often each enfeeble was cast and on how many of the
+    /// monsters it reached it took, over the same window and exclusions: the
+    /// same figures as <see cref="Support"/>'s, of what the party aimed at
+    /// its enemies.</summary>
+    public SupportTotals Enfeebles { get; init; } = SupportTotals.None;
+
     /// <summary>The targets damage is isolated to, by name; none while every
     /// target counts. Healing is never isolated: a heal's target is who it
     /// healed.</summary>
@@ -92,7 +98,7 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     }
 
     /// <summary>
-    /// Who leads by healing, a pet's left out as it is from the Healing
+    /// Who leads by healing, a pet's included as it is in the Healing
     /// column; nobody while nobody has healed anything. Of two level, the
     /// one listed first.
     /// </summary>
@@ -470,11 +476,15 @@ public sealed class Tracker
         // Support likewise: kept apart from the damage rows, so a Protect
         // before the pull neither starts the clock nor is counted, since it
         // falls before the zero.
-        var support = Zerg.Core.Support.Totals(Zerg.Core.Support.Filter(SupportScoped(), new FilterOptions { Actors = actors }));
+        var support = Zerg.Core.Support.Totals(Zerg.Core.Support.Filter(SupportScoped(supportKept), new FilterOptions { Actors = actors }));
+        // And enfeebles: a Sleepga before the pull is as far outside the
+        // session as that Protect.
+        var enfeebles = Zerg.Core.Support.Totals(
+            Zerg.Core.Support.Filter(SupportScoped(enfeeblesKept), new FilterOptions { Actors = actors }));
 
         return new Snapshot(shown, totals, listed, elapsed, latched)
         {
-            Heals = healShown, Healing = healing, Healers = healers.Actors, Support = support,
+            Heals = healShown, Healing = healing, Healers = healers.Actors, Support = support, Enfeebles = enfeebles,
             Isolated = only != null ? Targets.Sorted(only) : [],
             Targets = Targets.Pickable(byTarget.Keys).Select(n => new TargetTotal(n, byTarget[n])).ToList(),
             AllTargets = byTarget.Values.Sum(),
@@ -496,11 +506,23 @@ public sealed class Tracker
     Scope Now(bool skillchains) => new(Reader, Session, Session.StartedAt, Session.Spans.Count, Session.PausedAt,
                                        Session.EndedAt, Reader.Roster.Version, skillchains);
 
-    Scope? rowsScope, healsScope, supportScope;
+    Scope? rowsScope, healsScope;
     readonly List<CombatEvent> rowsKept = [];
     readonly List<HealEvent> healsKept = [];
-    readonly List<CombatEvent> supportKept = [];
-    int rowsRead, healsRead, supportRead;
+    int rowsRead, healsRead;
+
+    /// <summary>Support rows or enfeebles kept between counts: which of the
+    /// reader's lists, what of it has been read, and under what scope.</summary>
+    sealed class Kept(Func<EventReader, List<CombatEvent>> of)
+    {
+        public readonly Func<EventReader, List<CombatEvent>> Of = of;
+        public Scope? Scope;
+        public readonly List<CombatEvent> Rows = [];
+        public int Read;
+    }
+
+    readonly Kept supportKept = new(r => r.Support);
+    readonly Kept enfeeblesKept = new(r => r.Enfeebles);
 
     /// <summary>The rows the session covers, credited and on its clock, with
     /// skillchains as asked: <see cref="Counting.Filter"/> with the session,
@@ -545,23 +567,24 @@ public sealed class Tracker
         return healsKept;
     }
 
-    /// <summary>The same for the support rows (<see cref="Zerg.Core.Support.Filter"/>).</summary>
-    List<CombatEvent> SupportScoped()
+    /// <summary>The same for the support rows or the enfeebles
+    /// (<see cref="Zerg.Core.Support.Filter"/>).</summary>
+    List<CombatEvent> SupportScoped(Kept kept)
     {
         var scope = Now(true);
-        var all = Reader.Support;
-        if (supportScope != scope || supportRead > all.Count)
+        var all = kept.Of(Reader);
+        if (kept.Scope != scope || kept.Read > all.Count)
         {
-            supportScope = scope;
-            supportKept.Clear();
-            supportRead = 0;
+            kept.Scope = scope;
+            kept.Rows.Clear();
+            kept.Read = 0;
         }
-        if (supportRead < all.Count)
+        if (kept.Read < all.Count)
         {
-            var fresh = supportRead == 0 ? all : all.GetRange(supportRead, all.Count - supportRead);
-            supportKept.AddRange(Zerg.Core.Support.Filter(fresh, new FilterOptions { Session = Session, Roster = Reader.Roster }));
-            supportRead = all.Count;
+            var fresh = kept.Read == 0 ? all : all.GetRange(kept.Read, all.Count - kept.Read);
+            kept.Rows.AddRange(Zerg.Core.Support.Filter(fresh, new FilterOptions { Session = Session, Roster = Reader.Roster }));
+            kept.Read = all.Count;
         }
-        return supportKept;
+        return kept.Rows;
     }
 }

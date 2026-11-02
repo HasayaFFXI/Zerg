@@ -65,6 +65,12 @@ WHAT IS IN HERE ON PURPOSE, and what each case catches:
     writes them: single cures, a Curaga that is one use across four targets with
     a 0 on a full-HP target, and a Reward by the beastmaster on his pet. The
     reader must file every one with the heals and move no damage figure.
+  * ENFEEBLE LINES -- `kind:"enfeeble"`, `hit` and no `dmg`, as
+    `vx_emit.encode_enfeeble` writes them: a Sleepga that is one use across
+    the adds, landing on some and resisted or of no effect on others, a Stun,
+    and the healer's Paralyze and Slow. Drawn from a random stream of their
+    own, so the damage rows are the ones they were before enfeebles were
+    written; none of it may move a damage figure or start the clock.
   * JOB LINES -- `kind:"job"`, one per party member, written when the job is
     first read and again whenever it changes. Four things ride on these and each
     is here on purpose: a member who NEVER ACTS (the white mage) and therefore
@@ -112,7 +118,18 @@ MSG = {
     'retaliate': 536,   # RetaliateDamage
     'cured': 7,         # recovers HP -- carried on a heal line for the record;
     'cured_ja': 102,    # the addon decides healing by ACTION id, not by these
+    'enfeeb_is': 236,   # MAGIC_ENFEEB_IS      <target> is <status>
+    'enfeeb': 237,      # MAGIC_ENFEEB         <target> receives the effect of <status>
+    'resist': 85,       # MagicResisted
+    'resist_aoe': 284,  # MagicResistedTarget  (an area spell's other targets)
+    'no_effect': 75,    # MagicNoEffect        (already asleep, immune)
 }
+
+# Enfeebles by spell id, as vx_enfeeble_ids.lua keys them, with the message
+# each lands with.
+SLEEPGA = ('Sleepga', 273)
+STUN = ('Stun', 252)
+HEALER_ENFEEBLES = [('Paralyze', 58, 'enfeeb_is'), ('Slow', 56, 'enfeeb')]
 
 # Healing ids, the way addons/VibeXI/vx_enums.lua keys them.
 # Spells by spell id; abilities by the packet's param, which the addon offsets
@@ -281,6 +298,35 @@ class Writer:
         self.raw(e)
         self.counts['heal'] = self.counts.get('heal', 0) + 1
 
+    def enfeeble(self, use, via, actor, actor_kind, action, action_id,
+                 target, target_kind, hit, msg, owner=None, pet=None):
+        """One enfeeble line, field-for-field `vx_emit.encode_enfeeble`.
+
+        `hit`, never `dmg` -- an enfeeble has no amount and must never be
+        summed as damage. One `use` per CAST, shared by every target.
+        """
+        e = {
+            'kind': 'enfeeble',
+            't': self.t,
+            'seq': self._next_seq(),
+            'use': use,
+            'via': via,
+            'actor': actor,
+            'actorKind': actor_kind,
+            'action': action,
+            'actionId': action_id,
+            'target': target,
+            'targetKind': target_kind,
+            'hit': bool(hit),
+            'msg': msg,
+        }
+        if owner:
+            e['owner'] = owner
+        if pet:
+            e['pet'] = pet
+        self.raw(e)
+        self.counts['enfeeble'] = self.counts.get('enfeeble', 0) + 1
+
     def write(self, use, kind, actor, actor_kind, action, action_id,
               target, target_kind, dmg, hit, msg, crit=False, burst=False,
               owner=None, pet=None):
@@ -313,6 +359,9 @@ class Writer:
 
 def generate(seed=SEED, start=None):
     rand = random.Random(seed)
+    # The enfeebles' own stream: drawing them from `rand` would move every
+    # damage roll after the first one.
+    erand = random.Random(seed + 1)
     if start is None:
         # A fixed wall-clock start, so the fixture is reproducible.
         start = int(time.mktime((2026, 7, 30, 14, 2, 0, 0, 0, -1)))
@@ -544,6 +593,33 @@ def generate(seed=SEED, start=None):
                 w.heal(w.next_use(), 'ability', PET['owner'], 'player', REWARD[0],
                        REWARD[1], PET['n'], 'pet', roll(410, 70), MSG['cured_ja'])
 
+            # Enfeebles. kind:"enfeeble" lines, exactly as record_enfeeble()
+            # writes them: a Sleepga that is ONE cast across the adds (one use),
+            # landing on some and resisted, or of no effect on one already
+            # asleep, on others; a Stun on the mob; the healer's Paralyze and
+            # Slow. None of it may move a damage figure or start the clock.
+            if erand.random() < 0.08:
+                use = w.next_use()
+                for i, add in enumerate(adds):
+                    r = erand.random()
+                    if r < 0.55:
+                        hit, msg = True, MSG['enfeeb_is']
+                    elif r < 0.80:
+                        hit, msg = False, MSG['resist'] if i == 0 else MSG['resist_aoe']
+                    else:
+                        hit, msg = False, MSG['no_effect']
+                    w.enfeeble(use, 'magic', MAGE, 'player', SLEEPGA[0], SLEEPGA[1],
+                               add, 'mob', hit, msg)
+            if erand.random() < 0.06:
+                hit = erand.random() < 0.45
+                w.enfeeble(w.next_use(), 'magic', MAGE, 'player', STUN[0], STUN[1],
+                           mob, 'mob', hit, MSG['enfeeb_is'] if hit else MSG['resist'])
+            if erand.random() < 0.05:
+                name, sid, landed = erand.choice(HEALER_ENFEEBLES)
+                hit = erand.random() < 0.75
+                w.enfeeble(w.next_use(), 'magic', HEALER, 'player', name, sid,
+                           mob, 'mob', hit, MSG[landed] if hit else MSG['resist'])
+
             w.advance(2 + rand.randrange(5))
 
         # An unresolved target: the entity table had no answer for this id, so
@@ -605,7 +681,7 @@ def to_export(w, owner, file_name, now_iso):
         note(r.get('target'), r.get('targetKind'))
 
     timed = [r for r in recs if r.get('kind') != 'job']
-    first = min(r['t'] for r in timed if r['kind'] != 'heal' and r['actorKind'] in OURS)
+    first = min(r['t'] for r in timed if r['kind'] not in ('heal', 'enfeeble') and r['actorKind'] in OURS)
     last = max(r['t'] for r in timed)
     started = first * 1000
     paused = last * 1000 + 5000
@@ -630,6 +706,7 @@ def to_export(w, owner, file_name, now_iso):
         'kinds': kinds,
         'jobs': [job_record(r) for r in jobs.values()],
     }
+    # Enfeeble lines go among the events, as Zerg's Export writes them.
     events = [r for r in timed if r['kind'] != 'heal' and keep(r)]
     heals = [r for r in timed if r['kind'] == 'heal' and keep(r)]
 

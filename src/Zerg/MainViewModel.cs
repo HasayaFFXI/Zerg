@@ -250,6 +250,7 @@ public sealed partial class MainViewModel : ObservableObject
         hideNames = settings.HideNames;
         groupSmallLines = settings.GroupSmallLines;
         healsBy = settings.HealsBy is HealsByCaster or HealsByTarget ? settings.HealsBy : HealsBySpell;
+        supportBy = settings.SupportBy == SupportByEnfeebles ? SupportByEnfeebles : SupportByBuffs;
         charactersOpen = settings.CharactersOpen;
         shadeCharacters = settings.ShadeCharacters;
         shadeActions = settings.ShadeActions;

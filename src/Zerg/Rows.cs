@@ -287,8 +287,8 @@ public sealed partial class HealRow(string key, string actor, string? action, bo
     /// <summary>The swatch in a floating panel's colours.</summary>
     [ObservableProperty] private Brush? panelSwatch;
     [ObservableProperty] private string job = "";
-    /// <summary>On a heading: what the character's pet healed, said apart
-    /// from their own total ("+ 420 pet"), or "" with none.</summary>
+    /// <summary>On a heading: how much of the character's total their pet
+    /// healed ("incl. 420 pet"), or "" with none.</summary>
     [ObservableProperty] private string pet = "";
     [ObservableProperty] private string casts = "";
     [ObservableProperty] private string total = "";

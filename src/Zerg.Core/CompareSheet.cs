@@ -329,7 +329,7 @@ public sealed class CompareSheet
         return
         [
             Tile("Total healing", Of(ma, h => h.Total), Of(mb, h => h.Total), Format.Int, ChangeKind.Percent, 1,
-                 "Every cure, waltz and healing ability. Pet heals are not included"),
+                 "Every cure, waltz and healing ability. Pet heals included"),
             Tile("Length", ma.Duration, mb.Duration, Clock, ChangeKind.Time, 0),
             Tile("Party HPS", Hps(ma), Hps(mb), v => Format.Num(v, 1), ChangeKind.Percent, 1),
             // Neutral: more casts is not better healing.
@@ -337,7 +337,7 @@ public sealed class CompareSheet
                  "One per cast, however many people it reached"),
             Tile("Avg / cast", Of(ma, h => h.Avg), Of(mb, h => h.Avg), Format.Int, ChangeKind.Percent, 1),
             Tile("Biggest heal", Of(ma, h => h.Max), Of(mb, h => h.Max), Format.Int, ChangeKind.Percent, 1,
-                 "The most one target was healed for by one cast. Pet heals not included"),
+                 "The most one target was healed for by one cast. Pet heals included"),
         ];
     }
 

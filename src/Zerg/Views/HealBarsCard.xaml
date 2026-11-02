@@ -187,7 +187,7 @@
                 </v:SortHead>
                 <v:SortHead Column="healing">
                   <TextBlock Text="Healing" Style="{StaticResource Head}"
-                             ToolTip="Every cure, waltz and healing ability this character used. Pet heals are not included"/>
+                             ToolTip="Every cure, waltz and healing ability this character used, and everything their pet healed"/>
                 </v:SortHead>
                 <v:SortHead Column="share">
                   <TextBlock Text="Healing %" Style="{StaticResource Head}"
@@ -205,7 +205,7 @@
                 </v:SortHead>
                 <v:SortHead Column="petHealing">
                   <TextBlock Text="Pet Healing" Style="{StaticResource Head}"
-                             ToolTip="Everything this character's pet healed. Not part of Healing"/>
+                             ToolTip="Everything this character's pet healed. Part of Healing"/>
                 </v:SortHead>
               </v:Cells>
               <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>

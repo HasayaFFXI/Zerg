@@ -26,9 +26,9 @@
       </Style.Triggers>
     </Style>
 
-    <!-- A character's heading: who, what their pet healed on top of their
-         own (said apart, after the job, because it is not in their total),
-         what they healed in all under Total, and their share of the party
+    <!-- A character's heading: who, how much of their total their pet
+         healed (said apart, after the job), what they healed in all, their
+         pet's included, under Total, and their share of the party
          under Share. Shaded in their colour to their healing out of the
          leading healer's. Picking it shows their heals under it; picking it
          again puts them away. By target the heading is a person healed:

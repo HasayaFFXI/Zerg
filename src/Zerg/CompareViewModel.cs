@@ -666,7 +666,7 @@ public sealed partial class CompareViewModel : ObservableObject
 
         PaceTitle = heal ? "Cumulative healing" : "Cumulative damage";
         PaceNote = heal
-            ? "Party healing since each run’s first hit, on one clock. Pet heals not included"
+            ? "Party healing since each run’s first hit, on one clock. Pet heals included"
             : "Party damage since each run’s first hit, on one clock";
         PaceHint = PaceNote + ". Hover to read both runs at the same moment.";
         DrawPace(s);

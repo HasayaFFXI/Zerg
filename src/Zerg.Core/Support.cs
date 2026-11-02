@@ -12,9 +12,9 @@ public sealed record SupportAction(string Name, int Casts, int Hits, int Misses,
 }
 
 /// <summary>
-/// One person an action reached: how many of its casts reached them, and on
-/// how many of those it took effect or had none. A pet reached is a person
-/// of its own, by its own name.
+/// One person an action reached (a monster, for an enfeeble): how many of its
+/// casts reached them, and on how many of those it took effect or had none.
+/// A pet reached is a person of its own, by its own name.
 /// </summary>
 public sealed record SupportTarget(string Name, int Casts, int Hits, int Misses)
 {
@@ -41,6 +41,10 @@ public sealed record SupportTotals(IReadOnlyList<SupportCaster> Casters, int Cas
 /// people it reached, on how many it took effect. A buff has no amount to
 /// add up or divide: there is no total, no average and no rate of one, and
 /// it starts no clock.
+///
+/// <para>Enfeebles (<see cref="EventReader.Enfeebles"/>) are measured the
+/// same way, over the monsters each reached: a Sleepga that took on two of
+/// three is one cast, two hits and a miss.</para>
 /// </summary>
 public static class Support
 {

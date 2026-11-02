@@ -681,18 +681,22 @@ public class TrackerTests
     }
 
     [Fact]
-    public void A_pets_heal_is_its_owners_and_in_a_column_of_its_own()
+    public void A_pets_heal_is_its_owners_healing_and_said_apart_too()
     {
         var t = Following();
         t.Start(20_000);
         t.Feed([Lines.Hit(21, "Hasaya", 100), Lines.Heal(22, "Sylviane", 300),
                 Lines.Heal(23, "Wyvern", 420, "Healing Breath III", owner: "Parabellum")]);
         var c = t.Count(Nobody, true, 30_000);
-        Assert.Equal(300, c.Healing.Total);
+        // In Healing, as a pet's damage is in Damage, and its part said apart.
+        Assert.Equal(720, c.Healing.Total);
         Assert.Equal(420, c.Healing.PetTotal);
-        // Listed by everything they healed, pet included; led by healing alone.
+        Assert.Equal(2, c.Healing.Casts);
+        var owner = c.Healing.Actors[0];
+        Assert.Equal(("Parabellum", 420d, 420d, 1, 420d), (owner.Name, owner.Total, owner.PetTotal, owner.Casts, owner.Avg));
+        Assert.Equal(420.0 / 720, owner.Share);
         Assert.Equal(["Parabellum", "Sylviane"], c.Healing.Actors.Select(a => a.Name));
-        Assert.Equal("Sylviane", c.TopHealer?.Name);
+        Assert.Equal("Parabellum", c.TopHealer?.Name);
         var best = c.BestHeal;
         Assert.NotNull(best);
         Assert.Equal(420, best.Max);
@@ -785,7 +789,7 @@ public class TrackerTests
         var hasaya = a.Targets[0];
         Assert.Equal((3, 870d, 120d, 500d, 290d), (hasaya.Casts, hasaya.Total, hasaya.Min, hasaya.Max, hasaya.Avg));
         Assert.Equal(["Cure IV", "Curaga II", "Carbuncle: Healing Ruby"], hasaya.Parts.Select(p => p.Name));
-        Assert.Equal(a.Total + a.PetTotal, a.Targets.Sum(p => p.Total));
+        Assert.Equal(a.Total, a.Targets.Sum(p => p.Total));
     }
 
     [Fact]
@@ -804,7 +808,7 @@ public class TrackerTests
         // Everything that reached them, pets' heals included: the people add
         // up to everything healed.
         Assert.Equal(["Hasaya", "Rhyllis"], h.Targets.Select(p => p.Name));
-        Assert.Equal(h.Total + h.PetTotal, h.Targets.Sum(p => p.Total));
+        Assert.Equal(h.Total, h.Targets.Sum(p => p.Total));
         var hasaya = h.Targets[0];
         Assert.Equal((4, 970d), (hasaya.Casts, hasaya.Total));
         Assert.Equal(["Sylviane", "Rhyllis"], hasaya.Parts.Select(p => p.Name));

@@ -34,7 +34,9 @@ public class SavedParseTests
 
         Assert.Equal(3_336_000, snap.Elapsed);
         Assert.Equal(183_689, snap.Totals.Total);
-        Assert.Equal(43_880, snap.Healing.Total);
+        // A pet's heals in Healing (RULES.md); saved, it read 43,880 without them.
+        Assert.Equal(51_725, snap.Healing.Total);
+        Assert.Equal(7_845, snap.Healing.PetTotal);
     }
 
     [Fact]
