@@ -7,6 +7,8 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 1.6.0 — 2026-11-02
+
 - Enfeebles: a Sleep, Slow, Stun, Dispel, Lullaby, Light Shot or a pact's
   Nightmare is no longer counted as damage. One that was resisted or had no
   effect was read as a magic attack that missed: it was listed in Actions
