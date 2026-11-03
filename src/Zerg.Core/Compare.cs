@@ -62,6 +62,14 @@ public sealed class Measurement
     /// <summary>Whether the parse could have healing at all: one exported before
     /// the addon recorded heals has none, which is not the same as healing 0.</summary>
     public bool HasHeals { get; set; }
+    /// <summary>The run's kills and the party's deaths (<see cref="Zerg.Core.Kills"/>).</summary>
+    public KillTotals Kills { get; set; } = KillTotals.None;
+    /// <summary>The kills of the targets isolated; every kill with none.</summary>
+    public IReadOnlyList<Fight> Killed { get; set; } = [];
+    /// <summary>Whether the parse could have kills at all: one exported before
+    /// the addon wrote death lines and ids has none, which is not the same
+    /// as killing nothing.</summary>
+    public bool HasKills { get; set; }
 }
 
 /// <summary>A row present in either run; a side is null where the key was absent.</summary>
@@ -257,6 +265,7 @@ public static class Compare
         // from the same per-character splits: they agree with the table by
         // construction.
         var party = agg.Party;
+        var kills = Zerg.Core.Kills.Count(run.Source, sn);
 
         return new Measurement
         {
@@ -287,6 +296,9 @@ public static class Compare
             HealSpells = healSpells,
             HealTargets = healTargets,
             HasHeals = run.Source.Heals.Count > 0,
+            Kills = kills,
+            Killed = only != null ? kills.Fights.Where(f => only.Contains(f.Target)).ToList() : kills.Fights,
+            HasKills = run.Source.Deaths.Count > 0 || run.Source.Events.Any(e => e.TargetId != null),
         };
     }
 

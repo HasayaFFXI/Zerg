@@ -82,6 +82,11 @@
               <TextBlock Text="Length" Style="{StaticResource Fact}"/>
               <TextBlock Text="{Binding LengthText}" Style="{StaticResource FactValue}" Margin="0,0,16,0"/>
             </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4" MinHeight="24">
+              <TextBlock Text="Holds" Style="{StaticResource Fact}"/>
+              <TextBlock Text="{Binding KillsText}" Style="{StaticResource FactValue}" Margin="0,0,16,0"
+                         ToolTip="The monsters killed and the party's deaths inside the range: the ticks under the bars"/>
+            </StackPanel>
           </v:BarWrap>
         </DockPanel>
 

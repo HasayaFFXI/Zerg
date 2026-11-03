@@ -30,6 +30,10 @@ public sealed record CombatEvent
     public double ActionId { get; init; }
     public string Target { get; init; } = "";
     public string TargetKind { get; init; } = "";
+    /// <summary>The monster's id, on a row aimed at one, where the addon
+    /// wrote it: a spawn point, not one life (<see cref="Kills"/>). Null on
+    /// a file from before it did, and on a row aimed at anything else.</summary>
+    public double? TargetId { get; init; }
     public double Dmg { get; init; }
     public bool Hit { get; init; }
     public bool Crit { get; init; }
@@ -86,6 +90,38 @@ public sealed record HealEvent
     public string Spell { get => spell ?? Action; init => spell = value; }
 
     public bool IsPets => !string.IsNullOrEmpty(Owner);
+}
+
+/// <summary>
+/// One death the addon announced: a monster the party killed, or one of the
+/// party who died. Kept apart from the damage rows: it has no amount and no
+/// use, and among them it would be a miss that could start the clock.
+///
+/// <para>A monster's death names the party member who killed it, which
+/// nothing shows: kills are the party's. A player's names nobody, because
+/// nothing a monster does to the party is in the file.</para>
+/// </summary>
+public sealed record DeathEvent
+{
+    public double T { get; init; }
+    public double Seq { get; init; }
+    public string Target { get; init; } = "";
+    public string TargetKind { get; init; } = "";
+    /// <summary>A monster's id: a spawn point, so the same one dies again
+    /// after it respawns. Null on a player's death.</summary>
+    public double? TargetId { get; init; }
+    /// <summary>The game's message: 6 a monster defeated, 97 a player
+    /// defeated, 20 either fell with no killer.</summary>
+    public double Msg { get; init; }
+    public int Line { get; init; }
+    /// <summary>Who killed a monster, one of ours; empty otherwise.</summary>
+    public string Actor { get; init; } = "";
+    public string ActorKind { get; init; } = "";
+    public string? Owner { get; init; }
+    public string? Pet { get; init; }
+
+    /// <summary>A monster died, not one of the party.</summary>
+    public bool IsKill => TargetKind == "mob";
 }
 
 /// <summary>A party member's jobs, from the addon's job lines. <c>NON</c> is

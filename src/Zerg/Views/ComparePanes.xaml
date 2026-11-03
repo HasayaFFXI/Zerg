@@ -216,6 +216,7 @@
               <TextBlock Text="{Binding Name}" Style="{StaticResource PickName}"/>
               <ContentControl Content="{Binding Line.Amount}" Style="{StaticResource Amount}"/>
               <v:ChangeText Value="{Binding Line.Change}"/>
+              <v:RunPair Value="{Binding Line.KillTime}" Padding="2,0,5,0"/>
             </v:Cells>
           </Grid>
           <Rectangle Style="{StaticResource PickEdge}"/>
@@ -915,7 +916,8 @@
         </Grid.RowDefinitions>
         <Grid Height="{StaticResource SubRowHeight}">
           <v:Cells Style="{StaticResource KindCells}" Margin="0,0,14,1">
-            <TextBlock Text="Target" Style="{StaticResource HeadText}" Padding="14,0,8,0"/>
+            <TextBlock Text="Target" Style="{StaticResource HeadText}" Padding="14,0,8,0"
+                       ToolTip="Each name, with how many of it each run killed: A · B"/>
             <Grid>
               <TextBlock Text="Damage" Style="{StaticResource Head}"
                          Visibility="{Binding IsDamage, Converter={StaticResource Visible}}"/>
@@ -923,6 +925,9 @@
                          Visibility="{Binding IsHealing, Converter={StaticResource Visible}}"/>
             </Grid>
             <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
+            <TextBlock Text="Kill time" Style="{StaticResource Head}" Padding="2,0,5,0"
+                       ToolTip="How long each run took to kill one of this name, on average"
+                       Visibility="{Binding IsDamage, Converter={StaticResource Visible}}"/>
           </v:Cells>
           <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
         </Grid>

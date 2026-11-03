@@ -64,6 +64,8 @@ public sealed partial class PanelSet : ObservableObject
     /// <summary>The Damage section's two side tables, By damage type and By
     /// target: each floats as the table it is.</summary>
     public const string Types = "types", Targets = "targets";
+    /// <summary>The Damage section's Fights pane: floats as the list it is.</summary>
+    public const string Fights = "fights";
     /// <summary>The Healing section's three, each the twin of one of the first three.</summary>
     public const string HealLine = "hline", HealBars = "hbars", HealActions = "hactions";
     /// <summary>The Healing section's Support table: casts by character and action.</summary>
@@ -100,6 +102,7 @@ public sealed partial class PanelSet : ObservableObject
         Add(Actions, "Actions");
         Add(Types, "By damage type");
         Add(Targets, "By target");
+        Add(Fights, "Fights");
         Add(HealLine, "Cumulative healing");
         Add(HealBars, "Healing by character");
         Add(HealActions, "Heals");

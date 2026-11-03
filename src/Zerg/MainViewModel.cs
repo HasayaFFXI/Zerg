@@ -46,8 +46,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>What one parse was being looked into with: its
     /// drill-downs (a heal one for each of the Heals table's three ways) and the
-    /// targets and types isolated in it.</summary>
-    sealed record Looking(DrillOn? Drill, DrillOn? HealDrill, DrillOn? PersonDrill, DrillOn? HealedDrill, string[] Targets, string[] Types);
+    /// targets, types and fight isolated in it.</summary>
+    sealed record Looking(DrillOn? Drill, DrillOn? HealDrill, DrillOn? PersonDrill, DrillOn? HealedDrill, string[] Targets, string[] Types,
+                          Fight? Fight);
 
     /// <summary>
     /// What each parse that is not on screen was left being looked into
@@ -353,6 +354,7 @@ public sealed partial class MainViewModel : ObservableObject
                 // The targets were the old file's, and what was isolated with them.
                 TargetFilter.Reset();
                 TypeFilter.Reset();
+                fight = null;
             }
             // With a saved parse on screen, what the session was left with
             // goes instead: it was the old file's.
@@ -452,9 +454,11 @@ public sealed partial class MainViewModel : ObservableObject
         drill = healDrill = personDrill = healedDrill = null;
         // The next pull has targets of its own, and none yet: a filter kept
         // from this one would count nothing, with nothing listed to untick.
-        // The types go with them: one pull's question, not the next one's.
+        // The types go with them: one pull's question, not the next one's,
+        // and so does a fight.
         TargetFilter.Reset();
         TypeFilter.Reset();
+        fight = null;
         LogSession("armed");
         Recount();
     }
@@ -590,18 +594,20 @@ public sealed partial class MainViewModel : ObservableObject
         // and the one that comes gets back what it was left with.
         if (!ReferenceEquals(drawn, Shown))
         {
-            if (drawn != null) looking[drawn] = new(drill, healDrill, personDrill, healedDrill, [.. TargetFilter.Picked], [.. TypeFilter.Picked]);
+            if (drawn != null)
+                looking[drawn] = new(drill, healDrill, personDrill, healedDrill, [.. TargetFilter.Picked], [.. TypeFilter.Picked], fight);
             drawn = Shown;
             looking.Remove(drawn, out var back);
             (drill, healDrill, personDrill, healedDrill) = (back?.Drill, back?.HealDrill, back?.PersonDrill, back?.HealedDrill);
             TargetFilter.Set(back?.Targets ?? []);
             TypeFilter.Set(back?.Types ?? []);
+            fight = back?.Fight;
         }
-        var c = snapshot = Shown.Count(excluded, Skillchains, now, TargetFilter.Only, TypeFilter.Only);
+        var c = snapshot = Shown.Count(excluded, Skillchains, now, TargetFilter.Only, TypeFilter.Only, fight);
         if (c.Latched) LogSession("started");
         // A drill-down into an action never used on what is isolated closes,
         // as it does when its character is left out; one set beside it goes.
-        if (c.Isolated.Count > 0 || c.IsolatedTypes.Count > 0)
+        if (c.Scope.Count > 0 || c.IsolatedTypes.Count > 0)
             drill = Still(drill, (actor, action) => c.Totals.Actors.Any(a => a.Name == actor && a.Actions.ContainsKey(action)));
         View = SessionView.Of(Shown.Session, Viewing, live.Asking, replay: Viewing && Shown.Replayed);
         DescribeParse();
@@ -609,6 +615,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         DrawChips(c);
         DrawTargets(c);
+        DrawFights(c);
         DrawTiles(c);
         DrawLine(c);
         DrawBars(c);
@@ -660,6 +667,8 @@ public sealed partial class MainViewModel : ObservableObject
         TotalNote = totalShare + SessionText.TotalNote(s, agg is { Actors.Count: > 0 }, Viewing, replay: replay);
         var heals = snapshot?.Healing;
         HealTotalNote = SessionText.TotalNote(s, heals is { Actors.Count: > 0 }, Viewing, what: "healing", replay: replay);
+        // In both sections' bands, so on either beat.
+        if (damage || healing) KillsNote = KillRate(secs);
 
         if (damage)
         {

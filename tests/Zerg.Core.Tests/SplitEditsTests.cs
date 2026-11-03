@@ -37,6 +37,15 @@ public class SplitEditsTests
     static readonly SplitNode Four =
         Columns(0.653, Rows(0.474, Pane("bars"), Pane("actions")), Rows(0.42, Pane("line"), Pane("drill")));
 
+    /// <summary>
+    /// Six: the Damage section as installed from the side tables until it
+    /// gained Fights (2026-11-02). The side tables' repairs are tested
+    /// against it, as they were made.
+    /// </summary>
+    static readonly SplitNode Six =
+        Columns(0.653, Rows(0.474, Pane("bars"), Pane("actions")),
+            Rows(0.36, Pane("line"), Rows(0.5, Rows(0.5, Pane("types"), Pane("targets")), Pane("drill"))));
+
     // ------------------------------------------------------------- finding
 
     [Fact]
@@ -470,7 +479,7 @@ public class SplitEditsTests
             Columns(0.5, Pane("bars"),
                 Rows(0.5, Rows(0.36, Pane("line"), Rows(0.5, Rows(0.5, Pane("types"), Pane("targets")), Pane("drill"))),
                      Pane("actions"))),
-            SplitTree.Repair(saved, PaneLayouts.Damage));
+            SplitTree.Repair(saved, Six));
     }
 
     // ------------------------------- a tree from before the two side tables
@@ -482,17 +491,16 @@ public class SplitEditsTests
         // had set: the new installed shape, and those shares still theirs.
         var saved = SplitTree.SetRatio(SplitTree.SetRatio(Four, "", 0.6), "1", 0.3);
 
-        var tree = SplitTree.Repair(saved, PaneLayouts.Damage);
+        var tree = SplitTree.Repair(saved, Six);
 
         Assert.Equal(
             Columns(0.6, Rows(0.474, Pane("bars"), Pane("actions")),
                 Rows(0.3, Pane("line"), Rows(0.5, Rows(0.5, Pane("types"), Pane("targets")), Pane("drill")))),
             tree);
         // Arranged as installed but for the shares, it has the installed order.
-        Assert.Equal(SplitTree.Keys(PaneLayouts.Damage), SplitTree.Keys(tree));
+        Assert.Equal(SplitTree.Keys(Six), SplitTree.Keys(tree));
         // And the installed four, said outright, is the installed six.
-        Assert.Same(PaneLayouts.Damage,
-                    SplitTree.Repair(SplitTree.SetRatio(Four, "1", 0.36), PaneLayouts.Damage));
+        Assert.Same(Six, SplitTree.Repair(SplitTree.SetRatio(Four, "1", 0.36), Six));
     }
 
     [Fact]
@@ -503,7 +511,7 @@ public class SplitEditsTests
         // had it on 2026-10-09, before the build with the side tables ran.
         var saved = Columns(0.652, Rows(0.474, Pane("line"), Pane("bars")), Rows(0.42, Pane("actions"), Pane("drill")));
 
-        var tree = SplitTree.Repair(saved, PaneLayouts.Damage);
+        var tree = SplitTree.Repair(saved, Six);
 
         Assert.Equal(
             Columns(0.652, Rows(0.474, Pane("line"), Pane("bars")),
@@ -530,7 +538,22 @@ public class SplitEditsTests
         Assert.Equal(SplitTree.Arrange(saved, 1700, 870, Limits, null, folded).Panes["drill"],
                      SplitTree.Arrange(tree, 1700, 870, Limits, null, folded).Panes["drill"]);
         // Repaired again, it is the same tree: a repair is made once.
-        Assert.Same(tree, SplitTree.Repair(tree, PaneLayouts.Damage));
+        Assert.Same(tree, SplitTree.Repair(tree, Six));
+    }
+
+    [Fact]
+    public void An_arrangement_saved_before_fights_gains_it_over_actions()
+    {
+        // The six as installed, with a share a player had set.
+        var saved = SplitTree.SetRatio(Six, "", 0.6);
+
+        var tree = SplitTree.Repair(saved, PaneLayouts.Damage);
+
+        Assert.Equal(Rows(0.474, Pane("bars"), Rows(0.38, Pane("fights"), Pane("actions"))), SplitTree.At(tree, "0"));
+        Assert.Equal(0.6, SplitTree.At(tree, "")!.Ratio);
+        Assert.Equal(SplitTree.Keys(PaneLayouts.Damage), SplitTree.Keys(tree));
+        // And the installed six, said outright, is the installed seven.
+        Assert.Same(PaneLayouts.Damage, SplitTree.Repair(SplitTree.SetRatio(Six, "0", 0.42), PaneLayouts.Damage));
     }
 
     [Fact]
@@ -541,10 +564,10 @@ public class SplitEditsTests
 
         var tree = PaneLayouts.Read(layouts, "Damage");
 
-        Assert.Equal(new[] { "line", "bars", "actions", "types", "targets", "drill" }, SplitTree.Keys(tree));
+        Assert.Equal(new[] { "line", "bars", "fights", "actions", "types", "targets", "drill" }, SplitTree.Keys(tree));
         Assert.Equal(0.652, SplitTree.At(tree, "")!.Ratio);
         Assert.Equal(0.42, SplitTree.At(tree, "1")!.Ratio);
-        // Written again it has all six, and reads back as it is.
+        // Written again it has all seven, and reads back as it is.
         var written = PaneLayouts.Write(tree, PaneLayouts.Healing, PaneLayouts.Compare)!.Value;
         Assert.Equal(tree, PaneLayouts.Read(written, "Damage"));
     }
@@ -559,7 +582,7 @@ public class SplitEditsTests
         var tree = SplitTree.Repair(saved, PaneLayouts.Damage);
 
         Assert.Equal(Rows(0.5, Pane("types"), Pane("targets")), SplitTree.At(tree, "0"));
-        Assert.Equal(6, SplitTree.Keys(tree).Count);
+        Assert.Equal(7, SplitTree.Keys(tree).Count);
     }
 
     [Fact]

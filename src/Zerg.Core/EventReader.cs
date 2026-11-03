@@ -59,6 +59,12 @@ public sealed class EventReader
     /// are.</summary>
     public List<CombatEvent> Enfeebles { get; } = [];
 
+    /// <summary>Deaths: the monsters the party killed and the party's own,
+    /// in file order. Kept apart from <see cref="Events"/>: a death has no
+    /// amount, and a monster's names the party member who killed it, so as
+    /// a row it would be their miss.</summary>
+    public List<DeathEvent> Deaths { get; } = [];
+
     /// <summary>How many records have been fed, blank and unreadable lines included.</summary>
     public int LineNo { get; private set; }
 
@@ -107,6 +113,34 @@ public sealed class EventReader
                     Main: Or(raw.Main, JobInfo.None), MainId: raw.MainId, MainLevel: raw.MainLevel,
                     Sub: Or(raw.Sub, JobInfo.None), SubId: raw.SubId, SubLevel: raw.SubLevel));
             }
+            return null;
+        }
+
+        // A death is no row: no amount, no use. A player's names no actor,
+        // so it is filed before the test that passes over lines without one.
+        if (raw.Kind == "death")
+        {
+            if (raw.T is not double at || raw.Target.Length == 0)
+            {
+                Unreadable++;
+                return null;
+            }
+            Roster.Note(raw.Target, raw.TargetKind);
+            if (raw.Actor.Length > 0) Roster.Note(raw.Actor, raw.ActorKind);
+            Deaths.Add(new DeathEvent
+            {
+                T = at * 1000,
+                Seq = raw.Seq,
+                Target = raw.Target,
+                TargetKind = raw.TargetKind,
+                TargetId = raw.TargetKind == "mob" ? raw.TargetId : null,
+                Msg = raw.Msg,
+                Line = LineNo,
+                Actor = raw.Actor,
+                ActorKind = raw.ActorKind,
+                Owner = NullIfEmpty(raw.Owner),
+                Pet = NullIfEmpty(raw.Pet),
+            });
             return null;
         }
 
@@ -169,6 +203,7 @@ public sealed class EventReader
                 ActionId = raw.ActionId,
                 Target = raw.Target,
                 TargetKind = raw.TargetKind,
+                TargetId = raw.TargetId,
                 Hit = raw.Hit,
                 Msg = raw.Msg,
                 Line = LineNo,
@@ -190,6 +225,7 @@ public sealed class EventReader
             ActionId = raw.ActionId,
             Target = raw.Target,
             TargetKind = raw.TargetKind,
+            TargetId = raw.TargetId,
             Dmg = raw.Dmg,
             Hit = raw.Hit,
             Crit = raw.Crit,
@@ -237,6 +273,7 @@ public sealed class EventReader
         Heals.Clear();
         Support.Clear();
         Enfeebles.Clear();
+        Deaths.Clear();
         LineNo = 0;
         Unreadable = 0;
         dropped = 0;
@@ -260,6 +297,7 @@ public sealed class EventReader
         Heals.Clear();
         Support.Clear();
         Enfeebles.Clear();
+        Deaths.Clear();
     }
 
     // ------------------------------------------------------------ file names

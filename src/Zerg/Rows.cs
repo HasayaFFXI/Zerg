@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Zerg.Core;
 
 namespace Zerg;
@@ -62,6 +63,8 @@ public sealed partial class ActorRow(string key) : Row(key)
     [ObservableProperty] private string scShare = "";
     [ObservableProperty] private string petDamage = "";
     [ObservableProperty] private string petAccuracy = "";
+    /// <summary>How many times they died in the session; a dash for none.</summary>
+    [ObservableProperty] private string deaths = "";
 
     /// <summary>The row's shade: the character's colour at the strength
     /// that leaves the figures legible on it.</summary>
@@ -102,6 +105,7 @@ public sealed partial class PartyRow : ObservableObject
     [ObservableProperty] private string scShare = "";
     [ObservableProperty] private string petDamage = "";
     [ObservableProperty] private string petAccuracy = "";
+    [ObservableProperty] private string deaths = "";
 }
 
 /// <summary>One character in the strip the per-character card floats as.</summary>
@@ -123,9 +127,48 @@ public sealed partial class StripRow(string key) : Row(key)
     [ObservableProperty] private string damage = "";
     [ObservableProperty] private string share = "";
     [ObservableProperty] private string accuracy = "";
+    [ObservableProperty] private string deaths = "";
     /// <summary>The character whose file this is: the one row on every
     /// session, marked so it is found without reading names.</summary>
     [ObservableProperty] private bool isOwner;
+    [ObservableProperty] private string tip = "";
+}
+
+/// <summary>One kill in the Fights pane: one life of one spawn, pressed to
+/// isolate that fight.</summary>
+public sealed partial class FightRow(string key, Action<string> pick) : Row(key)
+{
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(Pressed))] private string when = "";
+    /// <summary>The monster's name; its code is beside it, quieter.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(Pressed))] private string name = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(Pressed))] private string code = "";
+    public override string ToString() => Name + (Code.Length > 0 ? " " + Code : "");
+    /// <summary>The row's button to UI Automation: one spawn killed twice is
+    /// two rows of one name and code, told apart by when.</summary>
+    public string Pressed => "Isolate " + this + " killed at " + When;
+    [ObservableProperty] private string killTime = "";
+    [ObservableProperty] private string damage = "";
+    [ObservableProperty] private string dps = "";
+    /// <summary>How long the shade is: its kill time out of the longest's,
+    /// so a slow kill stands out.</summary>
+    [ObservableProperty] private double fraction;
+    /// <summary>This fight's rows are counted, alone or beside others.</summary>
+    [ObservableProperty] private bool isolated;
+    /// <summary>Something else is isolated and this is not.</summary>
+    [ObservableProperty] private bool dimmed;
+    [ObservableProperty] private string tip = "";
+
+    [RelayCommand]
+    void Pick() => pick(Key);
+}
+
+/// <summary>One of the party who died, a line of the Fights pane between
+/// the kills it fell among.</summary>
+public sealed partial class DeathRow(string key) : Row(key)
+{
+    [ObservableProperty] private string when = "";
+    [ObservableProperty] private string name = "";
+    public override string ToString() => Name;
     [ObservableProperty] private string tip = "";
 }
 

@@ -24,8 +24,23 @@ public sealed record LineSeries(string Name, double[] Values, Color Color, bool 
 /// <paramref name="Running"/>, the session is counting, and the chart rules
 /// its right-hand edge in the colour that says so; a held session's chart
 /// can be live (its edge is the held clock) and is not running.
+/// <paramref name="Deaths"/> and <paramref name="Kills"/> are marked where
+/// they fell: a death on its character's line and on the time axis, a kill
+/// on the time axis.
 /// </summary>
-public sealed record LineModel(double[] Times, IReadOnlyList<LineSeries> Series, bool Live = false, bool Running = false);
+public sealed record LineModel(double[] Times, IReadOnlyList<LineSeries> Series, bool Live = false, bool Running = false,
+                               IReadOnlyList<LineDeath>? Deaths = null, IReadOnlyList<LineKill>? Kills = null);
+
+/// <summary>One of the party who died, as a cumulative chart marks it: an X
+/// on their line (<paramref name="Series"/>; null for a character with no
+/// line of their own, who has the axis's tick alone), and their line dashed
+/// and dimmed from <paramref name="At"/> to <paramref name="Next"/>, when they
+/// next acted (null: they have not, and the dash runs to the edge).</summary>
+public sealed record LineDeath(string Name, double At, double? Next, int? Series);
+
+/// <summary>A monster killed, as a cumulative chart marks it: a faint tick
+/// on the time axis at the killing blow.</summary>
+public sealed record LineKill(string Named, double At, double? Length);
 
 /// <summary>One segment of a share bar (<see cref="ShareBar"/>): how much,
 /// and the colour it is drawn in. The brush is frozen.</summary>

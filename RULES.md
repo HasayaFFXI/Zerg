@@ -51,6 +51,9 @@ One line is one `(action, target, result)` row. A field of the wrong JSON type (
   reaction`. `msg` is the game's raw message id, on every row, so new outcomes
   can be read later without changing the format. `owner` and `pet` appear only
   on a pet's own rows.
+- `targetId` is on a row aimed at a monster, from the addon that writes it:
+  the monster's id, a spawn point (see "Kills and deaths"). A file from
+  before has none, and is read by name.
 - **`t` is whole seconds**, with `seq` ordering rows inside one second (the
   addon has no finer clock). `EventReader` scales it to milliseconds exactly
   once; everything after it is in milliseconds.
@@ -105,6 +108,21 @@ Three kinds of line are not rows, and `EventReader` files each elsewhere:
   `use` is one per cast, shared by every monster it reached. `EventReader`
   files it in the damage row's shape (its kind the line's `via`) in its own
   list, `Enfeebles`. See "Support" below.
+
+- **`kind:"death"`**: a monster the party killed, or one of the party who
+  died (`EventReader.Deaths`). No `dmg`, `hit` or `use`.
+
+  ```json
+  {"kind":"death","t":1785000000,"seq":1,"actor":"Player","actorKind":"player",
+   "target":"Tiger","targetKind":"mob","targetId":17195010,"msg":6}
+  {"kind":"death","t":1785000020,"seq":1,"target":"Player","targetKind":"player","msg":97}
+  ```
+
+  A monster's names the party member who killed it (none with `msg` 20),
+  which Zerg reads and does not show: kills are the party's. As a row it
+  would be that member's miss, and could start the clock. A player's names
+  only who died: nothing a monster does to the party is in the file. One
+  with no `target` or no time breaks the contract. See "Kills and deaths".
 
 One kind of row is not damage either, and `EventReader` files it apart:
 
@@ -311,9 +329,14 @@ Every number is measured from the session's zero, and there is no other clock
 The Target button counts only the damage dealt to the targets picked
 (`Targets`, and one line of `Counting.Counted`). None picked is every target.
 
-- **A target is its name.** A row says what it hit by name and nothing else,
-  so three Goblin Pathfinders are one target, as they are one line of
-  Compare's By target table. Telling them apart needs an id from the addon.
+- **A target is its name.** Three Goblin Pathfinders are one target, as
+  they are one line of Compare's By target table, "Goblin Pathfinder (3)"
+  with the kills in brackets. One of them is one fight (below).
+- **One fight can be isolated too**, from the Fights pane: the rows of
+  that one life of that one monster (`Fight.Holds`), "Damage to Tiger
+  [00B]". It takes the same rates away. Beside picked targets it adds to
+  them: a row of either counts, so Mandragora and one Tiger fight are
+  "Damage to 2 targets", every Mandragora and that one Tiger.
 - **Several can be picked**, and the list they are picked from is
   alphabetical (`Targets.Sorted`), whatever their case. Not by damage: a list
   in that order moves under the pointer while a session counts.
@@ -350,6 +373,11 @@ The Target button counts only the damage dealt to the targets picked
   low: Party DPS and its "running" mark, DPS in every row of the
   per-character table and on its Party line; in Compare, the Party DPS
   figure and its change, and DPS and its change in every row.
+- **Kills an hour are the one rate that stays** (`Snapshot.KillRate`): of
+  the targets isolated, over the session clock. A kill is a moment, not an
+  amount spread over the fight, so how many fell in an hour of the session
+  is as true of one target as of all. With one fight isolated there is one
+  kill, and its kill time is given instead.
 - **Everything else is counted as it was, of those rows alone**: totals,
   shares (of the isolated damage), accuracy (of the swings at those
   targets), the weaponskill, skillchain and pet columns, the biggest hit,
@@ -375,6 +403,50 @@ The Target button counts only the damage dealt to the targets picked
 - **Compare isolates in both runs at once**, by name, and has a filter of its
   own: its targets are two files', not the session's. By target goes on
   listing every target, largest first, with the isolated ones marked.
+
+## Kills and deaths
+
+From the death lines (`Kills`). A kill is the party's, never a character's:
+who landed the killing blow is not shown.
+
+- **A monster's id names a spawn point, not one life.** A monster that
+  respawns comes back with the same id, so its death line is what splits
+  one fight on it from the next. A fight is the party's rows at that id
+  after its last death line (or from the start) up to its own.
+- **One monster is shown with its code**, the last three hex digits of
+  the id, uppercase, as XIUI's target bar shows them: 17195010 is
+  `0x1066002`, "Tiger [002]". It is the monster's slot in its zone, so the
+  same code comes back each time that spawn is killed. **Every monster of a
+  name is shown with its kills**: "Tiger (10)". Ids are compared whole; the
+  code is only shown.
+- **A file without ids on its rows is matched by name**: two monsters of
+  one name fought at once are then one fight, ended by the first death.
+- **Kill time is the first party row at it to its death line**, of the
+  wall clock. The death line comes about a second after the killing blow;
+  it is the only end the file states. A fight's DPS is its damage over its
+  kill time: a clock that is the fight's own.
+- **A kill is in the session when its killing blow is**: the last party
+  row at it before its death line, and it is drawn there. Asked of every
+  party row, whatever the viewer's switches, as the session's end is. The
+  death line comes after that blow, so the last kill of a pull would
+  otherwise fall after the end a paused clock is snapped to. With no party
+  row at it, the death line's own time is asked. An export writes a kill's
+  line with its blow, after the end if that is where it fell.
+- **A fight's damage is what the characters who count dealt it**, as By
+  target's is.
+- **A party death is in the session when its time is**, as a heal is: one
+  after the last party damage row is after the end. An excluded
+  character's deaths are not counted.
+- **Nobody is shown as down.** The file says when someone died and nothing
+  about when they were raised. What it does say is when they next did
+  something of their own (a swing, a cast, a heal, a buff, an enfeeble;
+  being healed is not acting), and the cumulative line is dashed from the
+  death to there, or to the end where they have not.
+- **Deaths start and end no clock**, and are no damage and no attempt.
+- **Damage by character's Deaths column** is each character's deaths in the
+  session; the Party line's, everyone's. Only a player's death line is a
+  death: a pet's is not its owner's.
+- **Kills an hour** are over the session clock; see "Isolating targets".
 
 ## Isolating damage types
 
@@ -525,6 +597,9 @@ the people a buff reached.
   stored in the wire format and read back through `EventReader.FeedRecord`,
   the same door a live line uses. With them go what the records cannot state:
   the session and the spawn kinds.
+- **Death lines go among the events**, as the addon wrote them, and rows
+  keep their `targetId`. A kill goes with its killing blow (see "Kills and
+  deaths").
 - **Every export has an event list and a heal list**, each possibly empty: a
   parse in which nobody healed has `"heals": []` and opens like any other.
   A file without the heal list is refused.
@@ -562,6 +637,12 @@ the people a buff reached.
 - **A heal's distribution is of casts**, each what it healed over everyone it
   reached, pet heals under the pet's name. A parse with no heal lines is
   dashes; one that has them and never cast the heal cast it 0 times.
+- **Kills per hour, Avg kill time and Deaths** are each run's own (see
+  "Kills and deaths"), the change in deaths a count ("+1"); fewer seconds
+  and fewer deaths are the good way. By target names each run's kills of a
+  name, "Tiger (9 · 10)", with each run's average kill time. A parse with
+  no death line and no `targetId` could not have recorded a kill, and
+  prints dashes, not zeroes.
 
 ## Replay
 
@@ -586,7 +667,8 @@ An addon event file read whole, cropped to a range and exported (`Replay`,
 - **One range, one clock.** From its zero to its end, the quiet stretches
   inside it included, as a session left running through them would have it.
   The file is not cut into fights for the player: where one begins and ends
-  is the player's to say, with the handles.
+  is the player's to say, with the handles. Its kills and deaths are ticks
+  under the bars, at their death lines' times, to say it by.
 - **A file with no party damage cannot be replayed**: nothing to measure, so
   it is refused, not opened empty. A range with no party row in
   it counts nothing and cannot be exported.

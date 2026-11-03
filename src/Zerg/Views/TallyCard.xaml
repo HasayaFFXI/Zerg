@@ -7,14 +7,14 @@
   <UserControl.Resources>
     <!-- What it is, Damage, Share: the shares the Compare section's side
          tables give the same three, each with the least it may be (a
-         figure column its longest figure). By target has three more, Acc,
-         WS Avg and WS % (v:TallyCard.Figures); by type their cells are
+         figure column its longest figure). By target has four more, Acc,
+         WS Avg, WS % and Kill time (v:TallyCard.Figures); by type their cells are
          collapsed and take their columns with them. The second set is the
          same table with "shade characters" off: the share then has a small
          bar before its figure, which needs the room, and the name gives it
          up. The heading and every row share them. -->
-    <sys:String x:Key="Columns">170*90,100*64,84*56,64*56,72*60,64*56</sys:String>
-    <sys:String x:Key="BarColumns">130*70,100*64,124*100,64*56,72*60,64*56</sys:String>
+    <sys:String x:Key="Columns">170*90,100*64,84*56,64*56,72*60,64*56,72*60</sys:String>
+    <sys:String x:Key="BarColumns">130*70,100*64,124*100,64*56,72*60,64*56,72*60</sys:String>
     <Style x:Key="Table" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource Columns}"/>
       <Style.Triggers>
@@ -23,8 +23,8 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-    <!-- The table says whether all six fit (v:Shed.Full). When they do
-         not, the three after Share go together, and the table is the
+    <!-- The table says whether all seven fit (v:Shed.Full). When they do
+         not, the four after Share go together, and the table is the
          three it was before them. -->
     <Style x:Key="TableRoom" TargetType="Grid">
       <Setter Property="v:Shed.Full" Value="{StaticResource Columns}"/>
@@ -98,6 +98,7 @@
               </v:LowMark>
               <TextBlock Text="{Binding WsAvg}" Style="{StaticResource FigMore}"/>
               <TextBlock Text="{Binding WsShare}" Style="{StaticResource FigMore}"/>
+              <TextBlock Text="{Binding KillTime}" Style="{StaticResource FigMore}"/>
             </v:Cells>
           </Grid>
           <Rectangle Style="{StaticResource PickEdge}"/>
@@ -183,6 +184,10 @@
             <v:SortHead Column="wsShare" Style="{StaticResource More}">
               <TextBlock Text="WS %" Style="{StaticResource Head}" Padding="2,0,8,0"
                          ToolTip="Weaponskill damage out of the damage this target took"/>
+            </v:SortHead>
+            <v:SortHead Column="killTime" Style="{StaticResource More}">
+              <TextBlock Text="Kill time" Style="{StaticResource Head}" Padding="2,0,8,0"
+                         ToolTip="How long the party took to kill one of this name, on average: from the first row at it to its death"/>
             </v:SortHead>
           </v:Cells>
           <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>

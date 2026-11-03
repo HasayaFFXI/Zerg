@@ -436,9 +436,13 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
 
 ## Status and what's next
 
-- **Current: 1.6.0** (2026-11-02): enfeebles no longer counted as damage
-  but listed in the Support pane (its Buffs and Enfeebles switch), and a
-  pet's heals counted as its owner's healing. 1.5.0 was the Heals pane's
+- **Current: 1.7.0** (2026-11-02): kills and deaths from the addon's death
+  lines (`Zerg.Core/Kills`): the band's Kills / Deaths cell, Damage by
+  character's Deaths column, the Fights pane (a fight isolated beside
+  targets is a union), death and kill marks on the charts and the replay
+  strip, Compare's kill figures. 1.6.0 was enfeebles no longer counted as
+  damage but listed in the Support pane (its Buffs and Enfeebles switch),
+  and a pet's heals counted as its owner's healing. 1.5.0 was the Heals pane's
   By spell, By caster and By target tabs, three lines deep, and Support at
   the top of the Healing section's right column as installed. 1.4.0 was buffs, status removals and
   wards no longer counted as damage but listed in the Healing section's

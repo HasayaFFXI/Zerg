@@ -70,6 +70,9 @@ public sealed partial class TallyRow(string key, Action<string> flip) : Row(key)
     [ObservableProperty] private double? accuracyRate;
     [ObservableProperty] private string wsAvg = "";
     [ObservableProperty] private string wsShare = "";
+    /// <summary>By target only: how long the party took to kill one of this
+    /// name, on average; a dash where none was killed.</summary>
+    [ObservableProperty] private string killTime = "";
     /// <summary>Damage is isolated to this one, alone or among others.</summary>
     [ObservableProperty] private bool isolated;
     /// <summary>Damage is isolated to others and not this one.</summary>
@@ -341,9 +344,14 @@ public sealed partial class PickFilter : ObservableObject
     /// <param name="draw">A name as it is drawn (a player's, while names are hidden).</param>
     /// <param name="figures">Each one's Accuracy and weaponskill figures, by
     /// key (<see cref="Counting.ByTarget"/>), for a table that has them.</param>
+    /// <param name="kills">The session's kills, for a list of targets: each
+    /// name with how many of it were killed, "Tiger (10)", and their average
+    /// kill time.</param>
     public void Draw(IReadOnlyList<TargetTotal> list, double whole, Func<string, string> draw,
-                     IReadOnlyDictionary<string, SplitFigures>? figures = null)
+                     IReadOnlyDictionary<string, SplitFigures>? figures = null, KillTotals? kills = null)
     {
+        string Named(string k) => Kills.Counted(draw(called(k)), kills?.KillsOf(k) ?? 0);
+        double? KillTime(string k) => kills is null ? null : KillTotals.AverageLength(kills.Fights.Where(f => f.Target == k));
         var by = list.ToDictionary(t => t.Name, t => t.Total, StringComparer.Ordinal);
         double most = RowMarks.Largest(by.Values);
         Zerg.Rows.Sync(Rows, Listed(by.Keys), k => k, k => new PickRow(k, Flip), (row, k) =>
@@ -357,7 +365,7 @@ public sealed partial class PickFilter : ObservableObject
                 row.Bar = 0;
                 return;
             }
-            row.Name = draw(called(k));
+            row.Name = Named(k);
             bool hit = by.TryGetValue(k, out var v);
             row.Damage = hit ? Format.Int(v) : None;
             row.Share = hit && whole > 0 ? Format.Num(v / whole * 100, 1) + "%" : None;
@@ -370,13 +378,13 @@ public sealed partial class PickFilter : ObservableObject
         // one count to the next and moved when its place changes. Ordered
         // by a heading, the line that names nothing stays last.
         var lines = words.Order(list, picked);
-        if (Sort != null) lines = Sort.Order(lines, column => KeyOf(column, draw, figures));
+        if (Sort != null) lines = Sort.Order(lines, column => KeyOf(column, draw, figures, KillTime));
         double rest = Targets.Unnamed(list, whole);
         if (rest > 0) lines.Add(new TargetTotal(Rest, rest));
         Zerg.Rows.Sync(Table, lines, t => t.Name, t => new TallyRow(t.Name, Flip), (row, t) =>
         {
             bool hit = !double.IsNaN(t.Total);
-            row.Name = row.CanPick ? draw(called(t.Name)) : None;
+            row.Name = row.CanPick ? Named(t.Name) : None;
             row.Damage = hit ? Format.Int(t.Total) : None;
             row.Share = hit && whole > 0 ? Format.Num(t.Total / whole * 100, 1) + "%" : None;
             row.Fraction = hit ? RowMarks.Fraction(t.Total, most) : 0;
@@ -385,6 +393,7 @@ public sealed partial class PickFilter : ObservableObject
             row.AccuracyRate = f?.AutoAcc;
             row.WsAvg = f?.WsAvg is double avg ? Format.Int(avg) : None;
             row.WsShare = Percent(f?.WsShare);
+            row.KillTime = row.CanPick && KillTime(t.Name) is double ms ? Format.Elapsed(ms) : None;
             Mark(row);
         });
         HasTable = Table.Count > 0;
@@ -396,7 +405,8 @@ public sealed partial class PickFilter : ObservableObject
     /// <summary>What each column of the table is ordered by: what it
     /// prints, a dash (a pick that came to nothing) being nothing. Share is
     /// the damage over one whole, so it goes as Damage does.</summary>
-    SortKey<TargetTotal>? KeyOf(string column, Func<string, string> draw, IReadOnlyDictionary<string, SplitFigures>? figures)
+    SortKey<TargetTotal>? KeyOf(string column, Func<string, string> draw, IReadOnlyDictionary<string, SplitFigures>? figures,
+                                Func<string, double?> killTime)
     {
         SplitFigures? Of(TargetTotal t) => figures != null && figures.TryGetValue(t.Name, out var f) ? f : null;
         return column switch
@@ -406,6 +416,7 @@ public sealed partial class PickFilter : ObservableObject
             "accuracy" => SortKey<TargetTotal>.Of(t => Of(t)?.AutoAcc),
             "wsAvg" => SortKey<TargetTotal>.Of(t => Of(t)?.WsAvg),
             "wsShare" => SortKey<TargetTotal>.Of(t => Of(t)?.WsShare),
+            "killTime" => SortKey<TargetTotal>.Of(t => killTime(t.Name)),
             _ => null,
         };
     }

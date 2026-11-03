@@ -38,6 +38,8 @@ public sealed partial class ReplayRange : ObservableObject
     [ObservableProperty] private string fromText = "";
     [ObservableProperty] private string toText = "";
     [ObservableProperty] private string lengthText = "";
+    /// <summary>What the range holds of the file's kills and deaths: "6 kills · 2 deaths".</summary>
+    [ObservableProperty] private string killsText = "";
 
     /// <summary>How far the read has got.</summary>
     internal void Read(int lines, int of)
@@ -76,6 +78,8 @@ public sealed partial class ReplayRange : ObservableObject
         FromText = Format.Clock(from);
         ToText = Format.Clock(to);
         LengthText = Format.Elapsed(to - from);
+        var (kills, deaths) = r.Within(from, to);
+        KillsText = Format.Int(kills) + (kills == 1 ? " kill · " : " kills · ") + Format.Int(deaths) + (deaths == 1 ? " death" : " deaths");
         moved(settled);
     }
 

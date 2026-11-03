@@ -21,6 +21,13 @@ namespace Zerg.Charts;
 /// kept as a bitmap between redraws, and the time axis's labels. The
 /// crosshair is a layer of its own, drawn when the pointer reaches another
 /// grid time.</para>
+///
+/// <para>The party's deaths and kills are marked where they fell
+/// (<see cref="LineModel.Deaths"/>, <see cref="LineModel.Kills"/>): a death
+/// is an X on its character's line, the line dashed and dimmed from it to
+/// their next action, and a tick on the time axis; a kill is a fainter tick.
+/// All of it is placed by the time axis, so it moves with the edge, on the
+/// lines' layer and the axis's.</para>
 /// </summary>
 public sealed class LineChart : Chart
 {
@@ -46,9 +53,14 @@ public sealed class LineChart : Chart
 
     public static readonly DependencyProperty LiveInkProperty = RegisterInk(nameof(LiveInk), typeof(LineChart));
     public static readonly DependencyProperty LeaderInkProperty = RegisterInk(nameof(LeaderInk), typeof(LineChart));
+    public static readonly DependencyProperty DeathInkProperty = RegisterInk(nameof(DeathInk), typeof(LineChart));
 
     /// <summary>How strong the rule at a counting session's edge is drawn.</summary>
     const double LiveStrength = 0.55;
+    /// <summary>How strong a line is drawn between a death and its character's next action.</summary>
+    const double DownStrength = 0.45;
+    /// <summary>Half an X's width; how tall a death's or a kill's tick stands over the baseline.</summary>
+    const double CrossReach = 3.5, MarkTick = 6;
 
     readonly DrawingVisual back = new(), axis = new();
     readonly DrawingVisual lines = new() { CacheMode = new BitmapCache { SnapsToDevicePixels = true } };
@@ -75,6 +87,7 @@ public sealed class LineChart : Chart
         Layers(back, axis, lines, front, crosshair);
         SetResourceReference(LiveInkProperty, "LiveBrush");
         SetResourceReference(LeaderInkProperty, "Line3Brush");
+        SetResourceReference(DeathInkProperty, "CritBrush");
     }
 
     public LineModel? Model { get => (LineModel?)GetValue(ModelProperty); set => SetValue(ModelProperty, value); }
@@ -98,6 +111,8 @@ public sealed class LineChart : Chart
     public Brush LiveInk { get => Get(LiveInkProperty); set => SetValue(LiveInkProperty, value); }
     /// <summary>The thin line from a marker to a name that was moved clear of its neighbours.</summary>
     public Brush LeaderInk { get => Get(LeaderInkProperty); set => SetValue(LeaderInkProperty, value); }
+    /// <summary>A death: its X and its tick.</summary>
+    public Brush DeathInk { get => Get(DeathInkProperty); set => SetValue(DeathInkProperty, value); }
 
     Brush InkOf(LineSeries s) => s.Group ? Muted : Solid(s.Color);
 
@@ -204,32 +219,112 @@ public sealed class LineChart : Chart
             var text = Text(t.Label, AxisSize, false, Muted);
             Draw(dc, text, Math.Max(plot.X, t.Pos - text.Width / 2), plot.Bottom + LineLayout.XLabelGap);
         }
+
+        // Kills, faint, then deaths over them: a short tick up from the
+        // baseline at each, so the time ticks under it stay readable.
+        if (Model is not { } m) return;
+        var kill = Hairline(Muted);
+        foreach (var k in m.Kills ?? [])
+            if (Within(l, k.At) is double x)
+                dc.DrawLine(kill, new Point(x, floor - MarkTick), new Point(x, floor));
+        var death = CachedPen(DeathInk, 8, () => new Pen(DeathInk, 1.5));
+        foreach (var d in m.Deaths ?? [])
+            if (Within(l, d.At) is double x)
+                dc.DrawLine(death, new Point(x, floor - MarkTick), new Point(x, floor));
     }
 
-    /// <summary>The lines. They move with the edge.</summary>
+    /// <summary>Where a time is across the plot, on a pixel centre, or null
+    /// when it is outside the plot's span.</summary>
+    double? Within(LineLayout l, double t) => t < l.T0 || t > l.T1 ? null : SnapLine(l.Px(t));
+
+    /// <summary>The last grid time at or before <paramref name="t"/>, by its index; -1 for none.</summary>
+    static int AtOrBefore(double[] times, double t)
+    {
+        int i = Array.BinarySearch(times, t);
+        return i >= 0 ? i : ~i - 1;
+    }
+
+    /// <summary>The lines. They move with the edge. A stretch from one of
+    /// the party's deaths to their next action is dashed and dimmed, and
+    /// the death an X on the line.</summary>
     void DrawLines(LineLayout l, LineModel m, double[] times)
     {
         using var dc = lines.RenderOpen();
+        var deaths = m.Deaths ?? [];
         for (int i = 0; i < m.Series.Count; i++)
         {
             var s = m.Series[i];
+            var down = deaths.Where(d => d.Series == i).ToList();
+            // Down between two grid times: after a death, before the next action.
+            bool Down(double t0, double t1) => down.Any(d => t0 >= d.At && t1 <= (d.Next ?? double.PositiveInfinity));
             var g = new StreamGeometry();
+            var dashed = down.Count > 0 ? new StreamGeometry() : null;
             using (var ctx = g.Open())
+            using (var dash = dashed?.Open())
             {
                 bool pen = false;
                 int n = Math.Min(times.Length, s.Values.Length);
+                Point last = default;
                 for (int j = 0; j < n; j++)
                 {
                     if (!double.IsFinite(s.Values[j])) { pen = false; continue; }
                     var p = new Point(l.Px(times[j]), l.Py(s.Values[j]));
-                    if (pen) ctx.LineTo(p, true, true); else ctx.BeginFigure(p, false, false);
+                    if (pen && dash != null && Down(times[j - 1], times[j]))
+                    {
+                        dash.BeginFigure(last, false, false);
+                        dash.LineTo(p, true, true);
+                        ctx.BeginFigure(p, false, false);
+                    }
+                    else if (pen) ctx.LineTo(p, true, true);
+                    else ctx.BeginFigure(p, false, false);
                     pen = true;
+                    last = p;
                 }
             }
             g.Freeze();
-            dc.DrawGeometry(null, LinePen(InkOf(s), s.Group, lead: i == l.Leader), g);
+            var ink = InkOf(s);
+            dc.DrawGeometry(null, LinePen(ink, s.Group, lead: i == l.Leader), g);
+            if (dashed != null)
+            {
+                dashed.Freeze();
+                dc.DrawGeometry(null, DownPen(ink), dashed);
+            }
+        }
+
+        // The X at each death, on its character's line where the line
+        // stood then, ringed in the chart's surface as a marker is.
+        var ring = CachedPen(Surface, 9, () => new Pen(Surface, 4) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round });
+        var cross = CachedPen(DeathInk, 10, () => new Pen(DeathInk, 1.75) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round });
+        foreach (var d in deaths)
+        {
+            if (d.Series is not int si || si >= m.Series.Count || d.At < l.T0 || d.At > l.T1) continue;
+            int j = AtOrBefore(times, d.At);
+            var values = m.Series[si].Values;
+            double v = j >= 0 && j < values.Length && double.IsFinite(values[j]) ? values[j] : 0;
+            double x = l.Px(d.At), y = l.Py(v), r = CrossReach;
+            foreach (var pen in new[] { ring, cross })
+            {
+                dc.DrawLine(pen, new Point(x - r, y - r), new Point(x + r, y + r));
+                dc.DrawLine(pen, new Point(x - r, y + r), new Point(x + r, y - r));
+            }
         }
     }
+
+    /// <summary>A line's own colour, dimmed and dashed: its character is
+    /// down, as far as the file can say.</summary>
+    Pen DownPen(Brush ink) => CachedPen(ink, 11, () =>
+    {
+        var faint = ink.Clone();
+        faint.Opacity *= DownStrength;
+        faint.Freeze();
+        return new Pen(faint, 1.5)
+        {
+            StartLineCap = PenLineCap.Round,
+            EndLineCap = PenLineCap.Round,
+            DashCap = PenLineCap.Round,
+            DashStyle = new DashStyle([2, 2.5], 0),
+        };
+    });
 
     /// <summary>Over the lines: what is at their ends. It stands between counts.</summary>
     void DrawFront(LineLayout l, LineModel m)
@@ -279,16 +374,32 @@ public sealed class LineChart : Chart
     protected override string Summary()
     {
         if (Model is not { Times.Length: > 0, Series.Count: > 0 } m) return Nothing("No data");
-        return LineLayout.Summary(m.Times, m.Series.Select(s => (s.Name, s.Values)).ToList());
+        var summary = LineLayout.Summary(m.Times, m.Series.Select(s => (s.Name, s.Values)).ToList());
+        int kills = m.Kills?.Count ?? 0, deaths = m.Deaths?.Count ?? 0;
+        return kills + deaths == 0 ? summary
+            : summary + ". " + Format.Int(kills) + (kills == 1 ? " kill, " : " kills, ") +
+              Format.Int(deaths) + (deaths == 1 ? " death" : " deaths");
     }
 
     protected override Readout? ReadoutAt(Point p)
     {
         hover = layout?.Hover(p.X, p.Y);
         if (hover == null || Model is not { } m) return null;
-        return new Readout(hover.Index, hover.Head, null,
-            hover.Rows.Select(r => new ReadoutRow(r.Label, r.Value, InkOf(m.Series[r.Series]))).ToList(),
-            hover.AnchorX, p.Y);
+        var rows = hover.Rows.Select(r => new ReadoutRow(r.Label, r.Value, InkOf(m.Series[r.Series]))).ToList();
+        // What fell in the stretch the crosshair reads: from halfway back to
+        // the grid time before it to halfway on to the one after.
+        var times = Grid(m);
+        int i = hover.Index;
+        double from = i > 0 ? (times[i - 1] + times[i]) / 2 : double.NegativeInfinity;
+        double to = i < times.Length - 1 ? (times[i] + times[i + 1]) / 2 : double.PositiveInfinity;
+        foreach (var k in m.Kills ?? [])
+            if (k.At > from && k.At <= to)
+                rows.Add(new ReadoutRow(k.Named + " killed", k.Length is double len ? "in " + Format.Elapsed(len) : ""));
+        foreach (var d in m.Deaths ?? [])
+            if (d.At > from && d.At <= to)
+                rows.Add(new ReadoutRow(d.Name + " died", d.Next is double next
+                    ? "acted again " + Format.Elapsed(next) : "not acted since", DeathInk));
+        return new Readout(hover.Index, hover.Head, null, rows, hover.AnchorX, p.Y);
     }
 
     protected override void OnHover(Readout? readout)

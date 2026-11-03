@@ -11,7 +11,8 @@ namespace Zerg.Charts;
 /// The whole of a replayed file, first line to last, and the range picked
 /// over it: the party's damage as a bar per few units of width, the time
 /// of day along the bottom, and two amber handles. Everything outside the
-/// range is dimmed.
+/// range is dimmed. Under the bars, a short tick at each kill, and at each
+/// of the party's deaths in Crit: where the fights were.
 ///
 /// <para><b>Dragged and keyed.</b> A handle is dragged by itself, the range
 /// between them by its middle, and a press anywhere else starts a new range
@@ -33,6 +34,8 @@ public sealed class RangeStrip : FrameworkElement
     const double HandleLine = 2, GripWide = 8, GripTall = 20, Reach = 7;
     /// <summary>The least room between two time labels.</summary>
     const double LabelRoom = 64;
+    /// <summary>How far a kill's or a death's tick hangs under the bars.</summary>
+    const double MarkTick = 5;
 
     static readonly double[] Steps = [1, 2, 5, 10, 15, 30, 60, 120, 240, 480];
 
@@ -48,6 +51,7 @@ public sealed class RangeStrip : FrameworkElement
     public static readonly DependencyProperty RuleProperty = Ink(nameof(Rule));
     public static readonly DependencyProperty LabelInkProperty = Ink(nameof(LabelInk));
     public static readonly DependencyProperty SurfaceProperty = Ink(nameof(Surface));
+    public static readonly DependencyProperty DeathInkProperty = Ink(nameof(DeathInk));
 
     public ReplayRange? Range { get => (ReplayRange?)GetValue(RangeProperty); set => SetValue(RangeProperty, value); }
     /// <summary>A bar inside the range, and outside it.</summary>
@@ -58,6 +62,8 @@ public sealed class RangeStrip : FrameworkElement
     public Brush? LabelInk { get => (Brush?)GetValue(LabelInkProperty); set => SetValue(LabelInkProperty, value); }
     /// <summary>What the grips are ringed with, so they stand off the bars.</summary>
     public Brush? Surface { get => (Brush?)GetValue(SurfaceProperty); set => SetValue(SurfaceProperty, value); }
+    /// <summary>A death's tick.</summary>
+    public Brush? DeathInk { get => (Brush?)GetValue(DeathInkProperty); set => SetValue(DeathInkProperty, value); }
 
     enum Hold { None, From, To, Both, New }
 
@@ -79,6 +85,7 @@ public sealed class RangeStrip : FrameworkElement
         SetResourceReference(RuleProperty, "Line2Brush");
         SetResourceReference(LabelInkProperty, "Text3Brush");
         SetResourceReference(SurfaceProperty, "Bg1Brush");
+        SetResourceReference(DeathInkProperty, "CritBrush");
         Focusable = true;
         UseLayoutRounding = true;
         IsVisibleChanged += (_, e) =>
@@ -156,6 +163,16 @@ public sealed class RangeStrip : FrameworkElement
         }
         double line = 1 / scale;
         dc.DrawRectangle(Rule, null, new Rect(0, BarsTall, w, line));
+
+        // The kills, then the deaths over them, hung from the rule.
+        void Ticks(IReadOnlyList<double> at, Brush? ink, double wide)
+        {
+            foreach (var t in at)
+                if (t >= r.First && t <= r.Last)
+                    dc.DrawRectangle(ink, null, new Rect(Snap(XOf(r, t, w)) - wide / 2, BarsTall + line, wide, MarkTick));
+        }
+        Ticks(r.Kills, LabelInk, line);
+        Ticks(r.Deaths, DeathInk, Math.Max(line, Math.Round(1.5 * scale) / scale));
 
         Labels(dc, r, w);
 

@@ -126,11 +126,21 @@ public static class Targets
 
     /// <summary>The label over a total: <paramref name="all"/> with nothing
     /// picked ("Total damage"), "Damage to Kirin" with one, "Damage to 3
-    /// targets" with more. A long name is cut (<see cref="Short"/>).</summary>
-    public static string Heading(IReadOnlyCollection<string> picked, string all = "Total damage") =>
+    /// targets" with more. A long name is cut (<see cref="Short"/>), and
+    /// <paramref name="tag"/> follows it uncut: "Damage to Tiger (10)".</summary>
+    public static string Heading(IReadOnlyCollection<string> picked, string all = "Total damage",
+                                 Func<string, string>? tag = null) =>
         picked.Count == 0 ? all
-        : picked.Count == 1 ? "Damage to " + Short(picked.First())
+        : picked.Count == 1 ? "Damage to " + Called(picked.First(), tag)
         : "Damage to " + Format.Int(picked.Count) + " targets";
+
+    /// <summary>One target in a label: its name cut short, then its tag, the
+    /// two together no longer than a name alone.</summary>
+    public static string Called(string name, Func<string, string>? tag)
+    {
+        var t = tag?.Invoke(name) ?? "";
+        return Short(name, Math.Max(LabelLength - t.Length, 8)) + t;
+    }
 
     /// <summary>Everything picked, by name, for a tooltip: "Genbu, Kirin".</summary>
     public static string Names(IReadOnlyCollection<string> picked) => string.Join(", ", Sorted(picked));

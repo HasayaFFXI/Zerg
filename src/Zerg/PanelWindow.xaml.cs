@@ -104,6 +104,7 @@ public partial class PanelWindow : Window
             PanelSet.HealLine => new HealLineCard(),
             PanelSet.HealActions => new HealActionsCard(),
             PanelSet.HealSupport => new SupportCard(),
+            PanelSet.Fights => new FightsCard(),
             _ => Scrolling(new HealBarsCard()),
         };
         Body.Margin = Margins();
@@ -138,7 +139,7 @@ public partial class PanelWindow : Window
             {
                 int i = Array.IndexOf([PanelSet.Line, PanelSet.Bars, PanelSet.Actions,
                                        PanelSet.HealLine, PanelSet.HealBars, PanelSet.HealActions,
-                                       PanelSet.Types, PanelSet.Targets, PanelSet.HealSupport], info.Key);
+                                       PanelSet.Types, PanelSet.Targets, PanelSet.HealSupport, PanelSet.Fights], info.Key);
                 int step = 36 * (i % 3), across = 48 * (i / 3);
                 WindowPlacement.MoveFrame(this, at.X + 60 + step + across, at.Y + 140 + step);
             }
@@ -336,6 +337,8 @@ public partial class PanelWindow : Window
             // A side table (Support among them): a few columns, and room
             // for eight rows under the bar and the headings.
             PanelSet.Types or PanelSet.Targets or PanelSet.HealSupport => (360, 250),
+            // The kills: five columns, and room for eight lines.
+            PanelSet.Fights => (420, 270),
             // Room for a few rows and the drill-down that opens under one.
             _ => (660, 520),
         };

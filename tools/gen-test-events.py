@@ -71,6 +71,12 @@ WHAT IS IN HERE ON PURPOSE, and what each case catches:
     and the healer's Paralyze and Slow. Drawn from a random stream of their
     own, so the damage rows are the ones they were before enfeebles were
     written; none of it may move a damage figure or start the clock.
+  * MONSTER IDS AND DEATH LINES -- `targetId` on every row aimed at a monster,
+    as `vx_emit.encode` writes it, and a `kind:"death"` line for each monster
+    killed (one add with no killer, msg 20) and for two party members who die
+    mid-fight and act again later. Goblin Pathfinder is fought twice: the same
+    spawn's id, two fights, split by its death line. No death may move a
+    damage figure or start the clock.
   * JOB LINES -- `kind:"job"`, one per party member, written when the job is
     first read and again whenever it changes. Four things ride on these and each
     is here on purpose: a member who NEVER ACTS (the white mage) and therefore
@@ -123,6 +129,9 @@ MSG = {
     'resist': 85,       # MagicResisted
     'resist_aoe': 284,  # MagicResistedTarget  (an area spell's other targets)
     'no_effect': 75,    # MagicNoEffect        (already asleep, immune)
+    'defeats': 6,       # DefeatsTarget        a monster died; actor its last attacker
+    'defeated': 97,     # PlayerDefeatedBy     one of the party died
+    'falls': 20,        # FallsToGround        died with no last attacker
 }
 
 # Enfeebles by spell id, as vx_enfeeble_ids.lua keys them, with the message
@@ -212,6 +221,17 @@ ADD_SETS = [
     ('Rock Crab', 'Land Crab'),
     ('Bigclaw', 'Snipper'),
 ]
+
+# Each monster's id, as the addon writes it on every row aimed at it and on its
+# death line: a spawn point in zone 0x066, so the same id comes back each time
+# that spawn is killed (Goblin Pathfinder is fought twice). Zerg shows the last
+# three hex digits, as XIUI's target bar does.
+MOB_IDS = {name: 0x1066000 + slot for slot, name in enumerate(
+    MOBS + [a for s in ADD_SETS for a in s], start=0x002)}
+
+# A party member who dies mid-fight (fight, round) and acts again later, as a
+# death line has it: who died, and nothing else.
+DEATHS = [(1, 9, 'Rhyllis'), (2, 14, 'Xatsh')]
 
 
 class Writer:
@@ -317,15 +337,32 @@ class Writer:
             'actionId': action_id,
             'target': target,
             'targetKind': target_kind,
-            'hit': bool(hit),
-            'msg': msg,
         }
+        if target_kind == 'mob':
+            e['targetId'] = MOB_IDS[target]
+        e.update(hit=bool(hit), msg=msg)
         if owner:
             e['owner'] = owner
         if pet:
             e['pet'] = pet
         self.raw(e)
         self.counts['enfeeble'] = self.counts.get('enfeeble', 0) + 1
+
+    def death(self, target, target_kind, msg, actor=None, actor_kind=None):
+        """One death line, field-for-field `vx_emit.encode_death`.
+
+        A monster's names the party member who killed it (none with msg 20)
+        and carries its id; a player's names only who died.
+        """
+        e = {'kind': 'death', 't': self.t, 'seq': self._next_seq()}
+        if actor:
+            e.update(actor=actor, actorKind=actor_kind)
+        e.update(target=target, targetKind=target_kind)
+        if target_kind == 'mob':
+            e['targetId'] = MOB_IDS[target]
+        e['msg'] = msg
+        self.raw(e)
+        self.counts['death'] = self.counts.get('death', 0) + 1
 
     def write(self, use, kind, actor, actor_kind, action, action_id,
               target, target_kind, dmg, hit, msg, crit=False, burst=False,
@@ -343,12 +380,10 @@ class Writer:
             'actionId': action_id,
             'target': target,
             'targetKind': target_kind,
-            'dmg': int(dmg),
-            'hit': bool(hit),
-            'crit': bool(crit),
-            'burst': bool(burst),
-            'msg': msg,
         }
+        if target_kind == 'mob':
+            e['targetId'] = MOB_IDS[target]
+        e.update(dmg=int(dmg), hit=bool(hit), crit=bool(crit), burst=bool(burst), msg=msg)
         if owner:
             e['owner'] = owner
         if pet:
@@ -467,7 +502,10 @@ def generate(seed=SEED, start=None):
         rounds = 26 + rand.randrange(14)
         ws_count = {}
 
-        for _ in range(rounds):
+        for rnd in range(rounds):
+            for f, at, who in DEATHS:
+                if f == fight and at == rnd:
+                    w.death(who, 'player', MSG['defeated'])
             for p in MELEE:
                 if rand.random() > 0.72:
                     continue
@@ -622,6 +660,15 @@ def generate(seed=SEED, start=None):
 
             w.advance(2 + rand.randrange(5))
 
+        # The kills: the adds, then the mob, each by one of the party. In the
+        # second fight an add falls with nobody's blow (msg 20, no actor).
+        for i, add in enumerate(adds):
+            if fight == 1 and i == 1:
+                w.death(add, 'mob', MSG['falls'])
+            else:
+                w.death(add, 'mob', MSG['defeats'], MELEE[i % len(MELEE)]['n'], 'player')
+        w.death(mob, 'mob', MSG['defeats'], MELEE[fight % len(MELEE)]['n'], 'player')
+
         # An unresolved target: the entity table had no answer for this id, so
         # the addon writes "Unknown"/"other". It must not join the party.
         if fight == 1:
@@ -681,7 +728,8 @@ def to_export(w, owner, file_name, now_iso):
         note(r.get('target'), r.get('targetKind'))
 
     timed = [r for r in recs if r.get('kind') != 'job']
-    first = min(r['t'] for r in timed if r['kind'] not in ('heal', 'enfeeble') and r['actorKind'] in OURS)
+    first = min(r['t'] for r in timed
+                if r['kind'] not in ('heal', 'enfeeble', 'death') and r.get('actorKind') in OURS)
     last = max(r['t'] for r in timed)
     started = first * 1000
     paused = last * 1000 + 5000

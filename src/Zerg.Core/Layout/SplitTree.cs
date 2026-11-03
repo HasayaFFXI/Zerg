@@ -364,7 +364,7 @@ public static partial class SplitTree
 /// </summary>
 public static partial class PaneLayouts
 {
-    // The Damage section's six. All but the drill-down are also the keys of
+    // The Damage section's seven. All but the drill-down are also the keys of
     // the cards that can float (PanelSet); a drill-down cannot, and goes
     // where its table goes.
     public const string Bars = "bars", Actions = "actions", Line = "line", Drill = "drill";
@@ -373,6 +373,9 @@ public static partial class PaneLayouts
     /// isolates what it names, as the Type and Target buttons do. The
     /// Healing section has no such panes: healing is never isolated.</summary>
     public const string Types = "types", Targets = "targets";
+    /// <summary>The Damage section's Fights pane: every kill, newest first,
+    /// with the party's deaths between them; a kill isolates its fight.</summary>
+    public const string Fights = "fights";
     /// <summary>The Healing section's four, each the twin of a Damage pane.</summary>
     public const string HealBars = "hbars", HealActions = "hactions", HealLine = "hline", HealDrill = "hdrill";
     /// <summary>The Healing section's fifth, with no twin: how often each
@@ -388,11 +391,15 @@ public static partial class PaneLayouts
     /// over the drill-down alone; the two tables came later (2026-10-09)
     /// and took their room from both. The drill-down is its heading until
     /// an action is picked, and the two tables have what it leaves: 210
-    /// and 209 in that body, under a chart 254 tall.
+    /// and 209 in that body, under a chart 254 tall. Fights came later
+    /// (2026-11-02) and stands between the two tables of the left column:
+    /// the per-character table 296 tall, Fights 156 (the headings, five
+    /// kills and the line under them), Actions the 254 left.
     /// </summary>
     public static SplitNode Damage { get; } =
         new PaneSplit(SplitWay.Columns, 0.653,
-            new PaneSplit(SplitWay.Rows, 0.474, new PaneLeaf(Bars), new PaneLeaf(Actions)),
+            new PaneSplit(SplitWay.Rows, 0.42, new PaneLeaf(Bars),
+                new PaneSplit(SplitWay.Rows, 0.38, new PaneLeaf(Fights), new PaneLeaf(Actions))),
             new PaneSplit(SplitWay.Rows, 0.36, new PaneLeaf(Line),
                 new PaneSplit(SplitWay.Rows, 0.5,
                     new PaneSplit(SplitWay.Rows, 0.5, new PaneLeaf(Types), new PaneLeaf(Targets)),

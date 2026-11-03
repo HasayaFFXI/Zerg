@@ -116,10 +116,14 @@ public static class ParseFile
     /// made here and then, so a poll landing while a save dialog is open
     /// cannot change what gets written.</para>
     /// </summary>
+    /// <param name="keepDeath">Which death lines go in (default: by their
+    /// time, as rows are). A kill is counted with its killing blow, so it can
+    /// be in the parse with its line after the end.</param>
     public static string Export(EventReader reader, Session session, Func<double, bool>? keep = null,
-                                string? file = null, double? now = null)
+                                string? file = null, double? now = null, Func<DeathEvent, bool>? keepDeath = null)
     {
         keep ??= _ => true;
+        var keepLine = keepDeath ?? (d => keep(d.T));
         var roster = reader.Roster;
         // Where the clock is read is where the file says it was paused: a
         // snapped session (Session.Snap) is written as one paused there, in
@@ -168,14 +172,19 @@ public static class ParseFile
 
         var sb = new StringBuilder(Encoding.UTF8.GetString(buffer.WrittenSpan), buffer.WrittenCount + 1024);
         // Support rows are damage rows on the wire, and go back among them
-        // in the order they were read, with the enfeeble lines as the addon
-        // wrote them: a reader files each apart again.
-        var events = reader.Events.Concat(reader.Support).Select(e => (Row: e, Enfeeble: false))
-                           .Concat(reader.Enfeebles.Select(e => (Row: e, Enfeeble: true)))
-                           .Where(x => keep(x.Row.T)).OrderBy(x => x.Row.Line);
+        // in the order they were read, with the enfeeble and death lines as
+        // the addon wrote them: a reader files each apart again.
+        var events = reader.Events.Concat(reader.Support).Where(e => keep(e.T))
+                           .Select(e => (Line: e.Line, Row: e, Enfeeble: false, Death: (DeathEvent?)null))
+                           .Concat(reader.Enfeebles.Where(e => keep(e.T))
+                                         .Select(e => (Line: e.Line, Row: e, Enfeeble: true, Death: (DeathEvent?)null)))
+                           .Concat(reader.Deaths.Where(keepLine)
+                                         .Select(d => (Line: d.Line, Row: (CombatEvent)null!, Enfeeble: false, Death: (DeathEvent?)d)))
+                           .OrderBy(x => x.Line);
         List(sb, "events", events, (w, x) =>
         {
-            if (x.Enfeeble) WriteEnfeeble(w, x.Row);
+            if (x.Death is { } d) WriteDeath(w, d);
+            else if (x.Enfeeble) WriteEnfeeble(w, x.Row);
             else WriteRow(w, x.Row);
         });
         List(sb, "heals", reader.Heals.Where(h => keep(h.T)), WriteHeal);
@@ -225,6 +234,7 @@ public static class ParseFile
         Number(w, "actionId", e.ActionId);
         w.WriteString("target", e.Target);
         w.WriteString("targetKind", e.TargetKind);
+        if (e.TargetId is double id) w.WriteNumber("targetId", id);
         Number(w, "dmg", e.Dmg);
         w.WriteBoolean("hit", e.Hit);
         w.WriteBoolean("crit", e.Crit);
@@ -252,10 +262,33 @@ public static class ParseFile
         Number(w, "actionId", e.ActionId);
         w.WriteString("target", e.Target);
         w.WriteString("targetKind", e.TargetKind);
+        if (e.TargetId is double id) w.WriteNumber("targetId", id);
         w.WriteBoolean("hit", e.Hit);
         Number(w, "msg", e.Msg);
         if (!string.IsNullOrEmpty(e.Owner)) w.WriteString("owner", e.Owner);
         if (!string.IsNullOrEmpty(e.Pet)) w.WriteString("pet", e.Pet);
+        w.WriteEndObject();
+    }
+
+    /// <summary>A death → the death line the addon wrote: a monster's names
+    /// its killer and its id, a player's neither.</summary>
+    static void WriteDeath(Utf8JsonWriter w, DeathEvent d)
+    {
+        w.WriteStartObject();
+        w.WriteString("kind", "death");
+        Number(w, "t", d.T / 1000);
+        Number(w, "seq", d.Seq);
+        if (d.Actor.Length > 0)
+        {
+            w.WriteString("actor", d.Actor);
+            w.WriteString("actorKind", d.ActorKind);
+        }
+        w.WriteString("target", d.Target);
+        w.WriteString("targetKind", d.TargetKind);
+        if (d.TargetId is double id) w.WriteNumber("targetId", id);
+        Number(w, "msg", d.Msg);
+        if (!string.IsNullOrEmpty(d.Owner)) w.WriteString("owner", d.Owner);
+        if (!string.IsNullOrEmpty(d.Pet)) w.WriteString("pet", d.Pet);
         w.WriteEndObject();
     }
 
@@ -437,10 +470,11 @@ public static class ParseFile
         {
             // A job record here would be filed, not counted; nothing Export
             // writes puts one in this list, so it is refused, not obeyed. A
-            // support row or an enfeeble is no damage row and is filed, not
-            // skipped.
-            int filed = r.Support.Count + r.Enfeebles.Count;
-            if (KindOf(ev) == "job" || (r.Feed(EventRecord.Read(ev)) == null && r.Support.Count + r.Enfeebles.Count == filed))
+            // support row, an enfeeble or a death is no damage row and is
+            // filed, not skipped.
+            int filed = r.Support.Count + r.Enfeebles.Count + r.Deaths.Count;
+            if (KindOf(ev) == "job"
+                || (r.Feed(EventRecord.Read(ev)) == null && r.Support.Count + r.Enfeebles.Count + r.Deaths.Count == filed))
                 skipped++;
         }
 

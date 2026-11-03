@@ -87,12 +87,13 @@ public static class DamageTypes
     /// ("Damage to Kirin"); of a type, "Melee damage", and of several,
     /// "Damage of 3 types"; of both, the two together ("Melee damage to Kirin").
     /// </summary>
-    public static string Heading(IReadOnlyCollection<string> types, IReadOnlyCollection<string> targets)
+    public static string Heading(IReadOnlyCollection<string> types, IReadOnlyCollection<string> targets,
+                                 Func<string, string>? tag = null)
     {
-        if (types.Count == 0) return Targets.Heading(targets);
+        if (types.Count == 0) return Targets.Heading(targets, tag: tag);
         var what = types.Count == 1 ? Label(types.First()) + " damage" : "Damage of " + Format.Int(types.Count) + " types";
         return what + (targets.Count == 0 ? ""
-            : targets.Count == 1 ? " to " + Targets.Short(targets.First())
+            : targets.Count == 1 ? " to " + Targets.Called(targets.First(), tag)
             : " to " + Format.Int(targets.Count) + " targets");
     }
 

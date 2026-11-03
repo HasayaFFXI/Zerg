@@ -44,6 +44,17 @@ public sealed partial class MainViewModel
     [ObservableProperty] private bool hasTop;
     [ObservableProperty] private string bigText = "0";
     [ObservableProperty] private string bigNote = None;
+    /// <summary>The kills of what is isolated, and the party's deaths: the
+    /// figure in both sections' bands, "14 / 3".</summary>
+    [ObservableProperty] private string killsText = "0";
+    [ObservableProperty] private string deathsText = "0";
+    [ObservableProperty] private bool hasDeaths;
+    /// <summary>Under it, kills an hour, written on the beat as a rate is;
+    /// with one fight isolated, how long it took.</summary>
+    [ObservableProperty] private string killsNote = None;
+    [ObservableProperty] private string? killsTip;
+    /// <summary>With one fight isolated, its kill time; the beat leaves the note alone then.</summary>
+    string? killedIn;
 
     // The marks beside three of the figures. Drawn from a count, as the
     // figures' notes are, and never on the draw beat: between two events
@@ -78,11 +89,11 @@ public sealed partial class MainViewModel
     /// </summary>
     void DrawTargets(Snapshot c)
     {
-        TargetFilter.Draw(c.Targets, c.AllTargets, NameOf, c.TargetFigures);
+        TargetFilter.Draw(c.Targets, c.AllTargets, NameOf, c.TargetFigures, c.Kills);
         TypeFilter.Draw(c.Types, c.AllTypes, n => n);
-        bool isolated = c.Isolated.Count > 0, any = isolated || c.IsolatedTypes.Count > 0;
-        TotalLabel = DamageTypes.Heading(c.IsolatedTypes, c.Isolated);
-        TotalTip = DamageTypes.Told(c.IsolatedTypes, c.Isolated.Select(NameOf).ToList());
+        bool isolated = c.Scope.Count > 0, any = isolated || c.IsolatedTypes.Count > 0;
+        TotalLabel = DamageTypes.Heading(c.IsolatedTypes, c.Scope, c.Tag);
+        TotalTip = DamageTypes.Told(c.IsolatedTypes, c.Scope.Select(n => NameOf(n) + c.Tag(n)).ToList());
         totalShare = any && c.Whole > 0
             ? Format.Num(c.Totals.Total / c.Whole * 100, 1) + "% of " + Format.Int(c.Whole) + Dot
             : "";
@@ -93,7 +104,7 @@ public sealed partial class MainViewModel
     {
         var agg = c.Totals;
         int n = agg.Actors.Count;
-        bool isolated = c.Isolated.Count > 0;
+        bool isolated = c.Scope.Count > 0;
         TotalText = Format.Int(agg.Total);
         DpsNote = isolated ? "no rate for a target" : n > 0 ? n + " character" + (n == 1 ? "" : "s") : None;
 
@@ -118,7 +129,27 @@ public sealed partial class MainViewModel
         var best = c.Best;
         BigText = best != null ? Format.Int(best.Max) : "0";
         BigNote = best != null ? NameOf(best.Who) + Dot + best.What : None;
+        DrawKills(c);
     }
+
+    /// <summary>The Kills / Deaths figure: the kills of what is isolated,
+    /// the deaths of the characters who count. Its note is the beat's.</summary>
+    void DrawKills(Snapshot c)
+    {
+        KillsText = Format.Int(c.Killed.Count);
+        DeathsText = Format.Int(c.Kills.Deaths.Count);
+        HasDeaths = c.Kills.Deaths.Count > 0;
+        killedIn = c.IsolatedFight is { } f && c.Isolated.Count == 0
+            ? f.Length is double l ? "killed in " + Format.Elapsed(l) : None
+            : null;
+        KillsTip = c.Scope.Count > 0
+            ? "Kills of " + string.Join(", ", c.Scope.Select(n => n + c.Tag(n))) + ", and the party's deaths"
+            : "Monsters the party killed, and the party's deaths";
+    }
+
+    /// <summary>Kills an hour of the session clock, as the beat writes it.</summary>
+    string KillRate(double seconds) =>
+        killedIn ?? (snapshot?.KillRate(seconds) is double r ? Format.Num(r, 1) + " kills per hour" : None);
 
     /// <summary>
     /// The figure for whoever leads a section: their swatch, their name, a
@@ -201,12 +232,25 @@ public sealed partial class MainViewModel
         // Counting, and the edge is the clock: the chart rules its edge to
         // say so. Every change of the session's state is followed by a count.
         Line = new LineModel(cum.Times, lines.Select(l => l.Series).ToList(), cum.Live == true,
-                             Running: cum.Live == true && Shown.Session.Running);
+                             Running: cum.Live == true && Shown.Session.Running,
+                             Deaths: ChartDeaths(c, lines.Select(l => l.Real).ToList()), Kills: ChartKills(c.Killed));
         PanelLine = AppTheme.IsDark ? Line : Line with
         {
             Series = lines.Select(l => l.Real != null ? l.Series with { Color = PanelColorOf(l.Real) } : l.Series).ToList(),
         };
     }
+
+    /// <summary>The party's deaths as a cumulative chart marks them, each on
+    /// its character's line among <paramref name="drawn"/> (by real name, in
+    /// the order drawn), or on the axis alone for one with no line.</summary>
+    IReadOnlyList<LineDeath>? ChartDeaths(Snapshot c, List<string?> drawn) =>
+        c.Kills.Deaths.Count == 0 ? null
+        : c.Kills.Deaths.Select(d => new LineDeath(NameOf(d.Name), d.At, d.Next,
+                                                    drawn.IndexOf(d.Name) is int i and >= 0 ? i : null)).ToList();
+
+    /// <summary>The kills a cumulative chart ticks: those of what is isolated.</summary>
+    static IReadOnlyList<LineKill>? ChartKills(IReadOnlyList<Fight> killed) =>
+        killed.Count == 0 ? null : killed.Select(f => new LineKill(f.Named, f.At, f.Length)).ToList();
 
     // --------------------------------------------------- damage by character
 
@@ -272,6 +316,7 @@ public sealed partial class MainViewModel
             row.ScShare = Percent(a.ScShare);
             row.PetDamage = Whole(a.PetTotal);
             row.PetAccuracy = Percent(a.PetAcc);
+            row.Deaths = Died(c.Kills.DeathsOf(a.Name));
         });
 
         // The Party line, under the columns it sums. The split columns are
@@ -292,6 +337,7 @@ public sealed partial class MainViewModel
         Party.ScShare = Percent(party.ScShare);
         Party.PetDamage = Whole(party.PetTotal);
         Party.PetAccuracy = Percent(party.PetAcc);
+        Party.Deaths = Died(c.Kills.Deaths.Count);
 
         // Floating, the card is a strip: the row shaded to the share as in
         // the table, at the strength a panel allows the colour, and the
@@ -309,6 +355,7 @@ public sealed partial class MainViewModel
             row.Damage = Format.Int(a.Total);
             row.Share = Format.Num(a.Share * 100, 1) + "%";
             row.Accuracy = Percent(a.AutoAcc);
+            row.Deaths = Died(c.Kills.DeathsOf(a.Name));
             row.IsOwner = a.Name == Roster.Owner;
             row.Tip = Tip(a);
         });
@@ -335,6 +382,7 @@ public sealed partial class MainViewModel
         "scShare" => SortKey<ActorTotals>.Of(a => a.ScShare),
         "petDamage" => SortKey<ActorTotals>.Of(a => a.PetTotal),
         "petAccuracy" => SortKey<ActorTotals>.Of(a => a.PetAcc),
+        "deaths" => SortKey<ActorTotals>.Of(a => c.Kills.DeathsOf(a.Name) is int n and > 0 ? (double?)n : null),
         _ => null,
     };
 
@@ -357,6 +405,8 @@ public sealed partial class MainViewModel
     // weaponskills has no weaponskill accuracy, and 0% would say every one missed.
     static string Percent(double? x) => x is double v ? Format.Num(v * 100, 1) + "%" : None;
     static string Whole(double? x) => x is double v ? Format.Int(v) : None;
+    /// <summary>Deaths: a dash for none, so the column's red is only where someone died.</summary>
+    static string Died(int n) => n > 0 ? Format.Int(n) : None;
     /// <summary>An action's accuracy, or null with nothing
     /// attempted (a melee Perfect Dodge is not an attempt).</summary>
     static double? Tried(Bucket b) => b.Tries != 0 ? b.Accuracy : null;

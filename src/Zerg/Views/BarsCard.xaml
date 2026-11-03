@@ -12,13 +12,13 @@
          Each has the least it may be: a figure column its longest figure
          (seven figures of damage, 100.0%) or its heading, whichever is
          wider; the name enough for eight letters. -->
-    <sys:String x:Key="Columns">134*90,70*62,68*64,64*62,58*58,62*56,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56</sys:String>
+    <sys:String x:Key="Columns">134*90,70*62,68*64,64*62,58*58,62*56,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54</sys:String>
     <!-- With "shade characters" off the share is a small bar beside the
          Damage % figure, which needs the room: the name gives it up. -->
-    <sys:String x:Key="BarColumns">94*90,70*62,68*64,104*100,58*58,62*56,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56</sys:String>
+    <sys:String x:Key="BarColumns">94*90,70*62,68*64,104*100,58*58,62*56,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54</sys:String>
     <!-- When even the leasts do not fit, the table drops columns, a group
-         at a time from the right (v:Shed, on the docked form below): Pet
-         and Skillchain first; then, when what is left (these) does not fit
+         at a time from the right (v:Shed, on the docked form below): Pet,
+         Skillchain and Deaths first; then, when what is left (these) does not fit
          either, Weaponskill and Accuracy, leaving the name, the job and the
          three that say who did the most. Under those the table scrolls.
          Worked out with the Job column there: with names hidden it goes a
@@ -106,16 +106,26 @@
       </Style.Triggers>
     </Style>
 
+    <!-- A character's deaths: in Crit, where there is one; none is a dash,
+         which the figure's own trigger inks quietly. -->
+    <Style x:Key="DeathsFig" TargetType="TextBlock" BasedOn="{StaticResource FigSheds}">
+      <Setter Property="Foreground" Value="{DynamicResource CritBrush}"/>
+    </Style>
+    <Style x:Key="PartyDeathsFig" TargetType="TextBlock" BasedOn="{StaticResource SubFigSheds}">
+      <Setter Property="Foreground" Value="{DynamicResource CritBrush}"/>
+    </Style>
+
     <!-- The strip: Character, then Damage, % and Acc%, each wide enough for
          its longest figure so one growing a digit moves nothing beside it;
          a figure ends 2 units short of its column. The name has what is
          left, and 110 at least: in a panel too narrow for that the strip
-         drops Acc% and the job beside the name (v:Shed, as the Actions
-         table drops columns), which is the strip the design draws 250 wide.
+         drops Deaths, Acc% and the job beside the name (v:Shed, as the
+         Actions table drops columns), which is the strip the design draws
+         250 wide.
          With "shade characters" off the share is a small bar beside the %
          figure, which needs the room. -->
-    <sys:String x:Key="StripColumns">1*110,72,52,56</sys:String>
-    <sys:String x:Key="StripBarColumns">1*110,72,96,56</sys:String>
+    <sys:String x:Key="StripColumns">1*110,72,52,56,40</sys:String>
+    <sys:String x:Key="StripBarColumns">1*110,72,96,56,40</sys:String>
     <Style x:Key="Strip" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource StripColumns}"/>
       <Style.Triggers>
@@ -161,6 +171,9 @@
         </Trigger>
       </Style.Triggers>
     </Style>
+    <Style x:Key="StripDeaths" TargetType="TextBlock" BasedOn="{StaticResource StripCellSheds}">
+      <Setter Property="Foreground" Value="{DynamicResource CritBrush}"/>
+    </Style>
     <!-- The job beside the name: quieter than the name, and gone in a
          narrow panel (and where there is none to show, as any badge). -->
     <Style x:Key="StripJob" TargetType="TextBlock" BasedOn="{StaticResource Badge}">
@@ -176,7 +189,7 @@
 
   <!-- Damage by character: one table, and the bar is the row. Each
        character's row is shaded in their colour from its left edge to a
-       length that is their damage out of the leader's, with all fourteen
+       length that is their damage out of the leader's, with all fifteen
        figures on top. A pane: the column headings stand still, the rows
        scroll under them, and the Party line stands still under the rows.
 
@@ -218,6 +231,10 @@
                   ToolTip="Melee and ranged attacks that connected, out of all attempted">
             <v:Caps Text="ACC%" Style="{StaticResource StripHead}"/>
           </Border>
+          <Border Background="Transparent" Style="{StaticResource Sheds}"
+                  ToolTip="How many times this character died in the session">
+            <v:Caps Text="DTH" Style="{StaticResource StripHead}"/>
+          </Border>
         </v:Cells>
         <ItemsControl ItemsSource="{Binding Strip}" Focusable="False">
           <ItemsControl.ItemTemplate>
@@ -242,6 +259,7 @@
                     <TextBlock Text="{Binding Share}" Style="{StaticResource StripCell}"/>
                   </v:SmallBar>
                   <TextBlock Text="{Binding Accuracy}" Style="{StaticResource StripCellSheds}"/>
+                  <TextBlock Text="{Binding Deaths}" Style="{StaticResource StripDeaths}"/>
                 </v:Cells>
               </Grid>
               <DataTemplate.Triggers>
@@ -312,6 +330,7 @@
                 <ContentControl v:Cells.Span="2" Style="{StaticResource GroupSheds}">
                   <v:Caps Text="Pet" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
+                <Border Style="{StaticResource Sheds}"/>
               </v:Cells>
               <!-- Each heading orders the table (v:SortHead); a column that
                    goes in a narrow pane takes its heading with it. Where two
@@ -371,6 +390,10 @@
                   <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="The pet's melee attacks that connected, out of all attempted"/>
                 </v:SortHead>
+                <v:SortHead Column="deaths" Style="{StaticResource Sheds}">
+                  <TextBlock Text="Deaths" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="How many times this character died in the session. The event file says when, and nothing about how long they were down"/>
+                </v:SortHead>
               </v:Cells>
               <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
             </Grid>
@@ -420,6 +443,7 @@
                         <v:LowMark Rate="{Binding PetAccuracyRate}" Style="{StaticResource Sheds}">
                           <TextBlock Text="{Binding PetAccuracy}" Style="{StaticResource Fig}"/>
                         </v:LowMark>
+                        <TextBlock Text="{Binding Deaths}" Style="{StaticResource DeathsFig}"/>
                       </v:Cells>
                     </Grid>
                     <DataTemplate.Triggers>
@@ -449,6 +473,7 @@
                 <Border v:Cells.Span="4" Style="{StaticResource PartyRuleShedsLate}"/>
                 <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
                 <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
+                <Border Style="{StaticResource PartyRuleSheds}"/>
               </v:Cells>
               <v:Cells Style="{StaticResource Table}" Margin="0,1,14,0">
                 <TextBlock Text="Party" Style="{StaticResource CellText}" Padding="12,0,8,0" FontWeight="SemiBold"/>
@@ -468,6 +493,7 @@
                 <TextBlock Text="{Binding Party.ScShare}" Style="{StaticResource SubFigQuietSheds}"/>
                 <TextBlock Text="{Binding Party.PetDamage}" Style="{StaticResource SubFigSheds}" Padding="2,0,8,0"/>
                 <TextBlock Text="{Binding Party.PetAccuracy}" Style="{StaticResource SubFigSheds}"/>
+                <TextBlock Text="{Binding Party.Deaths}" Style="{StaticResource PartyDeathsFig}"/>
               </v:Cells>
             </Grid>
           </Grid>

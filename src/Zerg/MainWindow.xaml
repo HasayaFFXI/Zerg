@@ -78,6 +78,32 @@
       <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
     </Style>
 
+    <!-- Kills / Deaths, the last cell of both sections' bands: the kills of
+         what is isolated, then the party's deaths, red once there is one.
+         Under it kills an hour, which the beat writes as it writes a rate. -->
+    <DataTemplate x:Key="KillsCell">
+      <Grid ToolTip="{Binding KillsTip}" Background="Transparent">
+        <!-- The title stays put: a target's name in it runs out of the
+             band's last cell. Whose kills they are is the tooltip's. -->
+        <v:Caps Text="Kills / Deaths" Style="{StaticResource BandLabel}"/>
+        <TextBlock Style="{StaticResource BandFigure}">
+          <Run Text="{Binding KillsText, Mode=OneWay}"/><Run Text=" / " Foreground="{DynamicResource Text3Brush}"/><Run
+               Text="{Binding DeathsText, Mode=OneWay}">
+            <Run.Style>
+              <Style TargetType="Run">
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding HasDeaths}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource CritBrush}"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Run.Style>
+          </Run>
+        </TextBlock>
+        <TextBlock Text="{Binding KillsNote}" Style="{StaticResource BandNote}"/>
+      </Grid>
+    </DataTemplate>
+
     <!-- A mark beside a figure, with what it is written over it: at the
          cell's right-hand end, 14 units short of the rule. Not there while
          the cell is too narrow for it (v:FigureBand.Roomy, which the band
@@ -603,7 +629,7 @@
            tag changes with the session's state, and the marks with a count. -->
       <Grid Background="{DynamicResource Bg1Brush}"
             Visibility="{Binding ShowsParse, Converter={StaticResource Visible}}">
-        <v:FigureBand RowHeight="{StaticResource FiguresBandHeight}" Rule="{DynamicResource Line2Brush}"
+        <v:FigureBand Six="True" RowHeight="{StaticResource FiguresBandHeight}" Rule="{DynamicResource Line2Brush}"
                       Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
           <Grid>
             <Grid.ColumnDefinitions>
@@ -680,11 +706,12 @@
             <TextBlock Text="{Binding BigText}" Style="{StaticResource BandFigure}"/>
             <TextBlock Text="{Binding BigNote}" Style="{StaticResource BandNote}"/>
           </Grid>
+          <ContentControl Content="{Binding}" ContentTemplate="{StaticResource KillsCell}" Focusable="False"/>
         </v:FigureBand>
 
         <!-- Over the heals: the same band. The clock is the same clock;
              there is one session. -->
-        <v:FigureBand RowHeight="{StaticResource FiguresBandHeight}" Rule="{DynamicResource Line2Brush}"
+        <v:FigureBand Six="True" RowHeight="{StaticResource FiguresBandHeight}" Rule="{DynamicResource Line2Brush}"
                       Visibility="{Binding IsHealing, Converter={StaticResource Visible}}">
           <Grid>
             <Grid.ColumnDefinitions>
@@ -755,6 +782,7 @@
             <TextBlock Text="{Binding BigHealText}" Style="{StaticResource BandFigure}"/>
             <TextBlock Text="{Binding BigHealNote}" Style="{StaticResource BandNote}"/>
           </Grid>
+          <ContentControl Content="{Binding}" ContentTemplate="{StaticResource KillsCell}" Focusable="False"/>
         </v:FigureBand>
         <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
       </Grid>
@@ -874,6 +902,21 @@
           </Grid.Style>
           <v:BarsCard Visibility="{Binding Panels[bars].IsOut, Converter={StaticResource Hidden}}"/>
           <v:Away DataContext="{Binding Panels[bars]}"/>
+        </Grid>
+
+        <!-- Fights: every kill, newest first, and the party's deaths between. -->
+        <Grid v:SplitPanel.Key="fights" v:SplitPanel.Title="Fights">
+          <Grid.Style>
+            <Style TargetType="Grid">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding Panels[fights].IsOut}" Value="True">
+                  <Setter Property="v:SplitPanel.Fixed" Value="{StaticResource StandInHeight}"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Grid.Style>
+          <v:FightsCard Visibility="{Binding Panels[fights].IsOut, Converter={StaticResource Hidden}}"/>
+          <v:Away DataContext="{Binding Panels[fights]}"/>
         </Grid>
 
         <Grid v:SplitPanel.Key="actions" v:SplitPanel.Title="Actions">

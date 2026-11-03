@@ -40,6 +40,8 @@ public sealed class EventRecord
     public double ActionId { get; private set; }
     public string Target { get; private set; } = "";
     public string TargetKind { get; private set; } = "";
+    /// <summary>The monster's id, where the line has one.</summary>
+    public double? TargetId { get; private set; }
     public double Dmg { get; private set; }
     public double Hp { get; private set; }
     public bool Hit { get; private set; }
@@ -105,6 +107,7 @@ public sealed class EventRecord
                 case "actionId": r.ActionId = Num(v, ref bad); break;
                 case "target": r.Target = Str(v, ref bad); break;
                 case "targetKind": r.TargetKind = Str(v, ref bad); break;
+                case "targetId": r.TargetId = Opt(v, ref bad); break;
                 case "dmg": r.Dmg = Num(v, ref bad); break;
                 case "hp": r.Hp = Num(v, ref bad); break;
                 case "hit": r.Hit = Bool(v, ref bad); break;

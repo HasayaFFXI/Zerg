@@ -97,8 +97,12 @@ public class CompareSheetTests
                         Lines.Hit(30, "Hasaya", 500, kind: "ws", action: "Tachi: Gekko"));
         var tiles = Sheet(a, b).DamageTiles;
 
-        Assert.Equal(["Total damage", "Length", "Party DPS", "Accuracy", "WS damage", "Skillchain damage"],
+        Assert.Equal(["Total damage", "Length", "Party DPS", "Accuracy", "WS damage", "Skillchain damage",
+                      "Kills per hour", "Avg kill time", "Deaths"],
                      tiles.Select(t => t.Label));
+        // Rows with no ids and no death lines: a parse from before kills
+        // were written, so dashes, not zeroes.
+        Assert.Equal(("—", "—", "—"), (tiles[6].A, tiles[7].A, tiles[8].B));
         Assert.Equal(("300", "600", "+100.0%", "+300"), (tiles[0].A, tiles[0].B, tiles[0].Change.Main, tiles[0].Change.Sub));
         // Length is neutral: shorter is not obviously better.
         Assert.Equal(("00:20", "00:40", "+20s", ChangeTone.Flat), (tiles[1].A, tiles[1].B, tiles[1].Change.Main, tiles[1].Change.Tone));

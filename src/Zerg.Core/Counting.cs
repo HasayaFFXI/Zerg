@@ -20,6 +20,9 @@ public sealed class FilterOptions
     /// <summary>Only rows of one of these damage types
     /// (<see cref="DamageTypes.Of"/>). Null or empty: every type.</summary>
     public IReadOnlySet<string>? Types { get; init; }
+    /// <summary>Only the rows of this one fight (<see cref="Fight.Holds"/>).
+    /// Null: every fight.</summary>
+    public Fight? Fight { get; init; }
 }
 
 /// <summary>
@@ -84,13 +87,20 @@ public static class Counting
     /// counted. Asked of the row as the file has it, so a pet's row is the
     /// one type "pet" whoever it is credited to. No clock is asked with
     /// this either.</param>
+    /// <param name="fight">One fight isolated: a row of any other is not
+    /// counted. Asked of the row as the file has it, as a target is. With
+    /// targets isolated too, a row of either counts: the fight is one more
+    /// thing isolated beside them, as one more name would be.</param>
     public static CombatEvent? Counted(CombatEvent e, Roster? roster,
                                        IReadOnlyDictionary<string, bool>? actors, bool skillchains,
-                                       IReadOnlySet<string>? targets = null, IReadOnlySet<string>? types = null)
+                                       IReadOnlySet<string>? targets = null, IReadOnlySet<string>? types = null,
+                                       Fight? fight = null)
     {
         if (!IsCombat(e)) return null;
         if (!skillchains && e.Kind == "skillchain") return null;
-        if (targets is { Count: > 0 } && !targets.Contains(e.Target)) return null;
+        bool named = targets is { Count: > 0 };
+        if ((named || fight != null) && !(named && targets!.Contains(e.Target) || fight != null && fight.Holds(e)))
+            return null;
         if (types is { Count: > 0 } && !types.Contains(DamageTypes.Of(e))) return null;
         // Asked of the row's own actor, so a pet is judged as the pet it is.
         if (roster != null && roster.IsMob(e.Actor)) return null;
@@ -124,7 +134,7 @@ public static class Counting
                 el = sn.At(row.T);
                 if (el == null) continue;   // before the zero, or in a pause
             }
-            var e = Counted(row, opts.Roster, opts.Actors, opts.Skillchains, opts.Targets, opts.Types);
+            var e = Counted(row, opts.Roster, opts.Actors, opts.Skillchains, opts.Targets, opts.Types, opts.Fight);
             if (e == null) continue;
             if (el is double t) e = e with { T = t };
             output.Add(e);

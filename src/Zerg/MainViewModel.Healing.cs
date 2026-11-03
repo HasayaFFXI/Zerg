@@ -108,8 +108,11 @@ public sealed partial class MainViewModel
         // Largest total last, so the leading line is drawn on top.
         var lines = cum.Series.Select(s => new Drawn(s.Name, new LineSeries(NameOf(s.Name), s.Values, ColorOf(s.Name))))
                               .OrderBy(l => l.Series.Values.Length > 0 ? l.Series.Values[^1] : 0).ToList();
+        // The same deaths and kills as the damage chart's: a healer sees
+        // where the fights were and who went down.
         HealLine = new LineModel(cum.Times, lines.Select(l => l.Series).ToList(), cum.Live == true,
-                                 Running: cum.Live == true && Shown.Session.Running);
+                                 Running: cum.Live == true && Shown.Session.Running,
+                                 Deaths: ChartDeaths(c, lines.Select(l => l.Real).ToList()), Kills: ChartKills(c.Killed));
         PanelHealLine = AppTheme.IsDark ? HealLine : HealLine with
         {
             Series = lines.Select(l => l.Series with { Color = PanelColorOf(l.Real!) }).ToList(),

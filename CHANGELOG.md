@@ -7,6 +7,29 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 1.7.0 — 2026-11-02
+
+- Kills and deaths, from the addon's new death lines. The band over Damage
+  and Healing has a Kills / Deaths cell: "14 / 3", deaths in red, and the
+  kills an hour under it. Damage by character has a Deaths column at its
+  right, red when not 0, its Party line the total, and the floating strip
+  has it too. A new Fights pane, between Damage by character and Actions,
+  lists every kill newest first: when, the monster with its code as XIUI's
+  target bar shows it ("Tiger [00B]"), its kill time, the damage and the
+  DPS over that fight, with a line for each party death between them.
+  Pressing a fight isolates it, alone or beside targets picked with the
+  Target button; the band then reads "killed in 0:42". By target names
+  each monster with its kills, "Tiger (10)", and has a Kill time column.
+  The cumulative charts mark a death with a red X on that character's line,
+  dashed until they next act, and tick the time axis for kills (faint) and
+  deaths (red), with both in the hover card. A replay's range strip ticks
+  them too, and its band says how many the range holds. Compare adds Kills
+  per hour, Avg kill time and Deaths, and By target "Tiger (9 · 10)" with
+  each run's kill time. A layout saved before gains the Fights pane over
+  Actions. Needs the addon that writes death lines and target ids; a file
+  from before has no kills (dashes in Compare), and one with death lines
+  but no ids matches fights by name.
+
 ## 1.6.0 — 2026-11-02
 
 - Enfeebles: a Sleep, Slow, Stun, Dispel, Lullaby, Light Shot or a pact's

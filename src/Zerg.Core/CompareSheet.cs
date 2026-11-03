@@ -12,6 +12,8 @@ public enum ChangeKind
     Points,
     /// <summary>"+4m 07s".</summary>
     Time,
+    /// <summary>A count, by how many: "+3".</summary>
+    Count,
 }
 
 /// <summary>Whether a change is good news, bad news, or neither.</summary>
@@ -65,6 +67,10 @@ public sealed record Change(string Main, string Sub, ChangeTone Tone)
             case ChangeKind.Time:
                 text = Format.Duration(size);
                 none = Format.Round(size) == 0;
+                break;
+            case ChangeKind.Count:
+                text = Format.Int(size);
+                none = size == 0;
                 break;
             default:
                 if (x != 0 && double.IsFinite(x))
@@ -153,6 +159,9 @@ public sealed record TotalLine(string Name, BarPair Amount, Change Change)
     /// <summary>The name it is keyed by, where that is not the name as
     /// drawn: "" for the rows that name no target, drawn as a dash.</summary>
     public string Key { get; init; } = Name;
+    /// <summary>A target's average kill time in each run; null for a line
+    /// that is not a target.</summary>
+    public AB? KillTime { get; init; }
 }
 
 /// <summary>
@@ -284,7 +293,7 @@ public sealed class CompareSheet
             HealPace = HealingPace(ma, mb),
             Actors = d.Rows.Select(r => ActorOf(r, d, rates: isolated.Count == 0)).ToList(),
             Kinds = KindsOf(d, ma, mb),
-            Targets = TotalsOf(d.Targets, true, true, n => n),
+            Targets = TotalsOf(d.Targets, true, true, n => n).Select(t => KilledOf(t, ma, mb)).ToList(),
             Party = HealerOf(null, ma, mb, Side.Of(ma, ma.Heal), Side.Of(mb, mb.Heal), HealMax(d), []),
             Healers = d.Heals.Select(r => HealerOf(r.Key, ma, mb, Side.Of(ma, r.A), Side.Of(mb, r.B), HealMax(d),
                                                    HealsOf(r, ma, mb))).ToList(),
@@ -320,7 +329,35 @@ public sealed class CompareSheet
              sub: m => Format.Int(m.WsCount) + " WS · avg " + Whole(m.WsAvg), ma: ma, mb: mb),
         Tile("Skillchain damage", ma.ScTotal, mb.ScTotal, Format.Int, ChangeKind.Percent, 1,
              sub: m => skillchains ? Format.Int(m.ScCount) + " chains" : "switched off", ma: ma, mb: mb),
+        // Kills an hour stay while a target is isolated, as the live band's do.
+        Tile(isolated.Count > 0 ? "Kills of " + Zerg.Core.Targets.Label(isolated) + " / h" : "Kills per hour",
+             KillRate(ma), KillRate(mb), v => Format.Num(v, 1), ChangeKind.Percent, 1,
+             "Monsters killed over each run's own length", sub: m => Format.Int(m.Killed.Count) + " kills", ma: ma, mb: mb),
+        // Fewer seconds is the good way.
+        Tile("Avg kill time", AvgKill(ma), AvgKill(mb), v => Format.Elapsed(v * 1000), ChangeKind.Time, -1,
+             "From the party's first action at a monster to its death, over each run's kills"),
+        Tile("Deaths", Died(ma), Died(mb), Format.Int, ChangeKind.Count, -1, "How many times one of the party died"),
     ];
+
+    static double? KillRate(Measurement m) => m.HasKills ? Kills.PerHour(m.Killed.Count, m.Duration) : null;
+    static double? AvgKill(Measurement m) => m.HasKills ? KillTotals.AverageLength(m.Killed) / 1000 : null;
+    static double? Died(Measurement m) => m.HasKills ? m.Kills.Deaths.Count : null;
+
+    /// <summary>A target's line with each run's kills of that name in it,
+    /// "Tiger (9 · 10)", and its average kill time in each.</summary>
+    static TotalLine KilledOf(TotalLine t, Measurement ma, Measurement mb)
+    {
+        if (t.Key.Length == 0) return t;
+        int a = ma.Kills.KillsOf(t.Key), b = mb.Kills.KillsOf(t.Key);
+        string Count(Measurement m, int n) => m.HasKills ? Format.Int(n) : Dash;
+        string Time(Measurement m) =>
+            KillTotals.AverageLength(m.Kills.Fights.Where(f => f.Target == t.Key)) is double ms ? Format.Elapsed(ms) : Dash;
+        return t with
+        {
+            Name = a + b > 0 ? t.Name + " (" + Count(ma, a) + Dot + Count(mb, b) + ")" : t.Name,
+            KillTime = new AB(Time(ma), Time(mb)),
+        };
+    }
 
     static List<CompareTile> TilesOfHealing(Measurement ma, Measurement mb)
     {

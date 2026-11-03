@@ -39,6 +39,16 @@ public sealed class Replay
     /// nothing to replay.</summary>
     public double Damage { get; }
 
+    /// <summary>When each monster the party killed died, and each of the
+    /// party, wall-clock milliseconds, in the file's order: the ticks under
+    /// the bars.</summary>
+    public IReadOnlyList<double> Kills { get; }
+    public IReadOnlyList<double> Deaths { get; }
+
+    /// <summary>How many kills and deaths fall in a range of the file.</summary>
+    public (int Kills, int Deaths) Within(double from, double to) =>
+        (Kills.Count(t => t >= from && t < to), Deaths.Count(t => t >= from && t < to));
+
     /// <summary>The party's rows' times, in order: what a crop's zero is looked up in.</summary>
     readonly double[] times;
     /// <summary>The damage each of those landed, 0 for one that did not.</summary>
@@ -60,6 +70,8 @@ public sealed class Replay
         times = [.. party.Select(e => e.T)];
         dealt = [.. party.Select(e => e.Hit && double.IsFinite(e.Dmg) ? e.Dmg : 0)];
         Damage = dealt.Sum();
+        Kills = [.. reader.Deaths.Where(d => d.IsKill).Select(d => d.T)];
+        Deaths = [.. reader.Deaths.Where(d => d.TargetKind == "player").Select(d => d.T)];
 
         double first = double.PositiveInfinity, last = double.NegativeInfinity;
         foreach (var e in reader.Events) (first, last) = (Math.Min(first, e.T), Math.Max(last, e.T));

@@ -49,9 +49,11 @@ public class SplitTreeTests
     {
         var a = SplitTree.Arrange(PaneLayouts.Damage, W, H, Limits);
 
-        // The left-hand column is sheet 01's, to the unit.
-        Assert.Equal(new Box(0, 0, 940, 334), a.Panes["bars"]);
-        Assert.Equal(new Box(0, 335, 940, 371), a.Panes["actions"]);
+        // The left-hand column is sheet 01's width, with Fights between
+        // its two tables.
+        Assert.Equal(new Box(0, 0, 940, 296), a.Panes["bars"]);
+        Assert.Equal(new Box(0, 297, 940, 155), a.Panes["fights"]);
+        Assert.Equal(new Box(0, 453, 940, 253), a.Panes["actions"]);
         // The right: the chart, By damage type over By target, the
         // drill-down. With the drill-down open that body is short for
         // four: the two tables are at their least.
@@ -59,8 +61,8 @@ public class SplitTreeTests
         Assert.Equal(new Box(941, 255, 499, 132), a.Panes["types"]);
         Assert.Equal(new Box(941, 388, 499, 132), a.Panes["targets"]);
         Assert.Equal(new Box(941, 521, 499, 185), a.Panes["drill"]);
-        Assert.Equal(6, a.Panes.Count);
-        Assert.Equal(5, a.Dividers.Count);
+        Assert.Equal(7, a.Panes.Count);
+        Assert.Equal(6, a.Dividers.Count);
     }
 
     [Fact]
@@ -90,7 +92,7 @@ public class SplitTreeTests
         Assert.DoesNotContain(SplitTree.Keys(PaneLayouts.Healing), k => k is PaneLayouts.Types or PaneLayouts.Targets);
         var all = SplitTree.Keys(PaneLayouts.Damage).Concat(SplitTree.Keys(PaneLayouts.Healing))
                            .Concat(SplitTree.Keys(PaneLayouts.Compare)).ToList();
-        Assert.Equal(15, all.Count);
+        Assert.Equal(16, all.Count);
         Assert.Equal(all.Count, all.Distinct().Count());
     }
 
@@ -146,7 +148,7 @@ public class SplitTreeTests
     {
         // Down the left-hand column, then down the right: the order they
         // stand in when a narrow window has one column.
-        Assert.Equal(new[] { "bars", "actions", "line", "types", "targets", "drill" }, SplitTree.Keys(PaneLayouts.Damage));
+        Assert.Equal(new[] { "bars", "fights", "actions", "line", "types", "targets", "drill" }, SplitTree.Keys(PaneLayouts.Damage));
         Assert.Equal(new[] { "hbars", "hactions", "hsupport", "hline", "hdrill" }, SplitTree.Keys(PaneLayouts.Healing));
         Assert.Equal(new[] { "only" }, SplitTree.Keys(Pane("only")));
     }
