@@ -623,31 +623,15 @@
     <v:PageStack x:Name="Page" Fill="{Binding FillsPage}" NarrowWidth="{StaticResource NarrowWidth}"
                  v:SplitPanel.Locked="{Binding LayoutLocked}">
 
-      <!-- The five figures, with a small mark beside three of them. The
-           total first, then the clock beside the total it divides. Only the
-           clock and the rate beside it are rewritten on the draw beat; the
-           tag changes with the session's state, and the marks with a count. -->
+      <!-- The six figures, with a small mark beside three of them. The
+           clock first, then the total it divides, the rate, the kills and
+           deaths, and who leads. Only the clock and the rate are rewritten on the
+           draw beat; the tag changes with the session's state, and the
+           marks with a count. -->
       <Grid Background="{DynamicResource Bg1Brush}"
             Visibility="{Binding ShowsParse, Converter={StaticResource Visible}}">
         <v:FigureBand Six="True" RowHeight="{StaticResource FiguresBandHeight}" Rule="{DynamicResource Line2Brush}"
                       Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition/>
-              <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <!-- What the total is a total of: with a target isolated,
-                 "Damage to Kirin". -->
-            <v:Caps Text="{Binding TotalLabel}" Style="{StaticResource BandLabel}" ToolTip="{Binding TotalTip}"/>
-            <TextBlock Text="{Binding TotalText}" Style="{StaticResource BandFigure}"/>
-            <Grid Style="{StaticResource BandMark}"
-                  ToolTip="The party's damage in each stretch of the session, first to last. The last bar is still filling">
-              <TextBlock Text="{Binding TotalMarkCaption}" Style="{StaticResource BandCaption}"/>
-              <c:Spark Style="{StaticResource BandSpark}" Kind="Bars" Values="{Binding TotalMark}"
-                       Ink="{DynamicResource Text3Brush}"/>
-            </Grid>
-            <TextBlock Text="{Binding TotalNote}" Style="{StaticResource BandNote}"/>
-          </Grid>
           <!-- The clock is a figure, not a caption: it is under every DPS
                here, and the one number that moves with nothing happening. -->
           <Grid>
@@ -666,6 +650,23 @@
               <ColumnDefinition/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
+            <!-- What the total is a total of: with a target isolated,
+                 "Damage to Kirin". -->
+            <v:Caps Text="{Binding TotalLabel}" Style="{StaticResource BandLabel}" ToolTip="{Binding TotalTip}"/>
+            <TextBlock Text="{Binding TotalText}" Style="{StaticResource BandFigure}"/>
+            <Grid Style="{StaticResource BandMark}"
+                  ToolTip="The party's damage in each stretch of the session, first to last. The last bar is still filling">
+              <TextBlock Text="{Binding TotalMarkCaption}" Style="{StaticResource BandCaption}"/>
+              <c:Spark Style="{StaticResource BandSpark}" Kind="Bars" Values="{Binding TotalMark}"
+                       Ink="{DynamicResource Text3Brush}"/>
+            </Grid>
+            <TextBlock Text="{Binding TotalNote}" Style="{StaticResource BandNote}"/>
+          </Grid>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
             <v:Caps Text="Party DPS" Style="{StaticResource BandLabel}"/>
             <!-- A dash while a target is isolated, and its mark gone: the
                  tooltip says why. -->
@@ -678,6 +679,7 @@
             </Grid>
             <TextBlock Text="{Binding DpsNote}" Style="{StaticResource BandNote}"/>
           </Grid>
+          <ContentControl Content="{Binding}" ContentTemplate="{StaticResource KillsCell}" Focusable="False"/>
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition/>
@@ -706,13 +708,23 @@
             <TextBlock Text="{Binding BigText}" Style="{StaticResource BandFigure}"/>
             <TextBlock Text="{Binding BigNote}" Style="{StaticResource BandNote}"/>
           </Grid>
-          <ContentControl Content="{Binding}" ContentTemplate="{StaticResource KillsCell}" Focusable="False"/>
         </v:FigureBand>
 
         <!-- Over the heals: the same band. The clock is the same clock;
              there is one session. -->
         <v:FigureBand Six="True" RowHeight="{StaticResource FiguresBandHeight}" Rule="{DynamicResource Line2Brush}"
                       Visibility="{Binding IsHealing, Converter={StaticResource Visible}}">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <v:Caps Text="Elapsed" Style="{StaticResource BandLabel}"/>
+            <TextBlock Text="{Binding ClockText}" Style="{StaticResource BandClock}"/>
+            <v:StateTag Grid.Column="1" Style="{StaticResource StateTag}" State="{Binding Tag}" VerticalAlignment="Top"
+                        Margin="0,24,14,0"/>
+            <TextBlock Text="{Binding ClockNote}" Style="{StaticResource BandNote}"/>
+          </Grid>
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition/>
@@ -733,17 +745,6 @@
               <ColumnDefinition/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <v:Caps Text="Elapsed" Style="{StaticResource BandLabel}"/>
-            <TextBlock Text="{Binding ClockText}" Style="{StaticResource BandClock}"/>
-            <v:StateTag Grid.Column="1" Style="{StaticResource StateTag}" State="{Binding Tag}" VerticalAlignment="Top"
-                        Margin="0,24,14,0"/>
-            <TextBlock Text="{Binding ClockNote}" Style="{StaticResource BandNote}"/>
-          </Grid>
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition/>
-              <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
             <v:Caps Text="Party HPS" Style="{StaticResource BandLabel}"/>
             <TextBlock Text="{Binding HpsText}" Style="{StaticResource BandFigure}"/>
             <Grid Style="{StaticResource HealBandMark}"
@@ -754,6 +755,7 @@
             </Grid>
             <TextBlock Text="{Binding HpsNote}" Style="{StaticResource BandNote}"/>
           </Grid>
+          <ContentControl Content="{Binding}" ContentTemplate="{StaticResource KillsCell}" Focusable="False"/>
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition/>
@@ -782,7 +784,6 @@
             <TextBlock Text="{Binding BigHealText}" Style="{StaticResource BandFigure}"/>
             <TextBlock Text="{Binding BigHealNote}" Style="{StaticResource BandNote}"/>
           </Grid>
-          <ContentControl Content="{Binding}" ContentTemplate="{StaticResource KillsCell}" Focusable="False"/>
         </v:FigureBand>
         <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
       </Grid>

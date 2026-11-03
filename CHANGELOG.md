@@ -7,6 +7,10 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- The band of figures over the Damage section reads Elapsed, Total damage,
+  Party DPS, Kills / Deaths, Top DPS, Biggest hit; over the Healing
+  section, in the same way, Elapsed, Total healing, Party HPS, Kills /
+  Deaths, Top healer, Biggest heal.
 - The Damage section has a new installed layout, live and in a View tab
   alike: the cumulative chart across the top with the Battle Log beside
   it, a third of the page tall; under them Damage by character over
