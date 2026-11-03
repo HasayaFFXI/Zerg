@@ -368,14 +368,26 @@ public static partial class PaneLayouts
     // the cards that can float (PanelSet); a drill-down cannot, and goes
     // where its table goes.
     public const string Bars = "bars", Actions = "actions", Line = "line", Drill = "drill";
-    /// <summary>The Damage section's two side tables: what kind of damage
-    /// (by damage type) and at whom (by target). Each row of either
-    /// isolates what it names, as the Type and Target buttons do. The
-    /// Healing section has no such panes: healing is never isolated.</summary>
-    public const string Types = "types", Targets = "targets";
-    /// <summary>The Damage section's Fights pane: every kill, newest first,
-    /// with the party's deaths between them; a kill isolates its fight.</summary>
+    /// <summary>The Damage section's Filters pane: its two side tables as
+    /// tabs, at whom (by target) and what kind of damage (by damage type).
+    /// Each row of either isolates what it names, as the Target and Type
+    /// buttons do. The Healing section has no such pane: healing is never
+    /// isolated.</summary>
+    public const string Filters = "filters";
+    /// <summary>The Damage section's Battle Log pane: every kill, newest
+    /// first, with the party's deaths between them; a kill isolates its
+    /// fight. Its key is the name it had first.</summary>
     public const string Fights = "fights";
+
+    /// <summary>Panes that are now another: the two side tables, which were
+    /// panes of their own before they were the Filters pane's tabs.
+    /// A saved arrangement's pane under one of these keys is read as the
+    /// pane it became, where the first of them stood.</summary>
+    public static IReadOnlyDictionary<string, string> Former { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["types"] = Filters,
+        ["targets"] = Filters,
+    };
     /// <summary>The Healing section's four, each the twin of a Damage pane.</summary>
     public const string HealBars = "hbars", HealActions = "hactions", HealLine = "hline", HealDrill = "hdrill";
     /// <summary>The Healing section's fifth, with no twin: how often each
@@ -394,16 +406,16 @@ public static partial class PaneLayouts
     /// and 209 in that body, under a chart 254 tall. Fights came later
     /// (2026-11-02) and stands between the two tables of the left column:
     /// the per-character table 296 tall, Fights 156 (the headings, five
-    /// kills and the line under them), Actions the 254 left.
+    /// kills and the line under them), Actions the 254 left. Fights is
+    /// now the Battle Log, and the two tables are one pane, Filters, with a
+    /// tab for each (2026-11-02): it has the room the two had.
     /// </summary>
     public static SplitNode Damage { get; } =
         new PaneSplit(SplitWay.Columns, 0.653,
             new PaneSplit(SplitWay.Rows, 0.42, new PaneLeaf(Bars),
                 new PaneSplit(SplitWay.Rows, 0.38, new PaneLeaf(Fights), new PaneLeaf(Actions))),
             new PaneSplit(SplitWay.Rows, 0.36, new PaneLeaf(Line),
-                new PaneSplit(SplitWay.Rows, 0.5,
-                    new PaneSplit(SplitWay.Rows, 0.5, new PaneLeaf(Types), new PaneLeaf(Targets)),
-                    new PaneLeaf(Drill))));
+                new PaneSplit(SplitWay.Rows, 0.5, new PaneLeaf(Filters), new PaneLeaf(Drill))));
 
     /// <summary>
     /// Healing, as sheet 02 draws it: the tables in a column 940 wide and

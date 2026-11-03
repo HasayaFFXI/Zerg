@@ -61,10 +61,10 @@ public sealed partial class PanelSet : ObservableObject
     // No drill-down among them: that goes with its table, as a card under
     // it in the main window and under the action's row in the table's panel.
     public const string Line = "line", Bars = "bars", Actions = "actions";
-    /// <summary>The Damage section's two side tables, By damage type and By
-    /// target: each floats as the table it is.</summary>
-    public const string Types = "types", Targets = "targets";
-    /// <summary>The Damage section's Fights pane: floats as the list it is.</summary>
+    /// <summary>The Damage section's Filters pane, By target and By damage
+    /// type: floats as the pane it is, tabs and all.</summary>
+    public const string Filters = "filters";
+    /// <summary>The Damage section's Battle Log: floats as the list it is.</summary>
     public const string Fights = "fights";
     /// <summary>The Healing section's three, each the twin of one of the first three.</summary>
     public const string HealLine = "hline", HealBars = "hbars", HealActions = "hactions";
@@ -100,9 +100,8 @@ public sealed partial class PanelSet : ObservableObject
         Add(Line, "Cumulative damage");
         Add(Bars, "Damage by character");
         Add(Actions, "Actions");
-        Add(Types, "By damage type");
-        Add(Targets, "By target");
-        Add(Fights, "Fights");
+        Add(Filters, "Filters");
+        Add(Fights, "Battle Log");
         Add(HealLine, "Cumulative healing");
         Add(HealBars, "Healing by character");
         Add(HealActions, "Heals");

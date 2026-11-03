@@ -134,7 +134,7 @@ public sealed partial class StripRow(string key) : Row(key)
     [ObservableProperty] private string tip = "";
 }
 
-/// <summary>One kill in the Fights pane: one life of one spawn, pressed to
+/// <summary>One kill in the Battle Log: one life of one spawn, pressed to
 /// isolate that fight.</summary>
 public sealed partial class FightRow(string key, Action<string> pick) : Row(key)
 {
@@ -162,7 +162,7 @@ public sealed partial class FightRow(string key, Action<string> pick) : Row(key)
     void Pick() => pick(Key);
 }
 
-/// <summary>One of the party who died, a line of the Fights pane between
+/// <summary>One of the party who died, a line of the Battle Log between
 /// the kills it fell among.</summary>
 public sealed partial class DeathRow(string key) : Row(key)
 {

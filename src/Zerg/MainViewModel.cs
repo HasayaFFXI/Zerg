@@ -166,7 +166,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>
     /// Which targets the damage on screen is isolated to, and the list they
     /// are picked from: the Target button on the command bar, and the rows
-    /// of the Damage section's By target pane, which is this filter's own
+    /// of the Filters pane's By target tab, which is this filter's own
     /// table (Views/TallyCard). Of the session,
     /// or of the parse open in the View section, whichever is drawn. Not
     /// saved. Each of those keeps its own (<see cref="Looking"/>), put back
@@ -176,10 +176,32 @@ public sealed partial class MainViewModel : ObservableObject
     public PickFilter TargetFilter { get; } = PickFilter.OfTargets(paired: false);
 
     /// <summary>Which damage types it is isolated to: the Type button beside
-    /// that one, and the rows of the By damage type pane. The two cut
+    /// that one, and the rows of the By damage type tab. The two cut
     /// together, each listing what the other leaves, and are emptied
     /// together.</summary>
     public PickFilter TypeFilter { get; } = PickFilter.OfTypes(paired: false);
+
+    const string FiltersByTargets = "Targets", FiltersByTypes = "Types";
+
+    /// <summary>Which of the Filters pane's tabs is shown: "Targets" (By
+    /// target) or "Types" (By damage type). Both tables are kept and drawn
+    /// on every count; this only says which is seen. Saved.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FiltersByTarget), nameof(FiltersShown))]
+    private string filtersBy = FiltersByTargets;
+
+    /// <summary>The By target tab is shown.</summary>
+    public bool FiltersByTarget => FiltersBy != FiltersByTypes;
+
+    /// <summary>The filter of the tab shown: what the pane's note says and
+    /// what its Clear link clears.</summary>
+    public PickFilter FiltersShown => FiltersByTarget ? TargetFilter : TypeFilter;
+
+    partial void OnFiltersByChanged(string value)
+    {
+        settings.FiltersBy = value;
+        settings.Save();
+    }
 
     // ------------------------------------------------------------- sorting
 
@@ -252,6 +274,7 @@ public sealed partial class MainViewModel : ObservableObject
         groupSmallLines = settings.GroupSmallLines;
         healsBy = settings.HealsBy is HealsByCaster or HealsByTarget ? settings.HealsBy : HealsBySpell;
         supportBy = settings.SupportBy == SupportByEnfeebles ? SupportByEnfeebles : SupportByBuffs;
+        filtersBy = settings.FiltersBy == FiltersByTypes ? FiltersByTypes : FiltersByTargets;
         charactersOpen = settings.CharactersOpen;
         shadeCharacters = settings.ShadeCharacters;
         shadeActions = settings.ShadeActions;

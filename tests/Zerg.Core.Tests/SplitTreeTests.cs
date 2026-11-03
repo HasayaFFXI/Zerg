@@ -45,55 +45,51 @@ public class SplitTreeTests
     }
 
     [Fact]
-    public void Damage_keeps_the_sheets_tables_and_has_four_panes_down_its_second_column()
+    public void Damage_keeps_the_sheets_tables_and_has_three_panes_down_its_second_column()
     {
         var a = SplitTree.Arrange(PaneLayouts.Damage, W, H, Limits);
 
-        // The left-hand column is sheet 01's width, with Fights between
-        // its two tables.
+        // The left-hand column is sheet 01's width, with the Battle Log
+        // between its two tables.
         Assert.Equal(new Box(0, 0, 940, 296), a.Panes["bars"]);
         Assert.Equal(new Box(0, 297, 940, 155), a.Panes["fights"]);
         Assert.Equal(new Box(0, 453, 940, 253), a.Panes["actions"]);
-        // The right: the chart, By damage type over By target, the
-        // drill-down. With the drill-down open that body is short for
-        // four: the two tables are at their least.
+        // The right: the chart, Filters, the drill-down, the last two
+        // halving what the chart leaves while the drill-down is open.
         Assert.Equal(new Box(941, 0, 499, 254), a.Panes["line"]);
-        Assert.Equal(new Box(941, 255, 499, 132), a.Panes["types"]);
-        Assert.Equal(new Box(941, 388, 499, 132), a.Panes["targets"]);
-        Assert.Equal(new Box(941, 521, 499, 185), a.Panes["drill"]);
-        Assert.Equal(7, a.Panes.Count);
-        Assert.Equal(6, a.Dividers.Count);
+        Assert.Equal(new Box(941, 255, 499, 225), a.Panes["filters"]);
+        Assert.Equal(new Box(941, 481, 499, 225), a.Panes["drill"]);
+        Assert.Equal(6, a.Panes.Count);
+        Assert.Equal(5, a.Dividers.Count);
     }
 
     [Fact]
-    public void Damages_side_tables_have_the_drill_downs_room_until_an_action_is_picked()
+    public void Damages_filters_have_the_drill_downs_room_until_an_action_is_picked()
     {
         // The drill-down is its heading until then, which is how the
         // section is nearly always seen.
         var a = SplitTree.Arrange(PaneLayouts.Damage, W, H, Limits, null, new HashSet<string> { "drill" });
 
         Assert.Equal(new Box(941, 0, 499, 254), a.Panes["line"]);
-        Assert.Equal(new Box(941, 255, 499, 210), a.Panes["types"]);
-        Assert.Equal(new Box(941, 466, 499, 209), a.Panes["targets"]);
+        Assert.Equal(new Box(941, 255, 499, 420), a.Panes["filters"]);
         Assert.Equal(new Box(941, 676, 499, 30), a.Panes["drill"]);
-        // The rule between the two tables can be moved; the one over the
-        // folded drill-down cannot.
-        Assert.False(a.Dividers.Single(d => d.Path == "110").Held);
+        // The rule over the folded drill-down cannot be moved.
         Assert.True(a.Dividers.Single(d => d.Path == "11").Held);
     }
 
     [Fact]
-    public void The_two_side_tables_are_the_damage_sections_alone()
+    public void The_filters_pane_is_the_damage_sections_alone()
     {
         // Healing is never isolated, and the Compare section has tables of
         // its own, under keys of its own: a key names one pane of one section.
-        Assert.Equal("types", PaneLayouts.Types);
-        Assert.Equal("targets", PaneLayouts.Targets);
-        Assert.DoesNotContain(SplitTree.Keys(PaneLayouts.Healing), k => k is PaneLayouts.Types or PaneLayouts.Targets);
+        Assert.Equal("filters", PaneLayouts.Filters);
+        Assert.DoesNotContain(PaneLayouts.Filters, SplitTree.Keys(PaneLayouts.Healing));
         var all = SplitTree.Keys(PaneLayouts.Damage).Concat(SplitTree.Keys(PaneLayouts.Healing))
                            .Concat(SplitTree.Keys(PaneLayouts.Compare)).ToList();
-        Assert.Equal(16, all.Count);
+        Assert.Equal(15, all.Count);
         Assert.Equal(all.Count, all.Distinct().Count());
+        // No pane of this build has a former key of another.
+        Assert.DoesNotContain(all, PaneLayouts.Former.ContainsKey);
     }
 
     [Fact]
@@ -148,7 +144,7 @@ public class SplitTreeTests
     {
         // Down the left-hand column, then down the right: the order they
         // stand in when a narrow window has one column.
-        Assert.Equal(new[] { "bars", "fights", "actions", "line", "types", "targets", "drill" }, SplitTree.Keys(PaneLayouts.Damage));
+        Assert.Equal(new[] { "bars", "fights", "actions", "line", "filters", "drill" }, SplitTree.Keys(PaneLayouts.Damage));
         Assert.Equal(new[] { "hbars", "hactions", "hsupport", "hline", "hdrill" }, SplitTree.Keys(PaneLayouts.Healing));
         Assert.Equal(new[] { "only" }, SplitTree.Keys(Pane("only")));
     }
@@ -159,10 +155,10 @@ public class SplitTreeTests
         Assert.Equal((641.0, 265.0), SplitTree.Least(Four, Limits));
         // Healing: three down its second column.
         Assert.Equal((641.0, 398.0), SplitTree.Least(PaneLayouts.Healing, Limits));
-        // Damage: four down its second column, three of them and a heading
-        // while the drill-down has nothing picked.
-        Assert.Equal((641.0, 531.0), SplitTree.Least(PaneLayouts.Damage, Limits));
-        Assert.Equal((641.0, 429.0), SplitTree.Least(PaneLayouts.Damage, Limits, null, new HashSet<string> { "drill" }));
+        // Damage: three down each column. While the drill-down has nothing
+        // picked it is a heading, and the first column is the longer.
+        Assert.Equal((641.0, 398.0), SplitTree.Least(PaneLayouts.Damage, Limits));
+        Assert.Equal((641.0, 398.0), SplitTree.Least(PaneLayouts.Damage, Limits, null, new HashSet<string> { "drill" }));
     }
 
     // ------------------------------------------------------------ the rules

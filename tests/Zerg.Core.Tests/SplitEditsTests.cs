@@ -547,13 +547,14 @@ public class SplitEditsTests
         // The six as installed, with a share a player had set.
         var saved = SplitTree.SetRatio(Six, "", 0.6);
 
-        var tree = SplitTree.Repair(saved, PaneLayouts.Damage);
+        var tree = SplitTree.Repair(saved, PaneLayouts.Damage, PaneLayouts.Former);
 
         Assert.Equal(Rows(0.474, Pane("bars"), Rows(0.38, Pane("fights"), Pane("actions"))), SplitTree.At(tree, "0"));
         Assert.Equal(0.6, SplitTree.At(tree, "")!.Ratio);
         Assert.Equal(SplitTree.Keys(PaneLayouts.Damage), SplitTree.Keys(tree));
-        // And the installed six, said outright, is the installed seven.
-        Assert.Same(PaneLayouts.Damage, SplitTree.Repair(SplitTree.SetRatio(Six, "0", 0.42), PaneLayouts.Damage));
+        // And the installed six, said outright, is the installed arrangement.
+        Assert.Same(PaneLayouts.Damage,
+                    SplitTree.Repair(SplitTree.SetRatio(Six, "0", 0.42), PaneLayouts.Damage, PaneLayouts.Former));
     }
 
     [Fact]
@@ -564,25 +565,39 @@ public class SplitEditsTests
 
         var tree = PaneLayouts.Read(layouts, "Damage");
 
-        Assert.Equal(new[] { "line", "bars", "fights", "actions", "types", "targets", "drill" }, SplitTree.Keys(tree));
+        Assert.Equal(new[] { "line", "bars", "fights", "actions", "filters", "drill" }, SplitTree.Keys(tree));
         Assert.Equal(0.652, SplitTree.At(tree, "")!.Ratio);
         Assert.Equal(0.42, SplitTree.At(tree, "1")!.Ratio);
-        // Written again it has all seven, and reads back as it is.
+        // Written again it has all six, and reads back as it is.
         var written = PaneLayouts.Write(tree, PaneLayouts.Healing, PaneLayouts.Compare)!.Value;
         Assert.Equal(tree, PaneLayouts.Read(written, "Damage"));
     }
 
     [Fact]
-    public void One_side_table_left_out_goes_beside_the_other()
+    public void The_two_side_tables_saved_as_panes_are_read_as_the_filters_pane_where_the_first_stood()
     {
-        // By target dragged to the left edge, and By damage type missing
-        // (a file edited by hand): the one goes over the other, as installed.
-        var saved = SplitTree.Remove(SplitTree.MoveToEdge(PaneLayouts.Damage, "targets", PaneSide.Left), "types")!;
+        // As a settings file had it on 2026-11-02: both tables folded, over
+        // Fights, under the chart. Filters takes By damage type's place,
+        // folded as it was; By target's place goes to its neighbour.
+        var layouts = Json(
+            """{"Damage":{"split":"columns","share":0.4793,"first":{"split":"rows","share":0.2896,"first":{"pane":"bars"},"second":{"split":"rows","share":0.4606,"first":{"pane":"actions"},"second":{"pane":"drill"}}},"second":{"split":"rows","share":0.3158,"first":{"pane":"line"},"second":{"split":"rows","share":0.5,"first":{"pane":"types","folded":true},"second":{"split":"rows","share":0.5,"first":{"pane":"targets","folded":true},"second":{"pane":"fights"}}}}}}""");
 
-        var tree = SplitTree.Repair(saved, PaneLayouts.Damage);
+        var tree = PaneLayouts.Read(layouts, "Damage");
 
-        Assert.Equal(Rows(0.5, Pane("types"), Pane("targets")), SplitTree.At(tree, "0"));
-        Assert.Equal(7, SplitTree.Keys(tree).Count);
+        Assert.Equal(
+            Columns(0.4793, Rows(0.2896, Pane("bars"), Rows(0.4606, Pane("actions"), Pane("drill"))),
+                Rows(0.3158, Pane("line"), Rows(0.5, Pane("filters", folded: true), Pane("fights")))),
+            tree);
+        // By target dragged to the left edge, By damage type left where it
+        // was: Filters stands at the left edge, where By target is met first.
+        var moved = SplitTree.MoveToEdge(Six, "targets", PaneSide.Left);
+        var repaired = SplitTree.Repair(moved, PaneLayouts.Damage, PaneLayouts.Former);
+        Assert.Equal("0", SplitTree.PathTo(repaired, "filters"));
+        Assert.Equal(SplitTree.Keys(PaneLayouts.Damage).Order(), SplitTree.Keys(repaired).Order());
+        // Without the former keys the two are panes this build has not got,
+        // and Filters is put back as installed, beside the drill-down.
+        Assert.Equal(Rows(0.36, Pane("line"), Rows(0.5, Pane("filters"), Pane("drill"))),
+                     SplitTree.At(SplitTree.Repair(Six, PaneLayouts.Damage), "1"));
     }
 
     [Fact]

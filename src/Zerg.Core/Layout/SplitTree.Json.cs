@@ -110,7 +110,7 @@ public static partial class PaneLayouts
         try
         {
             if (layouts is not { ValueKind: JsonValueKind.Object } all || !all.TryGetProperty(section, out var saved)) return installed;
-            return SplitTree.Repair(SplitTree.FromJson(saved), installed);
+            return SplitTree.Repair(SplitTree.FromJson(saved), installed, Former);
         }
         // A JsonElement whose document has been let go, say. The file is
         // not worth more than the installed arrangement.

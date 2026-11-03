@@ -229,7 +229,10 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   `PaneLayouts`). Edits (drag a rule, fold, carry a pane by its heading) are
   pure functions making a new tree; the panel raises `RearrangedEvent` →
   `MainViewModel.Rearrange`; saved per section in `settings.layouts`. A saved
-  tree is repaired against the build's panes (`SplitTree.Repair`). Least pane
+  tree is repaired against the build's panes (`SplitTree.Repair`); a pane
+  that became another is read as it (`PaneLayouts.Former`: `types` and
+  `targets` → `filters`). A renamed pane keeps its key (the Battle Log is
+  `fights`). Least pane
   320×132. At ≥700 units wide the page fills the window and doesn't scroll;
   narrower, panes stand in one column and the page scrolls (`PageView`,
   `PageStack`).
@@ -244,7 +247,9 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
 - **Filters.** Target and Type (`PickFilter`) cut together; each list shows
   what the other leaves. While a target is isolated every DPS is a dash
   (`MainViewModel.Rate`, which the beat goes through too). Never saved.
-  `RULES.md` has the rules.
+  `RULES.md` has the rules. In the Damage section their tables
+  (`Views/TallyCard`) are the Filters pane's two tabs (`Views/FiltersCard`);
+  both are drawn on every count, `FiltersBy` (saved) says which is seen.
 - **Compare.** `CompareViewModel` over a `CompareSheet`; redraws only on a
   change and only while on screen. A pair the player made (A's action
   against another of B's) is a `CrossPair`, a row before its row's actions.
@@ -438,7 +443,9 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
 
 - **Current: 1.7.0** (2026-11-02): kills and deaths from the addon's death
   lines (`Zerg.Core/Kills`): the band's Kills / Deaths cell, Damage by
-  character's Deaths column, the Fights pane (a fight isolated beside
+  character's Deaths column, the Fights pane (since renamed the Battle Log;
+  Unreleased also merges By target and By damage type into the Filters
+  pane) (a fight isolated beside
   targets is a union), death and kill marks on the charts and the replay
   strip, Compare's kill figures. 1.6.0 was enfeebles no longer counted as
   damage but listed in the Support pane (its Buffs and Enfeebles switch),

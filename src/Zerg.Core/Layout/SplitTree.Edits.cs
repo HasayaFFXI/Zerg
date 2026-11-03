@@ -270,7 +270,10 @@ public static partial class SplitTree
     /// Nothing left, or no tree at all, or one too deep to be anything but
     /// damage, is the installed tree. Never throws.
     /// </summary>
-    public static SplitNode Repair(SplitNode? tree, SplitNode installed)
+    /// <param name="former">Keys a pane had before, and the key it has now
+    /// (<see cref="PaneLayouts.Former"/>): a pane saved under one is read as
+    /// the pane it is now. Several made one stand where the first is met.</param>
+    public static SplitNode Repair(SplitNode? tree, SplitNode installed, IReadOnlyDictionary<string, string>? former = null)
     {
         var known = new HashSet<string>(Keys(installed), StringComparer.Ordinal);
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -303,6 +306,8 @@ public static partial class SplitTree
             switch (node)
             {
                 case PaneLeaf leaf:
+                    if (leaf.Key is not null && former is not null && former.TryGetValue(leaf.Key, out var now))
+                        leaf = leaf with { Key = now };
                     return leaf.Key is not null && known.Contains(leaf.Key) && seen.Add(leaf.Key) ? leaf : null;
                 case PaneSplit split:
                     var first = split.First is null ? null : Clean(split.First, depth + 1);

@@ -11,7 +11,7 @@
          goes (v:Shed, on the table below). -->
     <sys:String x:Key="Columns">52*48,170*110,68*60,84*64,68*56</sys:String>
 
-    <!-- The row is the bar, as in By target beside it: shaded from its left
+    <!-- The row is the bar, as in By target: shaded from its left
          edge to its kill time out of the longest's, so a slow kill stands
          out. No character's colour: a kill is the party's. -->
     <Style x:Key="Shade" TargetType="Rectangle" BasedOn="{StaticResource RowShade}">
@@ -66,13 +66,13 @@
     </DataTemplate>
   </UserControl.Resources>
 
-  <!-- The Fights pane: every kill of the session, newest first, each one
+  <!-- The Battle Log: every kill of the session, newest first, each one
        life of one spawn ("Tiger [00B]"), with the party's deaths between
        them; under the list the kills together. The column headings stand
        still and the rows scroll under them; the line of totals stands
        still under the rows. Nothing in it moves with the clock: a fight is
        listed once its death line is read, and never changes after. -->
-  <v:Pane Title="Fights" Note="{Binding FightsNote}"
+  <v:Pane Title="Battle Log" Note="{Binding FightsNote}"
           Hint="Every kill of the session, newest first, with the party's deaths between them. Select a kill to count only that fight"
           PopOutCommand="{Binding Panels[fights].PopOutCommand}"
           v:Shading.Characters="{Binding ShadeCharacters}">

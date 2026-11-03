@@ -1,0 +1,118 @@
+<UserControl x:Class="Zerg.Views.FiltersCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:Zerg.Views">
+  <UserControl.Resources>
+    <!-- The mark after a tab's word while its filter has something
+         isolated and another tab is shown: the accent, as an isolated row's
+         edge is, so what cuts the figures is never out of sight. -->
+    <Style x:Key="Isolating" TargetType="Ellipse">
+      <Setter Property="Width" Value="6"/>
+      <Setter Property="Height" Value="6"/>
+      <Setter Property="Margin" Value="5,1,0,0"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Fill" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Visibility" Value="Collapsed"/>
+    </Style>
+  </UserControl.Resources>
+
+  <!-- The Damage section's two side tables as the tabs of one pane: at
+       whom (By target) and what kind of damage (By damage type), over one
+       parse. A tab is the table it was (v:TallyCard), given its filter;
+       both are kept and drawn on every count, and the switch in the
+       heading says which is seen (saved). The note and the Clear link are
+       the shown tab's. Both filters can be on at once: the tab not shown
+       has a dot while its filter has something isolated.
+
+       The pane says how its rows are drawn and under what accuracy is
+       marked (v:Shading). -->
+  <v:Pane Title="Filters" Note="{Binding FiltersShown.TableNote}"
+          PopOutCommand="{Binding Panels[filters].PopOutCommand}"
+          v:Shading.Characters="{Binding ShadeCharacters}" v:Shading.LowAccuracy="{Binding LowAccuracy}">
+    <v:Pane.Tools>
+      <StackPanel Orientation="Horizontal">
+        <Button Content="Clear" Command="{Binding FiltersShown.ClearCommand}"
+                ToolTip="{Binding FiltersShown.ClearTip}"
+                AutomationProperties.Name="{Binding FiltersShown.TableClearName}"
+                Visibility="{Binding FiltersShown.IsOn, Converter={StaticResource Visible}}">
+          <Button.Style>
+            <Style TargetType="Button" BasedOn="{StaticResource LinkButton}">
+              <Setter Property="Margin" Value="0,0,10,0"/>
+              <Style.Triggers>
+                <Trigger Property="v:Float.On" Value="True">
+                  <Setter Property="Margin" Value="0,3,10,1"/>
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </Button.Style>
+        </Button>
+        <Border>
+          <Border.Style>
+            <Style TargetType="Border" BasedOn="{StaticResource SegmentGroup}">
+              <Style.Triggers>
+                <Trigger Property="v:Float.On" Value="True">
+                  <Setter Property="Effect" Value="{StaticResource PanelHalo}"/>
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </Border.Style>
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="ByTarget" Style="{StaticResource Segment}" GroupName="filtersBy"
+                         IsChecked="{Binding FiltersBy, Converter={StaticResource Equals}, ConverterParameter=Targets}"
+                         ToolTip="What each target took. Select one to isolate it"
+                         AutomationProperties.Name="Filters: by target">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="By target"/>
+                <Ellipse>
+                  <Ellipse.Style>
+                    <Style TargetType="Ellipse" BasedOn="{StaticResource Isolating}">
+                      <Style.Triggers>
+                        <MultiDataTrigger>
+                          <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding TargetFilter.IsOn}" Value="True"/>
+                            <Condition Binding="{Binding IsChecked, ElementName=ByTarget}" Value="False"/>
+                          </MultiDataTrigger.Conditions>
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </MultiDataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Ellipse.Style>
+                </Ellipse>
+              </StackPanel>
+            </RadioButton>
+            <RadioButton x:Name="ByType" Style="{StaticResource Segment}" GroupName="filtersBy"
+                         IsChecked="{Binding FiltersBy, Converter={StaticResource Equals}, ConverterParameter=Types}"
+                         ToolTip="Where the party's damage came from. Select a type to isolate it"
+                         AutomationProperties.Name="Filters: by damage type">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="By damage type"/>
+                <Ellipse>
+                  <Ellipse.Style>
+                    <Style TargetType="Ellipse" BasedOn="{StaticResource Isolating}">
+                      <Style.Triggers>
+                        <MultiDataTrigger>
+                          <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding TypeFilter.IsOn}" Value="True"/>
+                            <Condition Binding="{Binding IsChecked, ElementName=ByType}" Value="False"/>
+                          </MultiDataTrigger.Conditions>
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </MultiDataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Ellipse.Style>
+                </Ellipse>
+              </StackPanel>
+            </RadioButton>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </v:Pane.Tools>
+
+    <Grid>
+      <v:TallyCard Filter="{Binding TargetFilter}"
+                   Visibility="{Binding FiltersByTarget, Converter={StaticResource Visible}}"/>
+      <v:TallyCard Filter="{Binding TypeFilter}"
+                   Visibility="{Binding FiltersByTarget, Converter={StaticResource Hidden}}"/>
+    </Grid>
+  </v:Pane>
+</UserControl>

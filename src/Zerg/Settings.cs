@@ -64,6 +64,10 @@ public sealed class Settings
     /// buff, removal and ward) or "Enfeebles" (every enfeeble on a monster).</summary>
     public string SupportBy { get; set; } = "Buffs";
 
+    /// <summary>Which tab the Filters pane shows: "Targets", as installed
+    /// (By target), or "Types" (By damage type).</summary>
+    public string FiltersBy { get; set; } = "Targets";
+
     /// <summary>The characters' line is opened onto every chip, on as many
     /// lines as they take. As installed it is not: one line of as many chips
     /// as fit, and a chip that says how many do not ("+5"), which opens it.
@@ -241,6 +245,7 @@ public sealed class Settings
         ViewMode ??= installed.ViewMode;
         HealsBy ??= installed.HealsBy;
         SupportBy ??= installed.SupportBy;
+        FiltersBy ??= installed.FiltersBy;
         CompareBy ??= installed.CompareBy;
         CompareMode ??= installed.CompareMode;
         ClickThroughKey ??= installed.ClickThroughKey;

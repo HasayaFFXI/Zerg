@@ -90,8 +90,9 @@ the total can be grouped into one line so the leading lines stay legible.
 
 ![The By damage type and By target tables: damage from melee, weaponskills, magic, pets and job abilities, and each target's damage, share, accuracy and weaponskill figures](assets/screenshots/type-and-target.png)
 
-Damage is broken down by type (melee, weaponskills, magic, pets, job
-abilities, skillchains) and by target. Each target also shows the overall
+The Filters pane breaks damage down by target and by type (melee,
+weaponskills, magic, pets, job abilities, skillchains), one tab each; a dot
+on a tab says its filter is on. Each target also shows the overall
 accuracy against it and its weaponskill figures. Selecting a target or a type
 isolates it, and every other view recalculates. Use this to evaluate a single
 enemy, or to see how much of the damage came from weaponskills.

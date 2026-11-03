@@ -5,7 +5,7 @@ using Zerg.Core;
 
 namespace Zerg;
 
-// The Damage section's Fights pane: every kill of the session, newest
+// The Damage section's Battle Log: every kill of the session, newest
 // first, with the party's deaths between them; a kill pressed isolates
 // that one fight.
 public sealed partial class MainViewModel

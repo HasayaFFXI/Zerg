@@ -332,7 +332,7 @@ The Target button counts only the damage dealt to the targets picked
 - **A target is its name.** Three Goblin Pathfinders are one target, as
   they are one line of Compare's By target table, "Goblin Pathfinder (3)"
   with the kills in brackets. One of them is one fight (below).
-- **One fight can be isolated too**, from the Fights pane: the rows of
+- **One fight can be isolated too**, from the Battle Log: the rows of
   that one life of that one monster (`Fight.Holds`), "Damage to Tiger
   [00B]". It takes the same rates away. Beside picked targets it adds to
   them: a row of either counts, so Mandragora and one Tiger fight are

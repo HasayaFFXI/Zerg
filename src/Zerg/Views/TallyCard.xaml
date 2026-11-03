@@ -111,94 +111,67 @@
        parse open in the View section. Which of the two is said by the
        filter the card is given (Filter: a PickFilter, the one the Target
        or the Type button on the command bar has), and everything that
-       differs between them is the filter's: the title, the note, the
-       first column's word, the rows. The data context is the view model,
-       as every card's is.
+       differs between them is the filter's: the first column's word, the
+       rows. The data context is the view model, as every card's is.
 
-       A pane: the column headings stand still and the rows scroll under
-       them, largest first. Every row is listed whatever is isolated, and
-       is of what the other filter leaves. While anything is isolated the
-       heading has the way back to them all. In a floating panel the list
-       takes the panel's height.
+       A tab of the Filters pane (v:FiltersCard), which has the heading:
+       the column headings stand still and the rows scroll under them,
+       largest first. Every row is listed whatever is isolated, and is of
+       what the other filter leaves. In a floating panel the list takes the
+       panel's height. The pane says how its rows are drawn and under what
+       accuracy is marked (v:Shading). -->
+  <DockPanel v:TallyCard.Figures="{Binding Filter.HasFigures, ElementName=Self}">
+    <TextBlock DockPanel.Dock="Top" Text="{Binding EmptyText}" Style="{StaticResource Label}" FontSize="12"
+               Margin="12,18,12,8" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+               Visibility="{Binding Filter.HasTable, ElementName=Self, Converter={StaticResource Hidden}}"/>
 
-       The pane says how its rows are drawn and under what accuracy is
-       marked (v:Shading). -->
-  <v:Pane Title="{Binding Filter.Title, ElementName=Self}" Note="{Binding Filter.TableNote, ElementName=Self}"
-          PopOutCommand="{Binding Info.PopOutCommand, ElementName=Self}"
-          v:Shading.Characters="{Binding ShadeCharacters}" v:Shading.LowAccuracy="{Binding LowAccuracy}"
-          v:TallyCard.Figures="{Binding Filter.HasFigures, ElementName=Self}">
-    <v:Pane.Tools>
-      <Button Content="Clear" Command="{Binding Filter.ClearCommand, ElementName=Self}"
-              ToolTip="{Binding Filter.ClearTip, ElementName=Self}"
-              AutomationProperties.Name="{Binding Filter.TableClearName, ElementName=Self}"
-              Visibility="{Binding Filter.IsOn, ElementName=Self, Converter={StaticResource Visible}}">
-        <Button.Style>
-          <Style TargetType="Button" BasedOn="{StaticResource LinkButton}">
-            <Style.Triggers>
-              <!-- In a floating panel the tools have a line of their own,
-                   and a table lies edge to edge: the link stands over the
-                   last column, clear of the frame and of the scroll bar. -->
-              <Trigger Property="v:Float.On" Value="True">
-                <Setter Property="Margin" Value="0,3,22,1"/>
-              </Trigger>
-            </Style.Triggers>
-          </Style>
-        </Button.Style>
-      </Button>
-    </v:Pane.Tools>
-    <DockPanel>
-      <TextBlock DockPanel.Dock="Top" Text="{Binding EmptyText}" Style="{StaticResource Label}" FontSize="12"
-                 Margin="12,18,12,8" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
-                 Visibility="{Binding Filter.HasTable, ElementName=Self, Converter={StaticResource Hidden}}"/>
-
-      <Grid Style="{StaticResource TableRoom}"
-            Visibility="{Binding Filter.HasTable, ElementName=Self, Converter={StaticResource Visible}}">
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto"/>
-          <RowDefinition/>
-        </Grid.RowDefinitions>
-        <!-- 14 units are kept clear at the right of the headings and of
-             every row's cells: the room the list's scroll bar is drawn in. -->
-        <Grid Height="{StaticResource SubRowHeight}">
-          <!-- Each heading orders the table (v:SortHead); the line for
-               what named nothing stays last. -->
-          <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1" v:SortHead.Sort="{Binding Filter.Sort, ElementName=Self}">
-            <v:SortHead Column="name" Words="True">
-              <TextBlock Text="{Binding Filter.Word, ElementName=Self}" Style="{StaticResource HeadText}" Padding="14,0,8,0"/>
-            </v:SortHead>
-            <v:SortHead Column="damage">
-              <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="2,0,8,0"/>
-            </v:SortHead>
-            <v:SortHead Column="share">
-              <TextBlock Text="Share" Style="{StaticResource Head}" Padding="2,0,8,0"
-                         ToolTip="{Binding Filter.ShareTip, ElementName=Self}"/>
-            </v:SortHead>
-            <v:SortHead Column="accuracy" Style="{StaticResource More}">
-              <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="2,0,8,0"
-                         ToolTip="The party's melee and ranged attacks at this target that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted"/>
-            </v:SortHead>
-            <v:SortHead Column="wsAvg" Style="{StaticResource More}">
-              <TextBlock Text="WS Avg" Style="{StaticResource Head}" Padding="2,0,8,0"
-                         ToolTip="Average damage to this target of the weaponskills that dealt it damage"/>
-            </v:SortHead>
-            <v:SortHead Column="wsShare" Style="{StaticResource More}">
-              <TextBlock Text="WS %" Style="{StaticResource Head}" Padding="2,0,8,0"
-                         ToolTip="Weaponskill damage out of the damage this target took"/>
-            </v:SortHead>
-            <v:SortHead Column="killTime" Style="{StaticResource More}">
-              <TextBlock Text="Kill time" Style="{StaticResource Head}" Padding="2,0,8,0"
-                         ToolTip="How long the party took to kill one of this name, on average: from the first row at it to its death"/>
-            </v:SortHead>
-          </v:Cells>
-          <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
-        </Grid>
-        <Grid Grid.Row="1" Style="{StaticResource SideList}">
-          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
-            <ItemsControl ItemsSource="{Binding Filter.Table, ElementName=Self}" ItemTemplate="{StaticResource Line}"
-                          Focusable="False"/>
-          </ScrollViewer>
-        </Grid>
+    <Grid Style="{StaticResource TableRoom}"
+          Visibility="{Binding Filter.HasTable, ElementName=Self, Converter={StaticResource Visible}}">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition/>
+      </Grid.RowDefinitions>
+      <!-- 14 units are kept clear at the right of the headings and of
+           every row's cells: the room the list's scroll bar is drawn in. -->
+      <Grid Height="{StaticResource SubRowHeight}">
+        <!-- Each heading orders the table (v:SortHead); the line for
+             what named nothing stays last. -->
+        <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1" v:SortHead.Sort="{Binding Filter.Sort, ElementName=Self}">
+          <v:SortHead Column="name" Words="True">
+            <TextBlock Text="{Binding Filter.Word, ElementName=Self}" Style="{StaticResource HeadText}" Padding="14,0,8,0"/>
+          </v:SortHead>
+          <v:SortHead Column="damage">
+            <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="2,0,8,0"/>
+          </v:SortHead>
+          <v:SortHead Column="share">
+            <TextBlock Text="Share" Style="{StaticResource Head}" Padding="2,0,8,0"
+                       ToolTip="{Binding Filter.ShareTip, ElementName=Self}"/>
+          </v:SortHead>
+          <v:SortHead Column="accuracy" Style="{StaticResource More}">
+            <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="2,0,8,0"
+                       ToolTip="The party's melee and ranged attacks at this target that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted"/>
+          </v:SortHead>
+          <v:SortHead Column="wsAvg" Style="{StaticResource More}">
+            <TextBlock Text="WS Avg" Style="{StaticResource Head}" Padding="2,0,8,0"
+                       ToolTip="Average damage to this target of the weaponskills that dealt it damage"/>
+          </v:SortHead>
+          <v:SortHead Column="wsShare" Style="{StaticResource More}">
+            <TextBlock Text="WS %" Style="{StaticResource Head}" Padding="2,0,8,0"
+                       ToolTip="Weaponskill damage out of the damage this target took"/>
+          </v:SortHead>
+          <v:SortHead Column="killTime" Style="{StaticResource More}">
+            <TextBlock Text="Kill time" Style="{StaticResource Head}" Padding="2,0,8,0"
+                       ToolTip="How long the party took to kill one of this name, on average: from the first row at it to its death"/>
+          </v:SortHead>
+        </v:Cells>
+        <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
       </Grid>
-    </DockPanel>
-  </v:Pane>
+      <Grid Grid.Row="1" Style="{StaticResource SideList}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
+          <ItemsControl ItemsSource="{Binding Filter.Table, ElementName=Self}" ItemTemplate="{StaticResource Line}"
+                        Focusable="False"/>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+  </DockPanel>
 </UserControl>

@@ -459,7 +459,7 @@ public sealed class Tracker
     /// <param name="types">Damage types to isolate (<see cref="DamageTypes"/>):
     /// only damage of these is counted. It moves no clock or healing figure
     /// either, and unlike a target takes no rate away.</param>
-    /// <param name="fight">One fight to isolate (a line of the Fights pane):
+    /// <param name="fight">One fight to isolate (a line of the Battle Log):
     /// only damage of its rows is counted. As a target is, and with it.</param>
     public Snapshot Count(IReadOnlySet<string> excluded, bool skillchains, double? now = null,
                           IReadOnlySet<string>? targets = null, IReadOnlySet<string>? types = null,

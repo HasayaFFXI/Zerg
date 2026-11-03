@@ -904,8 +904,8 @@
           <v:Away DataContext="{Binding Panels[bars]}"/>
         </Grid>
 
-        <!-- Fights: every kill, newest first, and the party's deaths between. -->
-        <Grid v:SplitPanel.Key="fights" v:SplitPanel.Title="Fights">
+        <!-- The Battle Log: every kill, newest first, and the party's deaths between. -->
+        <Grid v:SplitPanel.Key="fights" v:SplitPanel.Title="Battle Log">
           <Grid.Style>
             <Style TargetType="Grid">
               <Style.Triggers>
@@ -947,40 +947,23 @@
           <v:Away DataContext="{Binding Panels[line]}"/>
         </Grid>
 
-        <!-- The two side tables: what kind of damage, and at whom. One
-             card, twice (v:TallyCard), each given the filter it lists:
-             the one the Type button on the command bar has, and the one
-             the Target button has. A row isolates what it names, as its
-             line of that button's menu does. Over the parse open in the
-             View section they list that parse, as every pane here does. -->
-        <Grid v:SplitPanel.Key="types" v:SplitPanel.Title="By damage type">
+        <!-- Filters: the two side tables as tabs, at whom and what kind of
+             damage (v:FiltersCard). A row isolates what it names, as its
+             line of the Target or Type button's menu does. Over the parse
+             open in the View section they list that parse, as every pane
+             here does. -->
+        <Grid v:SplitPanel.Key="filters" v:SplitPanel.Title="Filters">
           <Grid.Style>
             <Style TargetType="Grid">
               <Style.Triggers>
-                <DataTrigger Binding="{Binding Panels[types].IsOut}" Value="True">
+                <DataTrigger Binding="{Binding Panels[filters].IsOut}" Value="True">
                   <Setter Property="v:SplitPanel.Fixed" Value="{StaticResource StandInHeight}"/>
                 </DataTrigger>
               </Style.Triggers>
             </Style>
           </Grid.Style>
-          <v:TallyCard Filter="{Binding TypeFilter}" Info="{Binding Panels[types]}"
-                       Visibility="{Binding Panels[types].IsOut, Converter={StaticResource Hidden}}"/>
-          <v:Away DataContext="{Binding Panels[types]}"/>
-        </Grid>
-
-        <Grid v:SplitPanel.Key="targets" v:SplitPanel.Title="By target">
-          <Grid.Style>
-            <Style TargetType="Grid">
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding Panels[targets].IsOut}" Value="True">
-                  <Setter Property="v:SplitPanel.Fixed" Value="{StaticResource StandInHeight}"/>
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </Grid.Style>
-          <v:TallyCard Filter="{Binding TargetFilter}" Info="{Binding Panels[targets]}"
-                       Visibility="{Binding Panels[targets].IsOut, Converter={StaticResource Hidden}}"/>
-          <v:Away DataContext="{Binding Panels[targets]}"/>
+          <v:FiltersCard Visibility="{Binding Panels[filters].IsOut, Converter={StaticResource Hidden}}"/>
+          <v:Away DataContext="{Binding Panels[filters]}"/>
         </Grid>
 
         <!-- The drill-down: always a pane, with a place of its own. It is

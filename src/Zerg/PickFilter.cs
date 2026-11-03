@@ -136,7 +136,7 @@ public sealed partial class PickFilter : ObservableObject
     /// <param name="Note">What a table's pane says after its title while nothing is isolated.</param>
     /// <param name="Order">The lines of a table in the order it lists them,
     /// those picked that came to nothing among them (with no total).</param>
-    sealed record Words(string Title, string Clear, string ShareTip, Func<string, string> Pick, string Rest, string Note,
+    sealed record Words(string Clear, string ShareTip, Func<string, string> Pick, string Rest, string Note,
                         Func<IReadOnlyList<TargetTotal>, IReadOnlyCollection<string>, List<TargetTotal>> Order);
 
     PickFilter(bool paired, string word, string allRow, string clearName, string clearTip, string idle,
@@ -155,7 +155,7 @@ public sealed partial class PickFilter : ObservableObject
         "Count only the damage dealt to the targets you pick. Every target counts now.",
         names => "Counting only the damage dealt to " + names + ". No DPS is given meanwhile: the clock is the " +
                  (paired ? "whole run’s" : "session’s") + ", not the time a target was fought.",
-        new Words("By target", "Clear the isolated targets", "Out of the damage dealt to every target",
+        new Words("Clear the isolated targets", "Out of the damage dealt to every target",
                   name => "Count only the damage dealt to " + name, "Damage that named no target",
                   "Party damage dealt to each target name. Select one to isolate it",
                   (list, picked) => Targets.Ranked(list, picked)),
@@ -169,7 +169,7 @@ public sealed partial class PickFilter : ObservableObject
         "Clear the type filter", "Count every type of damage again",
         "Count only the damage of the types you pick. Every type counts now.",
         names => "Counting only " + names + " damage.",
-        new Words("By damage type", "Clear the isolated types", "Out of the damage of every type",
+        new Words("Clear the isolated types", "Out of the damage of every type",
                   name => "Count only " + name + " damage", "Damage that named no type",
                   "Where the party’s damage came from. Select a type to isolate it",
                   (list, picked) => DamageTypes.Listed(list, picked)),
@@ -189,8 +189,6 @@ public sealed partial class PickFilter : ObservableObject
     public string ClearName { get; }
     public string ClearTip { get; }
 
-    /// <summary>What the table that lists these is called: "By target", "By damage type".</summary>
-    public string Title => words.Title;
     /// <summary>What the link that clears is called in that table's
     /// heading, where the button's own mark has another name: both can be
     /// on screen, and a script presses each by its name.</summary>

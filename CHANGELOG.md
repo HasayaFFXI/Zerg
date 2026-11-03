@@ -7,6 +7,18 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- The Fights pane is the Battle Log, in the pane's heading, its floating
+  panel and the tray's Panels menu (where it was missing).
+- By target and By damage type are one pane, Filters, with a switch in its
+  heading for the two tabs: By target as installed, and whichever was last
+  shown is kept (`filtersBy` in the settings). The note and the Clear link
+  are the shown tab's; while the other tab's filter has something
+  isolated, that tab has an amber dot. The pane floats as one panel, tabs
+  and all, its bar naming what both filters isolate. A layout saved before
+  has Filters where By damage type stood (or By target, whichever came
+  first), folded if that was; the two old panels' places and opacities are
+  not carried over. The Compare section's two tables are unchanged.
+
 ## 1.7.0 — 2026-11-02
 
 - Kills and deaths, from the addon's new death lines. The band over Damage
