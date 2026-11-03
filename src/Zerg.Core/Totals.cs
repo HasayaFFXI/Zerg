@@ -93,7 +93,11 @@ public sealed class ActionTotals : Bucket
 /// The raw counts behind the per-character table's split columns. Taken from
 /// folded uses.
 /// <list type="bullet">
-/// <item>auto: the character's own melee and ranged swings, together.</item>
+/// <item>auto: the character's own auto-attacks (melee: Attack, Offhand
+/// Attack). Crit % is over those that dealt damage: a swing into shadows
+/// connects but cannot crit.</item>
+/// <item>ranged: their own ranged attacks, counted as auto-attacks are and
+/// apart from them.</item>
 /// <item>ws: their own weaponskills (damage, uses, uses that dealt damage).
 /// Skillchains are rows of their own and are not in it.</item>
 /// <item>sc: the chains this character closed; none at all while skillchains
@@ -108,6 +112,14 @@ public sealed class Split
 {
     public int AutoTries { get; set; }
     public int AutoHits { get; set; }
+    /// <summary>Crit %'s denominator and numerator: the swings that dealt
+    /// damage (<c>Hit</c>), and the critical ones among them.</summary>
+    public int AutoLanded { get; set; }
+    public int AutoCrits { get; set; }
+    public int RangedTries { get; set; }
+    public int RangedHits { get; set; }
+    public int RangedLanded { get; set; }
+    public int RangedCrits { get; set; }
     public double WsTotal { get; set; }
     public int WsTries { get; set; }
     public int WsHits { get; set; }
@@ -128,9 +140,15 @@ public sealed class Split
             PetTotal += dmg;
             if (e.Kind == "melee" && o is bool p) { PetTries++; if (p) PetHits++; }
         }
-        else if (e.Kind is "melee" or "ranged")
+        else if (e.Kind == "melee")
         {
             if (o is bool a) { AutoTries++; if (a) AutoHits++; }
+            if (e.Hit) { AutoLanded++; if (e.Crit) AutoCrits++; }
+        }
+        else if (e.Kind == "ranged")
+        {
+            if (o is bool r) { RangedTries++; if (r) RangedHits++; }
+            if (e.Hit) { RangedLanded++; if (e.Crit) RangedCrits++; }
         }
         else if (e.Kind == "ws")
         {
@@ -152,6 +170,12 @@ public sealed class Split
     {
         AutoTries += other.AutoTries;
         AutoHits += other.AutoHits;
+        AutoLanded += other.AutoLanded;
+        AutoCrits += other.AutoCrits;
+        RangedTries += other.RangedTries;
+        RangedHits += other.RangedHits;
+        RangedLanded += other.RangedLanded;
+        RangedCrits += other.RangedCrits;
         WsTotal += other.WsTotal;
         WsTries += other.WsTries;
         WsHits += other.WsHits;
@@ -174,6 +198,9 @@ public sealed class Split
         bool whole = total != 0 && !double.IsNaN(total);
         return new SplitFigures(
             AutoAcc: AutoTries != 0 ? (double)AutoHits / AutoTries : null,
+            AutoCrit: AutoLanded != 0 ? (double)AutoCrits / AutoLanded : null,
+            RangedAcc: RangedTries != 0 ? (double)RangedHits / RangedTries : null,
+            RangedCrit: RangedLanded != 0 ? (double)RangedCrits / RangedLanded : null,
             WsTotal: WsTries != 0 ? WsTotal : null,
             WsAvg: WsHits != 0 ? WsTotal / WsHits : null,
             WsShare: WsTries != 0 && whole ? WsTotal / total : null,
@@ -190,7 +217,7 @@ public sealed class Split
 /// <see cref="Split"/>. A column is null, not zero, when there is nothing to
 /// measure, and is drawn as a dash.
 /// </summary>
-public readonly record struct SplitFigures(double? AutoAcc, double? WsTotal, double? WsAvg, double? WsShare, double? WsAcc,
+public readonly record struct SplitFigures(double? AutoAcc, double? AutoCrit, double? RangedAcc, double? RangedCrit, double? WsTotal, double? WsAvg, double? WsShare, double? WsAcc,
                                            double? ScTotal, double? ScShare, double? PetTotal, double? PetAcc);
 
 /// <summary>
@@ -215,6 +242,9 @@ public sealed class ActorTotals : Bucket
     public double Share { get; set; }
 
     public double? AutoAcc { get; set; }
+    public double? AutoCrit { get; set; }
+    public double? RangedAcc { get; set; }
+    public double? RangedCrit { get; set; }
     public double? WsTotal { get; set; }
     /// <summary>WS damage over the weaponskills that dealt damage.</summary>
     public double? WsAvg { get; set; }
@@ -229,6 +259,9 @@ public sealed class ActorTotals : Bucket
     {
         var f = Split.Figures(Total);
         AutoAcc = f.AutoAcc;
+        AutoCrit = f.AutoCrit;
+        RangedAcc = f.RangedAcc;
+        RangedCrit = f.RangedCrit;
         WsTotal = f.WsTotal;
         WsAvg = f.WsAvg;
         WsShare = f.WsShare;

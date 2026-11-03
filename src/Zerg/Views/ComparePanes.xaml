@@ -661,7 +661,7 @@
                 <!-- The longest words over the narrowest columns: as a
                      figure, they have the column less 2 units, not less 8. -->
                 <TextBlock Text="Accuracy" Style="{StaticResource Head}" Padding="2,0,8,0"
-                           ToolTip="Melee and ranged swings that connected, out of all attempted"/>
+                           ToolTip="Auto-attacks (Attack and Offhand Attack) that connected, out of all attempted. Ranged attacks are not included"/>
                 <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
                 <TextBlock Text="WS Avg" Style="{StaticResource Head}" Padding="2,0,8,0"
                            ToolTip="Average damage of the weaponskills that dealt damage"/>

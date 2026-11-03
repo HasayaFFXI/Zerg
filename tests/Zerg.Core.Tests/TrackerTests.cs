@@ -609,6 +609,67 @@ public class TrackerTests
     }
 
     [Fact]
+    public void Crit_rate_is_over_the_swings_that_dealt_damage()
+    {
+        var t = Following();
+        t.Start(20_000);
+        t.Feed([Lines.Hit(21, "Hasaya", 300, crit: true),
+                Lines.Hit(22, "Hasaya", 100, action: "Offhand Attack"),
+                Lines.Hit(23, "Hasaya", 400, action: "Offhand Attack", crit: true),
+                Lines.Hit(24, "Hasaya", 100),
+                Lines.Hit(25, "Hasaya", 0, hit: false),                                  // a miss
+                Lines.Hit(26, "Hasaya", 0, hit: false).Replace("\"msg\":1", "\"msg\":31"), // shadows
+                Lines.Hit(27, "Hasaya", 900, kind: "ws", action: "Tachi: Jinpu", crit: true),
+                Lines.Hit(28, "Fluffikins", 50, actorKind: "pet", owner: "Hasaya", crit: true),
+                Lines.Hit(29, "Tank", 0, hit: false)]);
+        var totals = t.Count(Nobody, true, 30_000).Totals;
+        var hasaya = totals.Actors.Single(a => a.Name == "Hasaya");
+
+        // Two of the four that dealt damage, main hand and off hand alike:
+        // not the miss, the shadowed swing (which Accuracy counts as a hit),
+        // the weaponskill or the pet.
+        Assert.Equal(0.5, hasaya.AutoCrit);
+        Assert.Equal(5.0 / 6, hasaya.AutoAcc);
+        // Tank swung and never landed: nothing to measure, a dash.
+        Assert.Null(totals.Actors.Single(a => a.Name == "Tank").AutoCrit);
+        // The party's is its swings together, Tank's miss adding nothing.
+        Assert.Equal(0.5, totals.Party.AutoCrit);
+    }
+
+    [Fact]
+    public void Ranged_attacks_are_counted_apart_from_auto_attacks()
+    {
+        static string Shot(double t, double dmg, bool hit = true, bool crit = false, int msg = 352) =>
+            Lines.Hit(t, "Xatsh", dmg, kind: "ranged", action: "Ranged Attack", hit: hit, crit: crit)
+                 .Replace("\"msg\":1", $"\"msg\":{msg}");
+        var t = Following();
+        t.Start(20_000);
+        t.Feed([Lines.Hit(21, "Xatsh", 100), Lines.Hit(22, "Xatsh", 0, hit: false),
+                Shot(23, 300, crit: true, msg: 353), Shot(24, 200), Shot(25, 200, msg: 576),
+                Shot(26, 0, hit: false, msg: 354), Shot(27, 0, hit: false, msg: 31),     // shadows
+                Lines.Hit(28, "Hasaya", 100, crit: true)]);
+        var totals = t.Count(Nobody, true, 30_000).Totals;
+        var xatsh = totals.Actors.Single(a => a.Name == "Xatsh");
+
+        // Accuracy and Crit % are the auto-attacks alone: one of two, no crit.
+        Assert.Equal(0.5, xatsh.AutoAcc);
+        Assert.Equal(0, xatsh.AutoCrit);
+        // The shots: four of five connect (shadows a hit), one of the three
+        // that dealt damage crit.
+        Assert.Equal(0.8, xatsh.RangedAcc);
+        Assert.Equal(1.0 / 3, xatsh.RangedCrit);
+
+        // Somebody who never shot has dashes; the party's shots are Xatsh's.
+        var hasaya = totals.Actors.Single(a => a.Name == "Hasaya");
+        Assert.Null(hasaya.RangedAcc);
+        Assert.Null(hasaya.RangedCrit);
+        Assert.Equal(0.8, totals.Party.RangedAcc);
+        Assert.Equal(1.0 / 3, totals.Party.RangedCrit);
+        Assert.Equal(2.0 / 3, totals.Party.AutoAcc);
+        Assert.Equal(0.5, totals.Party.AutoCrit);
+    }
+
+    [Fact]
     public void The_party_line_follows_the_filters_as_the_rows_do()
     {
         var t = Following();
@@ -619,7 +680,7 @@ public class TrackerTests
         // One character alone: the party's line is that character's row.
         var alone = t.Count(new HashSet<string> { "Tank" }, true, 30_000).Totals;
         var row = alone.Actors[0];
-        Assert.Equal(new SplitFigures(row.AutoAcc, row.WsTotal, row.WsAvg, row.WsShare, row.WsAcc,
+        Assert.Equal(new SplitFigures(row.AutoAcc, row.AutoCrit, row.RangedAcc, row.RangedCrit, row.WsTotal, row.WsAvg, row.WsShare, row.WsAcc,
                                       row.ScTotal, row.ScShare, row.PetTotal, row.PetAcc), alone.Party);
         Assert.Null(alone.Party.AutoAcc);                        // the excluded character's miss is not in it
 

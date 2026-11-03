@@ -18,6 +18,19 @@ takes its number when the version is cut.
   has Filters where By damage type stood (or By target, whichever came
   first), folded if that was; the two old panels' places and opacities are
   not carried over. The Compare section's two tables are unchanged.
+- Damage by character has a Crit % column right of Accuracy: the
+  character's own auto-attacks (Attack, Offhand Attack) that crit, out of
+  those that dealt damage (a swing into shadows is left out; weaponskills,
+  abilities and the pet are not in it). Its Party line is the party's
+  swings together; it sorts, and goes with Accuracy in a narrow pane. The
+  floating strip has it too, as CRIT% beside ACC%.
+- Accuracy is auto-attacks alone: ranged attacks are no longer in it, in
+  Damage by character, the floating strip, By target's Acc or Compare's
+  Accuracy. They have a Ranged group of their own in Damage by character,
+  right of Crit %: Acc (with the low accuracy mark) and Crit %, counted as
+  Accuracy and Crit % are, a dash for anyone who never shot. It goes first
+  in a narrow pane, with Skillchain, Pet and Deaths. The floating strip
+  has them as R.ACC% and R.CRIT%.
 
 ## 1.7.0 — 2026-11-02
 

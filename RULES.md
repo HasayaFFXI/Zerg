@@ -202,7 +202,9 @@ its way, with percentages to one decimal. Every figure is rounded on its value, 
 |---|---|
 | Damage | everything counted: pet, and skillchains when the switch is on |
 | Damage % | share of the party total |
-| Accuracy | own melee and ranged swings that connected / attempted |
+| Accuracy | own auto-attacks (`melee`: Attack, Offhand Attack) that connected / attempted |
+| Crit % | own auto-attacks that crit / those that dealt damage |
+| Ranged Acc, Ranged Crit % | the same two questions over own `ranged` rows alone |
 | WS Damage, WS Avg, WS %, WS Acc | own `ws` rows; Avg over weaponskills that dealt damage; Acc is dealt damage / used |
 | SC Damage, SC % | the chains this character closed; a dash with the switch off |
 | Pet Damage, Pet Acc | rows with an `owner`; the pet's melee swings |
@@ -214,10 +216,23 @@ its way, with percentages to one decimal. Every figure is rounded on its value, 
   attempt, and a weaponskill connects only if it dealt damage. The Actions
   table's Hits and Miss columns are damage counts, so a shadowed swing is a
   Miss there and a hit in Accuracy. Two questions, two answers.
+- **Crit % divides by `Hit`, not by `Connects`.** A swing into shadows
+  connects but deals nothing and cannot crit; counting it would lower a
+  character's crit rate for every shadow the monster had. The swings are the
+  same ones Accuracy is over (own auto-attacks; no ranged attack,
+  weaponskill, ability or pet), folded per use, so a multi-hit round's
+  swings are each their own.
+- **Ranged attacks have columns of their own.** A ranged attack's hit and
+  crit rates are another weapon's, with another stat behind each; folded
+  into Accuracy, a character's one or two shots a fight would move a melee
+  figure that has nothing to do with them. Ranged Acc and Ranged Crit % ask
+  Accuracy's and Crit %'s questions of `ranged` rows (shadows, 31, a hit;
+  crits are message 353, which the addon marks `crit`). A dash for anyone
+  who never shot.
 - **The Actions table's Acc is `Connects` over that action's uses.** A dash
   with nothing attempted (a melee Perfect Dodge is not an attempt). A
   character's heading has none: over every use of theirs it would be a
-  third accuracy beside the per-character table's (melee and ranged alone).
+  third accuracy beside the per-character table's (auto-attacks alone).
   The heading's Hits and Miss are the rows under it together.
 - **A pet's row is the owner's damage, never the owner's swing.** A pet's
   melee must not reach the owner's Accuracy, nor a pet's move WS.
@@ -350,7 +365,7 @@ The Target button counts only the damage dealt to the targets picked
   nothing of it to pick.
 - **By target's Acc, WS Avg and WS % are the Party line's with that target
   isolated** (`Counting.ByTarget`, through the same `Split.Figures`):
-  the party's melee and ranged swings at it, its weaponskills' damage over
+  the party's auto-attacks at it, its weaponskills' damage over
   those that dealt it damage, and that damage out of what it took. A row
   is asked its target before its use is folded, as isolating asks it, so
   an area weaponskill is one use at each target it reached, of what it

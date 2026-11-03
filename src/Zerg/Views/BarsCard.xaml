@@ -4,7 +4,7 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:v="clr-namespace:Zerg.Views">
   <UserControl.Resources>
-    <!-- Character, Job, then twelve figures: the widths the design draws
+    <!-- Character, Job, then sixteen figures: the widths the design draws
          them at in a table 930 wide, as shares, so the table is as drawn in
          its pane and in proportion in any other. The heading and every row
          share them. (DPS has four units more than the design draws, from
@@ -12,19 +12,19 @@
          Each has the least it may be: a figure column its longest figure
          (seven figures of damage, 100.0%) or its heading, whichever is
          wider; the name enough for eight letters. -->
-    <sys:String x:Key="Columns">134*90,70*62,68*64,64*62,58*58,62*56,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54</sys:String>
+    <sys:String x:Key="Columns">134*90,70*62,68*64,64*62,58*58,62*56,58*54,58*56,58*54,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54</sys:String>
     <!-- With "shade characters" off the share is a small bar beside the
          Damage % figure, which needs the room: the name gives it up. -->
-    <sys:String x:Key="BarColumns">94*90,70*62,68*64,104*100,58*58,62*56,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54</sys:String>
+    <sys:String x:Key="BarColumns">94*90,70*62,68*64,104*100,58*58,62*56,58*54,58*56,58*54,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54</sys:String>
     <!-- When even the leasts do not fit, the table drops columns, a group
-         at a time from the right (v:Shed, on the docked form below): Pet,
-         Skillchain and Deaths first; then, when what is left (these) does not fit
-         either, Weaponskill and Accuracy, leaving the name, the job and the
-         three that say who did the most. Under those the table scrolls.
-         Worked out with the Job column there: with names hidden it goes a
-         little early. -->
-    <sys:String x:Key="LessColumns">134*90,70*62,68*64,64*62,58*58,62*56,68*62,52*52,54*56,58*56</sys:String>
-    <sys:String x:Key="LessBarColumns">94*90,70*62,68*64,104*100,58*58,62*56,68*62,52*52,54*56,58*56</sys:String>
+         at a time (v:Shed, on the docked form below): Ranged, Skillchain,
+         Pet and Deaths first; then, when what is left (these) does not fit
+         either, Weaponskill, Accuracy and Crit %, leaving the name, the job
+         and the three that say who did the most. Under those the table
+         scrolls. Worked out with the Job column there: with names hidden it
+         goes a little early. -->
+    <sys:String x:Key="LessColumns">134*90,70*62,68*64,64*62,58*58,62*56,58*54,68*62,52*52,54*56,58*56</sys:String>
+    <sys:String x:Key="LessBarColumns">94*90,70*62,68*64,104*100,58*58,62*56,58*54,68*62,52*52,54*56,58*56</sys:String>
     <Style x:Key="Table" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource Columns}"/>
       <Style.Triggers>
@@ -115,17 +115,17 @@
       <Setter Property="Foreground" Value="{DynamicResource CritBrush}"/>
     </Style>
 
-    <!-- The strip: Character, then Damage, % and Acc%, each wide enough for
-         its longest figure so one growing a digit moves nothing beside it;
-         a figure ends 2 units short of its column. The name has what is
-         left, and 110 at least: in a panel too narrow for that the strip
-         drops Deaths, Acc% and the job beside the name (v:Shed, as the
-         Actions table drops columns), which is the strip the design draws
-         250 wide.
+    <!-- The strip: Character, then Damage, %, Acc%, Crit% and the ranged
+         two (R.Acc%, R.Crit%), each wide enough for its longest figure or
+         its heading so one growing a digit moves nothing beside it; a figure
+         ends 2 units short of its column. The name has what is left, and
+         110 at least: in a panel too narrow for that the strip drops Deaths,
+         the four rates and the job beside the name (v:Shed, as the Actions
+         table drops columns), which is the strip the design draws 250 wide.
          With "shade characters" off the share is a small bar beside the %
          figure, which needs the room. -->
-    <sys:String x:Key="StripColumns">1*110,72,52,56,40</sys:String>
-    <sys:String x:Key="StripBarColumns">1*110,72,96,56,40</sys:String>
+    <sys:String x:Key="StripColumns">1*110,72,52,56,56,62,66,40</sys:String>
+    <sys:String x:Key="StripBarColumns">1*110,72,96,56,56,62,66,40</sys:String>
     <Style x:Key="Strip" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource StripColumns}"/>
       <Style.Triggers>
@@ -228,8 +228,20 @@
             <v:Caps Text="%" Style="{StaticResource StripHead}"/>
           </Border>
           <Border Background="Transparent" Style="{StaticResource Sheds}"
-                  ToolTip="Melee and ranged attacks that connected, out of all attempted">
+                  ToolTip="Auto-attacks that connected, out of all attempted">
             <v:Caps Text="ACC%" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" Style="{StaticResource Sheds}"
+                  ToolTip="Auto-attacks that landed a critical hit, out of those that dealt damage">
+            <v:Caps Text="CRIT%" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" Style="{StaticResource Sheds}"
+                  ToolTip="Ranged attacks that connected, out of all attempted">
+            <v:Caps Text="R.ACC%" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" Style="{StaticResource Sheds}"
+                  ToolTip="Ranged attacks that landed a critical hit, out of those that dealt damage">
+            <v:Caps Text="R.CRIT%" Style="{StaticResource StripHead}"/>
           </Border>
           <Border Background="Transparent" Style="{StaticResource Sheds}"
                   ToolTip="How many times this character died in the session">
@@ -259,6 +271,9 @@
                     <TextBlock Text="{Binding Share}" Style="{StaticResource StripCell}"/>
                   </v:SmallBar>
                   <TextBlock Text="{Binding Accuracy}" Style="{StaticResource StripCellSheds}"/>
+                  <TextBlock Text="{Binding Crit}" Style="{StaticResource StripCellSheds}"/>
+                  <TextBlock Text="{Binding RangedAccuracy}" Style="{StaticResource StripCellSheds}"/>
+                  <TextBlock Text="{Binding RangedCrit}" Style="{StaticResource StripCellSheds}"/>
                   <TextBlock Text="{Binding Deaths}" Style="{StaticResource StripDeaths}"/>
                 </v:Cells>
               </Grid>
@@ -313,14 +328,18 @@
                  room the rows' scroll bar is drawn in. -->
             <Grid Height="{StaticResource GroupedHeadHeight}">
               <!-- In the table's own columns, so each group stands over
-                   its four or two at any width: nothing over the first
-                   six (the Job column and Accuracy each a cell of their
-                   own, to go as theirs do), then the three groups. -->
+                   its two or four at any width: nothing over the first
+                   seven (the Job column, Accuracy and Crit % each a cell
+                   of their own, to go as theirs do), then the four groups. -->
               <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1">
                 <Border/>
                 <Border Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
                 <Border v:Cells.Span="3"/>
                 <Border Style="{StaticResource ShedsLate}"/>
+                <Border Style="{StaticResource ShedsLate}"/>
+                <ContentControl v:Cells.Span="2" Style="{StaticResource GroupSheds}">
+                  <v:Caps Text="Ranged" Style="{StaticResource GroupCaps}"/>
+                </ContentControl>
                 <ContentControl v:Cells.Span="4" Style="{StaticResource GroupShedsLate}">
                   <v:Caps Text="Weaponskill" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
@@ -356,7 +375,19 @@
                 </v:SortHead>
                 <v:SortHead Column="accuracy" Style="{StaticResource ShedsLate}">
                   <TextBlock Text="Accuracy" Style="{StaticResource Head}" Padding="0,0,8,0"
-                             ToolTip="Melee and ranged attacks that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted. Weaponskills, job abilities and the pet are not included"/>
+                             ToolTip="Auto-attacks (Attack and Offhand Attack) that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted. Ranged attacks, weaponskills, job abilities and the pet are not included"/>
+                </v:SortHead>
+                <v:SortHead Column="crit" Style="{StaticResource ShedsLate}">
+                  <TextBlock Text="Crit %" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Auto-attacks (Attack and Offhand Attack) that landed a critical hit, out of those that dealt damage. A swing taken by shadows is not counted. Ranged attacks, weaponskills, job abilities and the pet are not included"/>
+                </v:SortHead>
+                <v:SortHead Column="rangedAccuracy" Style="{StaticResource Sheds}" AutomationProperties.Name="Ranged accuracy">
+                  <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Ranged attacks that connected, out of all attempted. A shot taken by shadows counts as a hit"/>
+                </v:SortHead>
+                <v:SortHead Column="rangedCrit" Style="{StaticResource Sheds}" AutomationProperties.Name="Ranged crit">
+                  <TextBlock Text="Crit %" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="Ranged attacks that landed a critical hit, out of those that dealt damage. A shot taken by shadows is not counted"/>
                 </v:SortHead>
                 <v:SortHead Column="wsDamage" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill damage">
                   <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
@@ -431,6 +462,11 @@
                         <v:LowMark Rate="{Binding AccuracyRate}" Style="{StaticResource ShedsLate}">
                           <TextBlock Text="{Binding Accuracy}" Style="{StaticResource Fig}"/>
                         </v:LowMark>
+                        <TextBlock Text="{Binding Crit}" Style="{StaticResource FigShedsLate}"/>
+                        <v:LowMark Rate="{Binding RangedAccuracyRate}" Style="{StaticResource Sheds}">
+                          <TextBlock Text="{Binding RangedAccuracy}" Style="{StaticResource Fig}"/>
+                        </v:LowMark>
+                        <TextBlock Text="{Binding RangedCrit}" Style="{StaticResource FigSheds}"/>
                         <TextBlock Text="{Binding WsDamage}" Style="{StaticResource FigShedsLate}" Padding="2,0,8,0"/>
                         <TextBlock Text="{Binding WsAvg}" Style="{StaticResource FigQuietShedsLate}"/>
                         <TextBlock Text="{Binding WsShare}" Style="{StaticResource FigQuietShedsLate}"/>
@@ -470,6 +506,8 @@
                 <Border Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
                 <Border v:Cells.Span="3"/>
                 <Border Style="{StaticResource ShedsLate}"/>
+                <Border Style="{StaticResource ShedsLate}"/>
+                <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
                 <Border v:Cells.Span="4" Style="{StaticResource PartyRuleShedsLate}"/>
                 <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
                 <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
@@ -485,6 +523,9 @@
                 <TextBlock Text="{Binding Party.Share}" Style="{StaticResource Cell}" Foreground="{DynamicResource Text2Brush}"/>
                 <TextBlock Text="{Binding Party.Dps}" Style="{StaticResource Cell}" FontWeight="SemiBold" Padding="2,0,8,0"/>
                 <TextBlock Text="{Binding Party.Accuracy}" Style="{StaticResource SubFigShedsLate}"/>
+                <TextBlock Text="{Binding Party.Crit}" Style="{StaticResource SubFigShedsLate}"/>
+                <TextBlock Text="{Binding Party.RangedAccuracy}" Style="{StaticResource SubFigSheds}"/>
+                <TextBlock Text="{Binding Party.RangedCrit}" Style="{StaticResource SubFigSheds}"/>
                 <TextBlock Text="{Binding Party.WsDamage}" Style="{StaticResource SubFigShedsLate}" Padding="2,0,8,0"/>
                 <TextBlock Text="{Binding Party.WsAvg}" Style="{StaticResource SubFigQuietShedsLate}"/>
                 <TextBlock Text="{Binding Party.WsShare}" Style="{StaticResource SubFigQuietShedsLate}"/>

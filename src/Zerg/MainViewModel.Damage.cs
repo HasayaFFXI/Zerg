@@ -297,6 +297,7 @@ public sealed partial class MainViewModel
             row.IsOwner = a.Name == Roster.Owner;
             row.Tip = Tip(a);
             row.AccuracyRate = a.AutoAcc;
+            row.RangedAccuracyRate = a.RangedAcc;
             row.WsAccuracyRate = a.WsAcc;
             row.PetAccuracyRate = a.PetAcc;
             row.Name = NameOf(a.Name);
@@ -308,6 +309,9 @@ public sealed partial class MainViewModel
             row.Share = Percent(a.Share);
             row.Dps = Rate(a.Total, c.Elapsed / 1000);
             row.Accuracy = Percent(a.AutoAcc);
+            row.Crit = Percent(a.AutoCrit);
+            row.RangedAccuracy = Percent(a.RangedAcc);
+            row.RangedCrit = Percent(a.RangedCrit);
             row.WsDamage = Whole(a.WsTotal);
             row.WsAvg = Whole(a.WsAvg);
             row.WsShare = Percent(a.WsShare);
@@ -329,6 +333,9 @@ public sealed partial class MainViewModel
         Party.Damage = Format.Int(c.Totals.Total);
         Party.Share = c.Totals.Total > 0 ? Percent(1) : None;
         Party.Accuracy = Percent(party.AutoAcc);
+        Party.Crit = Percent(party.AutoCrit);
+        Party.RangedAccuracy = Percent(party.RangedAcc);
+        Party.RangedCrit = Percent(party.RangedCrit);
         Party.WsDamage = Whole(party.WsTotal);
         Party.WsAvg = Whole(party.WsAvg);
         Party.WsShare = Percent(party.WsShare);
@@ -341,8 +348,8 @@ public sealed partial class MainViewModel
 
         // Floating, the card is a strip: the row shaded to the share as in
         // the table, at the strength a panel allows the colour, and the
-        // three figures a glance during a fight is for. The other eleven
-        // columns, DPS among them, stay on the table, so nothing in the strip
+        // figures a glance during a fight is for. The other columns, DPS
+        // among them, stay on the table, so nothing in the strip
         // moves with the clock: every figure in it is a running total that
         // only a new event can change.
         Rows.Sync(Strip, actors, a => a.Name, a => new StripRow(a.Name), (row, a) =>
@@ -355,6 +362,9 @@ public sealed partial class MainViewModel
             row.Damage = Format.Int(a.Total);
             row.Share = Format.Num(a.Share * 100, 1) + "%";
             row.Accuracy = Percent(a.AutoAcc);
+            row.Crit = Percent(a.AutoCrit);
+            row.RangedAccuracy = Percent(a.RangedAcc);
+            row.RangedCrit = Percent(a.RangedCrit);
             row.Deaths = Died(c.Kills.DeathsOf(a.Name));
             row.IsOwner = a.Name == Roster.Owner;
             row.Tip = Tip(a);
@@ -374,6 +384,9 @@ public sealed partial class MainViewModel
         "damage" or "share" => SortKey<ActorTotals>.Of(a => a.Total),
         "dps" => SortKey<ActorTotals>.Of(a => c.Rate(a.Total, 1)),
         "accuracy" => SortKey<ActorTotals>.Of(a => a.AutoAcc),
+        "crit" => SortKey<ActorTotals>.Of(a => a.AutoCrit),
+        "rangedAccuracy" => SortKey<ActorTotals>.Of(a => a.RangedAcc),
+        "rangedCrit" => SortKey<ActorTotals>.Of(a => a.RangedCrit),
         "wsDamage" => SortKey<ActorTotals>.Of(a => a.WsTotal),
         "wsAvg" => SortKey<ActorTotals>.Of(a => a.WsAvg),
         "wsShare" => SortKey<ActorTotals>.Of(a => a.WsShare),

@@ -55,6 +55,9 @@ public sealed partial class ActorRow(string key) : Row(key)
     [ObservableProperty] private string share = "";
     [ObservableProperty] private string dps = "";
     [ObservableProperty] private string accuracy = "";
+    [ObservableProperty] private string crit = "";
+    [ObservableProperty] private string rangedAccuracy = "";
+    [ObservableProperty] private string rangedCrit = "";
     [ObservableProperty] private string wsDamage = "";
     [ObservableProperty] private string wsAvg = "";
     [ObservableProperty] private string wsShare = "";
@@ -76,9 +79,10 @@ public sealed partial class ActorRow(string key) : Row(key)
     /// <summary>What the pointer resting on the row is told: who, their
     /// job in full, and their average per action.</summary>
     [ObservableProperty] private string tip = "";
-    /// <summary>The three rates as numbers, 0 to 1, for the low accuracy
+    /// <summary>The four accuracies as numbers, 0 to 1, for the low accuracy
     /// mark; null where there is nothing to measure and the cell is a dash.</summary>
     [ObservableProperty] private double? accuracyRate;
+    [ObservableProperty] private double? rangedAccuracyRate;
     [ObservableProperty] private double? wsAccuracyRate;
     [ObservableProperty] private double? petAccuracyRate;
 }
@@ -97,6 +101,9 @@ public sealed partial class PartyRow : ObservableObject
     /// <summary>The party's DPS: rewritten on the draw beat with every row's.</summary>
     [ObservableProperty] private string dps = "";
     [ObservableProperty] private string accuracy = "";
+    [ObservableProperty] private string crit = "";
+    [ObservableProperty] private string rangedAccuracy = "";
+    [ObservableProperty] private string rangedCrit = "";
     [ObservableProperty] private string wsDamage = "";
     [ObservableProperty] private string wsAvg = "";
     [ObservableProperty] private string wsShare = "";
@@ -127,6 +134,9 @@ public sealed partial class StripRow(string key) : Row(key)
     [ObservableProperty] private string damage = "";
     [ObservableProperty] private string share = "";
     [ObservableProperty] private string accuracy = "";
+    [ObservableProperty] private string crit = "";
+    [ObservableProperty] private string rangedAccuracy = "";
+    [ObservableProperty] private string rangedCrit = "";
     [ObservableProperty] private string deaths = "";
     /// <summary>The character whose file this is: the one row on every
     /// session, marked so it is found without reading names.</summary>

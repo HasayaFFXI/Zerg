@@ -86,8 +86,8 @@ public sealed class Settings
     /// small bar beside its figure.</summary>
     public bool ShadeActions { get; set; }
 
-    /// <summary>The low accuracy mark's threshold, in percent: Accuracy, WS
-    /// Acc, Pet Acc and By target's Acc under it are marked in red, more
+    /// <summary>The low accuracy mark's threshold, in percent: Accuracy,
+    /// Ranged Acc, WS Acc, Pet Acc and By target's Acc under it are marked in red, more
     /// strongly the lower they fall. 50 to 100; 90 as installed.</summary>
     public int LowAccuracy { get; set; } = Core.LowMark.Installed;
 

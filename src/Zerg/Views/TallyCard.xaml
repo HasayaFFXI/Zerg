@@ -149,7 +149,7 @@
           </v:SortHead>
           <v:SortHead Column="accuracy" Style="{StaticResource More}">
             <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="2,0,8,0"
-                       ToolTip="The party's melee and ranged attacks at this target that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted"/>
+                       ToolTip="The party's auto-attacks (Attack and Offhand Attack) at this target that connected, out of all attempted. A swing taken by shadows counts as a hit and a Perfect Dodge is not counted. Ranged attacks are not included"/>
           </v:SortHead>
           <v:SortHead Column="wsAvg" Style="{StaticResource More}">
             <TextBlock Text="WS Avg" Style="{StaticResource Head}" Padding="2,0,8,0"

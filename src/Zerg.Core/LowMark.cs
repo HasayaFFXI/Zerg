@@ -19,7 +19,7 @@ public readonly record struct LowMarkLook(double Rule, double Surface, double Wa
 }
 
 /// <summary>
-/// The low accuracy mark: Accuracy, WS Acc and Pet Acc under a threshold are
+/// The low accuracy mark: Accuracy, Ranged Acc, WS Acc and Pet Acc under a threshold are
 /// marked in red, more strongly the lower they fall. With most of a party
 /// under the line the mark has to stay calm, so it is graded in kind as well
 /// as in strength: just under the threshold a thin rule under the figure and

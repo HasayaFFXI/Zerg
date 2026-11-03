@@ -324,7 +324,7 @@ public sealed class CompareSheet
         Tile("Length", ma.Duration, mb.Duration, Clock, ChangeKind.Time, 0),
         Tile("Party DPS", ma.Dps, mb.Dps, v => Format.Num(v, 1), ChangeKind.Percent, 1, isolated.Count > 0 ? NoRate : null),
         Tile("Accuracy", ma.Accuracy, mb.Accuracy, v => Percent(v), ChangeKind.Points, 1,
-             "Party melee and ranged swings that connected, out of all attempted: the character table's Accuracy, for everyone"),
+             "Party auto-attacks that connected, out of all attempted: the character table's Accuracy, for everyone. Ranged attacks are not included"),
         Tile("WS damage", ma.WsTotal, mb.WsTotal, Format.Int, ChangeKind.Percent, 1,
              sub: m => Format.Int(m.WsCount) + " WS · avg " + Whole(m.WsAvg), ma: ma, mb: mb),
         Tile("Skillchain damage", ma.ScTotal, mb.ScTotal, Format.Int, ChangeKind.Percent, 1,
