@@ -7,6 +7,11 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- The Damage section has a new installed layout, live and in a View tab
+  alike: the cumulative chart across the top with the Battle Log beside
+  it, a third of the page tall; under them Damage by character over
+  Actions on the left, Filters over the drill-down on the right. A layout
+  the player has arranged is kept; Reset layout gives the new one.
 - The Fights pane is the Battle Log, in the pane's heading, its floating
   panel and the tray's Panels menu (where it was missing).
 - By target and By damage type are one pane, Filters, with a switch in its

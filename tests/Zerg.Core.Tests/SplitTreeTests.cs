@@ -45,20 +45,19 @@ public class SplitTreeTests
     }
 
     [Fact]
-    public void Damage_keeps_the_sheets_tables_and_has_three_panes_down_its_second_column()
+    public void Damage_has_the_chart_and_the_battle_log_across_the_top()
     {
         var a = SplitTree.Arrange(PaneLayouts.Damage, W, H, Limits);
 
-        // The left-hand column is sheet 01's width, with the Battle Log
-        // between its two tables.
-        Assert.Equal(new Box(0, 0, 940, 296), a.Panes["bars"]);
-        Assert.Equal(new Box(0, 297, 940, 155), a.Panes["fights"]);
-        Assert.Equal(new Box(0, 453, 940, 253), a.Panes["actions"]);
-        // The right: the chart, Filters, the drill-down, the last two
-        // halving what the chart leaves while the drill-down is open.
-        Assert.Equal(new Box(941, 0, 499, 254), a.Panes["line"]);
-        Assert.Equal(new Box(941, 255, 499, 225), a.Panes["filters"]);
-        Assert.Equal(new Box(941, 481, 499, 225), a.Panes["drill"]);
+        // A third of the body tall: the chart, the Battle Log beside it.
+        Assert.Equal(new Box(0, 0, 1050, 238), a.Panes["line"]);
+        Assert.Equal(new Box(1051, 0, 389, 238), a.Panes["fights"]);
+        // Under them, two columns whose rule is in line with the one above:
+        // the per-character table over Actions, Filters over the drill-down.
+        Assert.Equal(new Box(0, 239, 1050, 181), a.Panes["bars"]);
+        Assert.Equal(new Box(0, 421, 1050, 285), a.Panes["actions"]);
+        Assert.Equal(new Box(1051, 239, 389, 182), a.Panes["filters"]);
+        Assert.Equal(new Box(1051, 422, 389, 284), a.Panes["drill"]);
         Assert.Equal(6, a.Panes.Count);
         Assert.Equal(5, a.Dividers.Count);
     }
@@ -70,9 +69,9 @@ public class SplitTreeTests
         // section is nearly always seen.
         var a = SplitTree.Arrange(PaneLayouts.Damage, W, H, Limits, null, new HashSet<string> { "drill" });
 
-        Assert.Equal(new Box(941, 0, 499, 254), a.Panes["line"]);
-        Assert.Equal(new Box(941, 255, 499, 420), a.Panes["filters"]);
-        Assert.Equal(new Box(941, 676, 499, 30), a.Panes["drill"]);
+        Assert.Equal(new Box(0, 0, 1050, 238), a.Panes["line"]);
+        Assert.Equal(new Box(1051, 239, 389, 436), a.Panes["filters"]);
+        Assert.Equal(new Box(1051, 676, 389, 30), a.Panes["drill"]);
         // The rule over the folded drill-down cannot be moved.
         Assert.True(a.Dividers.Single(d => d.Path == "11").Held);
     }
@@ -142,9 +141,9 @@ public class SplitTreeTests
     [Fact]
     public void Panes_are_listed_in_reading_order()
     {
-        // Down the left-hand column, then down the right: the order they
-        // stand in when a narrow window has one column.
-        Assert.Equal(new[] { "bars", "fights", "actions", "line", "filters", "drill" }, SplitTree.Keys(PaneLayouts.Damage));
+        // Across the top, then down the left-hand column, then down the
+        // right: the order they stand in when a narrow window has one column.
+        Assert.Equal(new[] { "line", "fights", "bars", "actions", "filters", "drill" }, SplitTree.Keys(PaneLayouts.Damage));
         Assert.Equal(new[] { "hbars", "hactions", "hsupport", "hline", "hdrill" }, SplitTree.Keys(PaneLayouts.Healing));
         Assert.Equal(new[] { "only" }, SplitTree.Keys(Pane("only")));
     }
@@ -155,8 +154,8 @@ public class SplitTreeTests
         Assert.Equal((641.0, 265.0), SplitTree.Least(Four, Limits));
         // Healing: three down its second column.
         Assert.Equal((641.0, 398.0), SplitTree.Least(PaneLayouts.Healing, Limits));
-        // Damage: three down each column. While the drill-down has nothing
-        // picked it is a heading, and the first column is the longer.
+        // Damage: the top row's one pane over the two under it, in either
+        // column; the drill-down folded to its heading needs no less.
         Assert.Equal((641.0, 398.0), SplitTree.Least(PaneLayouts.Damage, Limits));
         Assert.Equal((641.0, 398.0), SplitTree.Least(PaneLayouts.Damage, Limits, null, new HashSet<string> { "drill" }));
     }

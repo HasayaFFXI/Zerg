@@ -409,13 +409,18 @@ public static partial class PaneLayouts
     /// kills and the line under them), Actions the 254 left. Fights is
     /// now the Battle Log, and the two tables are one pane, Filters, with a
     /// tab for each (2026-11-02): it has the room the two had.
+    /// The owner then laid the section out afresh and made that the
+    /// installed one (2026-11-02): the chart across the top, the Battle Log
+    /// beside it, a third of the body tall; under them the per-character
+    /// table over Actions in a column 73% wide, Filters over the
+    /// drill-down beside it. The two column rules stand in one line.
     /// </summary>
     public static SplitNode Damage { get; } =
-        new PaneSplit(SplitWay.Columns, 0.653,
-            new PaneSplit(SplitWay.Rows, 0.42, new PaneLeaf(Bars),
-                new PaneSplit(SplitWay.Rows, 0.38, new PaneLeaf(Fights), new PaneLeaf(Actions))),
-            new PaneSplit(SplitWay.Rows, 0.36, new PaneLeaf(Line),
-                new PaneSplit(SplitWay.Rows, 0.5, new PaneLeaf(Filters), new PaneLeaf(Drill))));
+        new PaneSplit(SplitWay.Rows, 0.337,
+            new PaneSplit(SplitWay.Columns, 0.73, new PaneLeaf(Line), new PaneLeaf(Fights)),
+            new PaneSplit(SplitWay.Columns, 0.73,
+                new PaneSplit(SplitWay.Rows, 0.388, new PaneLeaf(Bars), new PaneLeaf(Actions)),
+                new PaneSplit(SplitWay.Rows, 0.39, new PaneLeaf(Filters), new PaneLeaf(Drill))));
 
     /// <summary>
     /// Healing, as sheet 02 draws it: the tables in a column 940 wide and

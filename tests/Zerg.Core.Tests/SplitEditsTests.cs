@@ -46,6 +46,17 @@ public class SplitEditsTests
         Columns(0.653, Rows(0.474, Pane("bars"), Pane("actions")),
             Rows(0.36, Pane("line"), Rows(0.5, Rows(0.5, Pane("types"), Pane("targets")), Pane("drill"))));
 
+    /// <summary>
+    /// The Damage section as installed from Fights until the owner's own
+    /// arrangement was installed (both 2026-11-02): Fights between the two
+    /// tables of the left column, Filters under the chart. The repairs of
+    /// arrangements saved before Fights are tested against it, as they
+    /// were made.
+    /// </summary>
+    static readonly SplitNode Stacked =
+        Columns(0.653, Rows(0.42, Pane("bars"), Rows(0.38, Pane("fights"), Pane("actions"))),
+            Rows(0.36, Pane("line"), Rows(0.5, Pane("filters"), Pane("drill"))));
+
     // ------------------------------------------------------------- finding
 
     [Fact]
@@ -547,14 +558,14 @@ public class SplitEditsTests
         // The six as installed, with a share a player had set.
         var saved = SplitTree.SetRatio(Six, "", 0.6);
 
-        var tree = SplitTree.Repair(saved, PaneLayouts.Damage, PaneLayouts.Former);
+        var tree = SplitTree.Repair(saved, Stacked, PaneLayouts.Former);
 
         Assert.Equal(Rows(0.474, Pane("bars"), Rows(0.38, Pane("fights"), Pane("actions"))), SplitTree.At(tree, "0"));
         Assert.Equal(0.6, SplitTree.At(tree, "")!.Ratio);
-        Assert.Equal(SplitTree.Keys(PaneLayouts.Damage), SplitTree.Keys(tree));
+        Assert.Equal(SplitTree.Keys(Stacked), SplitTree.Keys(tree));
         // And the installed six, said outright, is the installed arrangement.
-        Assert.Same(PaneLayouts.Damage,
-                    SplitTree.Repair(SplitTree.SetRatio(Six, "0", 0.42), PaneLayouts.Damage, PaneLayouts.Former));
+        Assert.Same(Stacked,
+                    SplitTree.Repair(SplitTree.SetRatio(Six, "0", 0.42), Stacked, PaneLayouts.Former));
     }
 
     [Fact]
@@ -565,7 +576,8 @@ public class SplitEditsTests
 
         var tree = PaneLayouts.Read(layouts, "Damage");
 
-        Assert.Equal(new[] { "line", "bars", "fights", "actions", "filters", "drill" }, SplitTree.Keys(tree));
+        // The Battle Log beside the chart, as it is installed.
+        Assert.Equal(new[] { "line", "fights", "bars", "actions", "filters", "drill" }, SplitTree.Keys(tree));
         Assert.Equal(0.652, SplitTree.At(tree, "")!.Ratio);
         Assert.Equal(0.42, SplitTree.At(tree, "1")!.Ratio);
         // Written again it has all six, and reads back as it is.
@@ -591,13 +603,13 @@ public class SplitEditsTests
         // By target dragged to the left edge, By damage type left where it
         // was: Filters stands at the left edge, where By target is met first.
         var moved = SplitTree.MoveToEdge(Six, "targets", PaneSide.Left);
-        var repaired = SplitTree.Repair(moved, PaneLayouts.Damage, PaneLayouts.Former);
+        var repaired = SplitTree.Repair(moved, Stacked, PaneLayouts.Former);
         Assert.Equal("0", SplitTree.PathTo(repaired, "filters"));
-        Assert.Equal(SplitTree.Keys(PaneLayouts.Damage).Order(), SplitTree.Keys(repaired).Order());
+        Assert.Equal(SplitTree.Keys(Stacked).Order(), SplitTree.Keys(repaired).Order());
         // Without the former keys the two are panes this build has not got,
         // and Filters is put back as installed, beside the drill-down.
         Assert.Equal(Rows(0.36, Pane("line"), Rows(0.5, Pane("filters"), Pane("drill"))),
-                     SplitTree.At(SplitTree.Repair(Six, PaneLayouts.Damage), "1"));
+                     SplitTree.At(SplitTree.Repair(Six, Stacked), "1"));
     }
 
     [Fact]
