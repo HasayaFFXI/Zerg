@@ -40,6 +40,18 @@ public class SavedParseTests
     }
 
     [Fact]
+    public void Its_delays_are_what_they_were()
+    {
+        var snap = Tracker.Of(ParseFile.Import(Text())).Count(Nobody, true);
+        // Each character's figure in seconds, and how many samples it is of.
+        // Recorded in whole seconds, so every sample is a whole number of them.
+        var read = string.Join("; ", snap.Characters.Where(a => a.Delay != null).OrderBy(a => a.Name, StringComparer.Ordinal)
+            .Select(a => a.Name + " " + Format.Num(a.Delay!.Value / 1000, 3) + " (" + snap.Delays.ByActor[a.Name].Count + ")"));
+        Assert.Equal("Derezz 9.417 (290); Hasaya 7.945 (328); Hellnaw 9.361 (227); Squez 9.762 (126); Tillman 8.106 (303)",
+                     read);
+    }
+
+    [Fact]
     public void Saved_again_it_is_the_same_file()
     {
         var text = Text();

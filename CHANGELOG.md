@@ -60,6 +60,19 @@ takes its number when the version is cut.
   abilities and the pet are not in it). Its Party line is the party's
   swings together; it sorts, and goes with Accuracy in a narrow pane. The
   floating strip has it too, as CRIT% beside ACC%.
+- The Overview has a Delay column right of Crit %: the average time from
+  one round of a character's auto-attacks to their next, in seconds to the
+  millisecond (4.812). A round is one packet, so a double attack or an
+  offhand is not a round of its own. Weaponskills, job abilities, spells
+  and ranged attacks between two rounds are part of it. A sample is not
+  counted when the first round's target died before the next, the two
+  rounds were at different targets, the character died or the session was
+  paused between them, or it is far longer than that character's usual
+  (more than twice it, and once more for each action between). By target
+  gives each character their delay at that target; target headings and
+  the Party line have none. It sorts, and goes with Accuracy and Crit % in
+  a narrow pane. The floating strip has it as DELAY beside CRIT%. RULES.md,
+  "Delay", has every rule.
 - Accuracy is auto-attacks alone: ranged attacks are no longer in it, in
   Damage by character, the floating strip, By target's Acc or Compare's
   Accuracy. They have a Ranged group of their own in Damage by character,

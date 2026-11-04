@@ -17,16 +17,16 @@ public class CharacterColumnsTests
     {
         Assert.Equal(CharacterColumns.Shaded, CharacterColumns.Full(true, []));
         Assert.Equal(CharacterColumns.Unshaded, CharacterColumns.Full(false, []));
-        Assert.Equal(18, Columns.Parse(CharacterColumns.Shaded).Length);
-        Assert.Equal(18, Columns.Parse(CharacterColumns.Unshaded).Length);
+        Assert.Equal(19, Columns.Parse(CharacterColumns.Shaded).Length);
+        Assert.Equal(19, Columns.Parse(CharacterColumns.Unshaded).Length);
     }
 
     [Fact]
-    public void The_first_step_keeps_the_name_the_five_figures_and_the_weaponskill_four()
+    public void The_first_step_keeps_the_name_the_six_figures_and_the_weaponskill_four()
     {
-        Assert.Equal("134*90,70*62,68*64,64*62,58*58,62*56,58*54,68*62,52*52,54*56,58*56",
+        Assert.Equal("134*90,70*62,68*64,64*62,58*58,62*56,58*54,58*54,68*62,52*52,54*56,58*56",
                      CharacterColumns.Less(true, []));
-        Assert.Equal("94*90,70*62,68*64,104*100,58*58,62*56,58*54,68*62,52*52,54*56,58*56",
+        Assert.Equal("94*90,70*62,68*64,104*100,58*58,62*56,58*54,58*54,68*62,52*52,54*56,58*56",
                      CharacterColumns.Less(false, []));
     }
 
@@ -46,9 +46,9 @@ public class CharacterColumnsTests
     }
 
     [Fact]
-    public void Every_group_hidden_leaves_the_seven_and_deaths()
+    public void Every_group_hidden_leaves_the_eight_and_deaths()
     {
-        Assert.Equal("134*90,70*62,68*64,64*62,58*58,62*56,58*54,56*54",
+        Assert.Equal("134*90,70*62,68*64,64*62,58*58,62*56,58*54,58*54,56*54",
                      CharacterColumns.Full(true, CharacterColumns.Groups));
     }
 

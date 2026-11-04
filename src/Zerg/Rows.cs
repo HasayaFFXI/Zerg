@@ -64,6 +64,9 @@ public sealed partial class ActorRow(string key, Action<string> pick, Action<str
     [ObservableProperty] private string dps = "";
     [ObservableProperty] private string accuracy = "";
     [ObservableProperty] private string crit = "";
+    /// <summary>The average time between their rounds of auto-attacks, in
+    /// seconds (<c>Zerg.Core/Delays</c>); a dash with no sample.</summary>
+    [ObservableProperty] private string delay = "";
     [ObservableProperty] private string rangedAccuracy = "";
     [ObservableProperty] private string rangedCrit = "";
     [ObservableProperty] private string wsDamage = "";
@@ -143,6 +146,7 @@ public sealed partial class StripRow(string key) : Row(key)
     [ObservableProperty] private string share = "";
     [ObservableProperty] private string accuracy = "";
     [ObservableProperty] private string crit = "";
+    [ObservableProperty] private string delay = "";
     [ObservableProperty] private string rangedAccuracy = "";
     [ObservableProperty] private string rangedCrit = "";
     [ObservableProperty] private string deaths = "";

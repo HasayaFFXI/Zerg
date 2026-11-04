@@ -225,6 +225,7 @@ its way, with percentages to one decimal. Every figure is rounded on its value, 
 | Accuracy | own auto-attacks (`melee`: Attack, Offhand Attack) that connected / attempted |
 | Crit % | own auto-attacks that crit / those that dealt damage |
 | Ranged Acc, Ranged Crit % | the same two questions over own `ranged` rows alone |
+| Delay | the average time from one round of own auto-attacks to the next, in seconds; see "Delay" |
 | WS Damage, WS Avg, WS %, WS Acc | own `ws` rows; Avg over weaponskills that dealt damage; Acc is dealt damage / used |
 | SC Damage, SC % | the chains this character closed; a dash with the switch off |
 | Pet Damage, Pet Acc | rows with an `owner`; the pet's melee swings |
@@ -279,6 +280,64 @@ its way, with percentages to one decimal. Every figure is rounded on its value, 
 - **One known difference from the reference parser:** it leaves melee
   additional effects out of its total and Zerg counts every `addl` row, so
   with enspells up Damage reads a little above it.
+
+## Delay
+
+How long a character takes from one round of auto-attacks to the next, on
+average (`Delays`), shown in seconds to the millisecond. It is not the
+weapon's delay: whatever the character did between two rounds (a
+weaponskill, an ability, a spell, a ranged attack) is in it, animation and
+all. That is time the weapon was not swinging, and the figure is meant to
+show it.
+
+- **A round is one packet**: every `melee` row of one character with the
+  same `t`. A double or triple attack, an offhand, a kick attack and a
+  Zanshin are rows of one round. Counted as swings they would put a sample
+  of 0 between them.
+- **A sample runs from one round to the next.** The first round only
+  starts one: the file has no engage, and a sample from one would measure
+  the walk to the monster. Each round ends a sample and starts the next.
+- **Only the character's own rounds.** A pet's melee is never its owner's
+  swing, as in Accuracy.
+- **A sample is discarded**, and its second round still starts the next
+  one, when:
+  - **The first round's target died before the second**: its death line
+    falls between the two, matched by id (as fights are). That includes
+    the round that killed it, and a monster that respawned with the same
+    id. The time after a kill is spent finding the next one.
+  - **The two rounds were at different targets**: by id, or by name where
+    a row has none. A switch, a monster that got away, one somebody else
+    killed whose death line the file lacks. The same walk is in it.
+  - **The character died between them.**
+  - **Either round is outside the session, or a pause lies between
+    them.** A pause comes off the clock, but no weapon stopped for it.
+  - **It is longer than its ceiling.** The file never says when a
+    character was asleep, stunned, out of range, disengaged and engaged
+    again, or using an item, and a single such gap in twenty samples moves
+    the average by a second. A sample may be up to twice the character's
+    typical one, and once more of it for each of their own actions between
+    the two rounds (a weaponskill starts the swing over). An action is a
+    moment: an area weaponskill on three monsters is one. Typical is the
+    lower median of their samples with no action between, or of all their
+    samples where none is clean. The lower median, so that of two samples,
+    one held up, the other is typical.
+- **Paired before anything is isolated.** Rounds are paired over every row
+  the reader holds, whatever the viewer's switches, as kills are. Paired
+  after a target was isolated, a round at Kirin, a minute at the adds, and
+  a round at Kirin again would be one sample a minute long. The ceiling's
+  typical sample is the session's too, so a filter cannot change which
+  samples count.
+- **Then cut by the switches**: a sample is of the targets or the fight
+  isolated when both its rounds are (they are at one target, so it is in
+  or out whole). A dash while Melee is not among the types isolated, as
+  Accuracy is. The characters isolated take nothing away: each row is its
+  own character's figure.
+- **The Party line has none.** One average over a great katana and a
+  dagger describes nobody.
+- **The Overview's By target tab** gives each character their samples at
+  that target.
+- **It starts and ends no clock**, and an export needs nothing new: its
+  rows keep their times and ids, and its death lines go with it.
 
 ## The session clock
 

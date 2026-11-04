@@ -35,7 +35,11 @@ public static class TargetGroups
     /// alone, as its line of By target is.
     /// </summary>
     /// <param name="who">The characters isolated, or null for everyone.</param>
-    public static List<TargetGroup> Of(IReadOnlyList<CombatEvent> events, IReadOnlySet<string>? who)
+    /// <param name="delays">The session's delay samples: a character's Delay
+    /// under a target is of their samples at it, of the types isolated
+    /// (<paramref name="types"/>). None given, no Delay.</param>
+    public static List<TargetGroup> Of(IReadOnlyList<CombatEvent> events, IReadOnlySet<string>? who,
+                                       DelayTotals? delays = null, IReadOnlySet<string>? types = null)
     {
         var rows = new OrderedDictionary<string, List<CombatEvent>>(StringComparer.Ordinal);
         foreach (var e in events)
@@ -50,6 +54,11 @@ public static class TargetGroups
             var everyone = Counting.Aggregate(list);
             var theirs = who is null ? everyone
                 : Counting.Aggregate(list.Where(e => who.Contains(e.Actor)).ToList());
+            if (delays != null)
+            {
+                var at = new HashSet<string>(StringComparer.Ordinal) { name };
+                foreach (var a in everyone.Actors) a.Delay = delays.Mean(a.Name, at, types);
+            }
             groups.Add(new TargetGroup(name, theirs.Total, theirs.Party, everyone.Actors));
         }
         return groups;

@@ -2,7 +2,7 @@ namespace Zerg.Core.Layout;
 
 /// <summary>
 /// The columns of the Overview table (<c>Views/BarsCard</c>): Character,
-/// Job, then sixteen figures, and the column groups the player may hide
+/// Job, then seventeen figures, and the column groups the player may hide
 /// from its Columns menu.
 ///
 /// <para>The widths are what the design draws them at in a table 930 wide,
@@ -16,7 +16,7 @@ namespace Zerg.Core.Layout;
 /// <para>When even the leasts do not fit, the table drops columns, a group
 /// at a time (<c>Views/Shed</c>): Ranged, Skillchain, Pet and Deaths first
 /// (<see cref="Full"/> says when); then, when what is left does not fit
-/// either, Weaponskill, Accuracy and Crit % (<see cref="Less"/>), leaving
+/// either, Weaponskill, Accuracy, Crit % and Delay (<see cref="Less"/>), leaving
 /// the name, the job and the three that say who did the most. Under those
 /// the table scrolls. A group the player has hidden is left out of both,
 /// so hiding one gives the others the room before they go.</para>
@@ -25,12 +25,12 @@ public static class CharacterColumns
 {
     /// <summary>The columns while the rows are shaded.</summary>
     public const string Shaded =
-        "134*90,70*62,68*64,64*62,58*58,62*56,58*54,58*56,58*54,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54";
+        "134*90,70*62,68*64,64*62,58*58,62*56,58*54,58*54,58*56,58*54,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54";
 
     /// <summary>With "shade characters" off the share is a small bar beside
     /// the Damage % figure, which needs the room: the name gives it up.</summary>
     public const string Unshaded =
-        "94*90,70*62,68*64,104*100,58*58,62*56,58*54,58*56,58*54,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54";
+        "94*90,70*62,68*64,104*100,58*58,62*56,58*54,58*54,58*56,58*54,68*62,52*52,54*56,58*56,64*58,54*56,66*58,58*56,56*54";
 
     /// <summary>The groups the Columns menu hides, by the key settings.json keeps them under.</summary>
     public const string Ranged = "ranged", Weaponskill = "weaponskill", Skillchain = "skillchain", Pet = "pet";
@@ -39,15 +39,15 @@ public static class CharacterColumns
     public static IReadOnlyList<string> Groups { get; } = [Ranged, Weaponskill, Skillchain, Pet];
 
     /// <summary>The Deaths column, the last.</summary>
-    const int Deaths = 17;
+    const int Deaths = 18;
 
     /// <summary>The columns a group stands over; none for a key that is not a group.</summary>
     static IEnumerable<int> Of(string group) => group switch
     {
-        Ranged => [7, 8],
-        Weaponskill => [9, 10, 11, 12],
-        Skillchain => [13, 14],
-        Pet => [15, 16],
+        Ranged => [8, 9],
+        Weaponskill => [10, 11, 12, 13],
+        Skillchain => [14, 15],
+        Pet => [16, 17],
         _ => [],
     };
 

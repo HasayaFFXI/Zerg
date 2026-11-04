@@ -130,6 +130,11 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     /// is isolated; the deaths of the characters who count.</summary>
     public KillTotals Kills { get; init; } = KillTotals.None;
 
+    /// <summary>Every character's delay samples in the session, whatever
+    /// is isolated (<see cref="Zerg.Core.Delays"/>); each character's
+    /// figure is on their totals.</summary>
+    public DelayTotals Delays { get; init; } = DelayTotals.None;
+
     /// <summary>The kills of what is isolated: the fight's and those of
     /// the targets picked, every kill with neither.</summary>
     public IReadOnlyList<Fight> Killed =>
@@ -568,6 +573,14 @@ public sealed class Tracker
             Zerg.Core.Support.Filter(SupportScoped(enfeeblesKept), new FilterOptions { Characters = healWho }));
 
         var (kills, everyonesKills) = KillsNow(who, skillchains);
+
+        // Delay: each character's own, of the targets, fight and types
+        // isolated, whoever else is isolated.
+        var delays = DelaysNow();
+        foreach (var a in byCharacter.Actors) a.Delay = delays.Mean(a.Name, only, onlyTypes, fight);
+        if (who != null)
+            foreach (var a in totals.Actors) a.Delay = delays.Mean(a.Name, only, onlyTypes, fight);
+
         return new Snapshot(shown, totals, elapsed, latched)
         {
             Characters = byCharacter.Actors,
@@ -578,7 +591,8 @@ public sealed class Tracker
             Targets = Targets.Pickable(byTarget.Keys).Select(n => new TargetTotal(n, byTarget[n])).ToList(),
             AllTargets = byTarget.Values.Sum(),
             TargetFigures = Counting.ByTarget(ofTypes),
-            Grouping = () => Zerg.Core.TargetGroups.Of(typed, who),
+            Grouping = () => Zerg.Core.TargetGroups.Of(typed, who, delays, onlyTypes),
+            Delays = delays,
             IsolatedTypes = onlyTypes != null ? DamageTypes.Sorted(onlyTypes) : [],
             Types = DamageTypes.Sorted(byType.Keys).Select(k => new TargetTotal(k, byType[k])).ToList(),
             AllTypes = byType.Values.Sum(),
@@ -611,6 +625,26 @@ public sealed class Tracker
             killsKept = characters is null ? everyoneKept : Kills.Count(r, Session, characters, skillchains);
         }
         return (killsKept, everyoneKept);
+    }
+
+    // ------------------------------------------------------ delay, kept
+
+    (Scope Scope, int Rows, int Deaths, int Heals, int Support, int Enfeebles)? delaysAt;
+    DelayTotals delaysKept = DelayTotals.None;
+
+    /// <summary>The delay samples (<see cref="Delays.Count"/>), worked out
+    /// again only when something they depend on has moved: new lines, the
+    /// session or a name's kind. No switch of the viewer's moves them.</summary>
+    DelayTotals DelaysNow()
+    {
+        var r = Reader;
+        var at = (Now(true), r.Events.Count, r.Deaths.Count, r.Heals.Count, r.Support.Count, r.Enfeebles.Count);
+        if (delaysAt != at)
+        {
+            delaysAt = at;
+            delaysKept = Delays.Count(r, Session);
+        }
+        return delaysKept;
     }
 
     // ------------------------------------------------- kept between counts

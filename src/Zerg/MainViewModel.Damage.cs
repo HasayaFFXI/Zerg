@@ -330,6 +330,7 @@ public sealed partial class MainViewModel
             row.Share = Percent(a.Share);
             row.Dps = Rate(a.Total, c.Elapsed / 1000);
             Split(row, Figures(a));
+            row.Delay = Seconds(a.Delay);
             row.Deaths = Died(c.DiedOf(a.Name));
         });
 
@@ -376,6 +377,7 @@ public sealed partial class MainViewModel
             row.Share = Format.Num(a.Share * 100, 1) + "%";
             row.Accuracy = Percent(a.AutoAcc);
             row.Crit = Percent(a.AutoCrit);
+            row.Delay = Seconds(a.Delay);
             row.RangedAccuracy = Percent(a.RangedAcc);
             row.RangedCrit = Percent(a.RangedCrit);
             row.Deaths = Died(c.DiedOf(a.Name));
@@ -492,6 +494,8 @@ public sealed partial class MainViewModel
                     row.Damage = Format.Int(g.Total);
                     row.Share = all > 0 ? Percent(g.Total / all) : None;
                     Split(row, g.Party);
+                    // As on the Party line: one average over everyone's weapons describes nobody.
+                    row.Delay = None;
                     return;
                 }
                 var (isolated, dimmed, pick) = CharacterFilter.Marks(a.Name, NameOf(a.Name));
@@ -509,6 +513,7 @@ public sealed partial class MainViewModel
                 row.Damage = Format.Int(a.Total);
                 row.Share = Percent(a.Share);
                 Split(row, Figures(a));
+                row.Delay = Seconds(a.Delay);
             });
     }
 
@@ -552,6 +557,7 @@ public sealed partial class MainViewModel
         "dps" => SortKey<ActorTotals>.Of(a => c.Rate(a.Total, 1)),
         "accuracy" => SortKey<ActorTotals>.Of(a => a.AutoAcc),
         "crit" => SortKey<ActorTotals>.Of(a => a.AutoCrit),
+        "delay" => SortKey<ActorTotals>.Of(a => a.Delay),
         "rangedAccuracy" => SortKey<ActorTotals>.Of(a => a.RangedAcc),
         "rangedCrit" => SortKey<ActorTotals>.Of(a => a.RangedCrit),
         "wsDamage" => SortKey<ActorTotals>.Of(a => a.WsTotal),
@@ -585,6 +591,8 @@ public sealed partial class MainViewModel
     // weaponskills has no weaponskill accuracy, and 0% would say every one missed.
     static string Percent(double? x) => x is double v ? Format.Num(v * 100, 1) + "%" : None;
     static string Whole(double? x) => x is double v ? Format.Int(v) : None;
+    /// <summary>Milliseconds as seconds to the millisecond: 4.812.</summary>
+    static string Seconds(double? ms) => ms is double v ? Format.Num(v / 1000, 3) : None;
     /// <summary>Deaths: a dash for none, so the column's red is only where someone died.</summary>
     static string Died(int n) => n > 0 ? Format.Int(n) : None;
     /// <summary>An action's accuracy, or null with nothing

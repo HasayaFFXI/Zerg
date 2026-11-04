@@ -254,6 +254,12 @@ public sealed class ActorTotals : Bucket
     public double? ScShare { get; set; }
     public double? PetTotal { get; set; }
     public double? PetAcc { get; set; }
+    /// <summary>The average time from one round of their auto-attacks to the
+    /// next, in milliseconds (<see cref="Delays"/>); null with no sample.
+    /// Not a split column: a sample needs the round before it, so it is
+    /// given after the count, never added up row by row, and the party has
+    /// none.</summary>
+    public double? Delay { get; set; }
 
     internal void FinishSplit()
     {

@@ -43,7 +43,9 @@ bridge is one-way. Zerg shares no code with it or its calculators.
   Only one
   `Zerg.exe` runs at a time: a second start brings the running one forward and
   exits 0 silently. Never stop a process you didn't start; ask them to close
-  it. Don't publish over `dist/Zerg` unless asked.
+  it. **After every build of a change, republish `dist/Zerg`** if no
+  `Zerg.exe` is running (check the process list first); with one open, say
+  so and leave it.
 - **The registry is theirs too.** The Settings page's Parse files row writes
   `HKCU\Software\Classes\.zerg` and `Zerg.Parse`, pointing at whichever exe
   pressed it. Look first (`reg query HKCU\Software\Classes\Zerg.Parse /s`) and
@@ -142,7 +144,7 @@ older Zerg couldn't read the file), `assemblyIdentity version` in
 **Cutting a version** (git steps are the user's): change `<Version>`; in
 `CHANGELOG.md` turn "Unreleased" into `## <version> — <date>` with a new empty
 "Unreleased" above (changes are logged there when made, not at the cut);
-`dotnet test Zerg.slnx`; commit; publish over `dist/Zerg` only if asked.
+`dotnet test Zerg.slnx`; commit; republish `dist/Zerg` (no Zerg open).
 **Merging it to main releases it**: `.github/workflows/release.yml` runs when
 `Directory.Build.props` changes on main and, if no release has that version,
 tests, runs `tools/package.py` on a Windows runner, and publishes the GitHub
@@ -468,7 +470,7 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
   measured spans shown to the tenth (`Format.Elapsed`/`Stopwatch`
   `tenths:`); the Overview pane (By character / By target), the Filters
   pane (By target and By damage type as tabs), characters isolated instead
-  of left out, Crit % and the Ranged columns, the Battle Log, a new
+  of left out, Crit %, Delay (`Zerg.Core/Delay`) and the Ranged columns, the Battle Log, a new
   installed Damage layout. 1.7.0 was kills and deaths from the addon's
   death lines (`Zerg.Core/Kills`): the band's Kills / Deaths cell, Damage by
   character's Deaths column, the Fights pane (a fight isolated beside

@@ -5,7 +5,7 @@
              xmlns:v="clr-namespace:Zerg.Views"
              xmlns:layout="clr-namespace:Zerg.Core.Layout;assembly=Zerg.Core">
   <UserControl.Resources>
-    <!-- Character, Job, then sixteen figures, and when the table drops
+    <!-- Character, Job, then seventeen figures, and when the table drops
          them in a narrow pane: Zerg.Core/Layout/CharacterColumns. A group
          hidden from the Columns menu (v:ColumnGroup) is collapsed, which
          takes its columns with it, and needs no room. Worked out with the
@@ -110,7 +110,7 @@
       <Setter Property="Foreground" Value="{DynamicResource CritBrush}"/>
     </Style>
 
-    <!-- The strip: Character, then Damage, %, Acc%, Crit% and the ranged
+    <!-- The strip: Character, then Damage, %, Acc%, Crit%, Delay and the ranged
          two (R.Acc%, R.Crit%), each wide enough for its longest figure or
          its heading so one growing a digit moves nothing beside it; a figure
          ends 2 units short of its column. The name has what is left, and
@@ -119,8 +119,8 @@
          table drops columns), which is the strip the design draws 250 wide.
          With "shade characters" off the share is a small bar beside the %
          figure, which needs the room. -->
-    <sys:String x:Key="StripColumns">1*110,72,52,56,56,62,66,40</sys:String>
-    <sys:String x:Key="StripBarColumns">1*110,72,96,56,56,62,66,40</sys:String>
+    <sys:String x:Key="StripColumns">1*110,72,52,56,56,58,62,66,40</sys:String>
+    <sys:String x:Key="StripBarColumns">1*110,72,96,56,56,58,62,66,40</sys:String>
     <Style x:Key="Strip" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource StripColumns}"/>
       <Style.Triggers>
@@ -219,6 +219,7 @@
                 <TextBlock Text="{Binding Accuracy}" Style="{StaticResource Fig}"/>
               </v:LowMark>
               <TextBlock Text="{Binding Crit}" Style="{StaticResource FigShedsLate}"/>
+              <TextBlock Text="{Binding Delay}" Style="{StaticResource FigShedsLate}"/>
               <v:LowMark v:ColumnGroup.Of="ranged" Rate="{Binding RangedAccuracyRate}" Style="{StaticResource Sheds}">
                 <TextBlock Text="{Binding RangedAccuracy}" Style="{StaticResource Fig}"/>
               </v:LowMark>
@@ -275,7 +276,7 @@
 
   <!-- The Overview, By character: one table, and the bar is the row. Each
        character's row is shaded in their colour from its left edge to a
-       length that is their damage out of the leader's, with all fifteen
+       length that is their damage out of the leader's, with all seventeen
        figures on top. A pane: the column headings stand still, the rows
        scroll under them, and the Party line stands still under the rows.
        By target is the same table under each target's heading: the
@@ -406,6 +407,10 @@
             <v:Caps Text="CRIT%" Style="{StaticResource StripHead}"/>
           </Border>
           <Border Background="Transparent" Style="{StaticResource Sheds}"
+                  ToolTip="The average time from one round of auto-attacks to the next, in seconds">
+            <v:Caps Text="DELAY" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" Style="{StaticResource Sheds}"
                   ToolTip="Ranged attacks that connected, out of all attempted">
             <v:Caps Text="R.ACC%" Style="{StaticResource StripHead}"/>
           </Border>
@@ -443,6 +448,7 @@
                   </v:SmallBar>
                   <TextBlock Text="{Binding Accuracy}" Style="{StaticResource StripCellSheds}"/>
                   <TextBlock Text="{Binding Crit}" Style="{StaticResource StripCellSheds}"/>
+                  <TextBlock Text="{Binding Delay}" Style="{StaticResource StripCellSheds}"/>
                   <TextBlock Text="{Binding RangedAccuracy}" Style="{StaticResource StripCellSheds}"/>
                   <TextBlock Text="{Binding RangedCrit}" Style="{StaticResource StripCellSheds}"/>
                   <TextBlock Text="{Binding Deaths}" Style="{StaticResource StripDeaths}"/>
@@ -503,12 +509,13 @@
             <Grid Height="{StaticResource GroupedHeadHeight}">
               <!-- In the table's own columns, so each group stands over
                    its two or four at any width: nothing over the first
-                   seven (the Job column, Accuracy and Crit % each a cell
-                   of their own, to go as theirs do), then the four groups. -->
+                   eight (the Job column, Accuracy, Crit % and Delay each a
+                   cell of their own, to go as theirs do), then the four groups. -->
               <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1">
                 <Border/>
                 <Border Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
                 <Border v:Cells.Span="3"/>
+                <Border Style="{StaticResource ShedsLate}"/>
                 <Border Style="{StaticResource ShedsLate}"/>
                 <Border Style="{StaticResource ShedsLate}"/>
                 <ContentControl v:ColumnGroup.Of="ranged" v:Cells.Span="2" Style="{StaticResource GroupSheds}">
@@ -565,6 +572,10 @@
                 <v:SortHead Column="crit" Style="{StaticResource ShedsLate}">
                   <TextBlock Text="Crit %" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Auto-attacks (Attack and Offhand Attack) that landed a critical hit, out of those that dealt damage. A swing taken by shadows is not counted. Ranged attacks, weaponskills, job abilities and the pet are not included"/>
+                </v:SortHead>
+                <v:SortHead Column="delay" Style="{StaticResource ShedsLate}">
+                  <TextBlock Text="Delay" Style="{StaticResource Head}" Padding="0,0,8,0"
+                             ToolTip="The average time from one round of auto-attacks to the next, in seconds. Weaponskills, job abilities, spells and ranged attacks between two rounds are part of it. Not counted: the time after a target died or was changed, around a death or a pause, or a gap far longer than usual (asleep, stunned, out of range). The pet is not included"/>
                 </v:SortHead>
                 <v:SortHead v:ColumnGroup.Of="ranged" Column="rangedAccuracy" Style="{StaticResource Sheds}" AutomationProperties.Name="Ranged accuracy">
                   <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
@@ -645,6 +656,7 @@
                 <Border v:Cells.Span="3"/>
                 <Border Style="{StaticResource ShedsLate}"/>
                 <Border Style="{StaticResource ShedsLate}"/>
+                <Border Style="{StaticResource ShedsLate}"/>
                 <Border v:ColumnGroup.Of="ranged" v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
                 <Border v:ColumnGroup.Of="weaponskill" v:Cells.Span="4" Style="{StaticResource PartyRuleShedsLate}"/>
                 <Border v:ColumnGroup.Of="skillchain" v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
@@ -662,6 +674,9 @@
                 <TextBlock Text="{Binding Party.Dps}" Style="{StaticResource Cell}" FontWeight="SemiBold" Padding="2,0,8,0"/>
                 <TextBlock Text="{Binding Party.Accuracy}" Style="{StaticResource SubFigShedsLate}"/>
                 <TextBlock Text="{Binding Party.Crit}" Style="{StaticResource SubFigShedsLate}"/>
+                <!-- No party delay: one average over everyone's weapons describes nobody. -->
+                <TextBlock Text="&#x2014;" Style="{StaticResource SubFigShedsLate}"
+                           ToolTip="A delay is each character's own"/>
                 <TextBlock v:ColumnGroup.Of="ranged" Text="{Binding Party.RangedAccuracy}" Style="{StaticResource SubFigSheds}"/>
                 <TextBlock v:ColumnGroup.Of="ranged" Text="{Binding Party.RangedCrit}" Style="{StaticResource SubFigSheds}"/>
                 <TextBlock v:ColumnGroup.Of="weaponskill" Text="{Binding Party.WsDamage}" Style="{StaticResource SubFigShedsLate}" Padding="2,0,8,0"/>
