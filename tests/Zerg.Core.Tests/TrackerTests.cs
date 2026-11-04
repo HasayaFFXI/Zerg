@@ -1041,6 +1041,7 @@ public class TrackerTests
         Assert.Equal("—", SessionText.ClockNote(idle));
         Assert.Equal("not started", SessionText.Status(idle));
         Assert.Equal("00:00", SessionText.Stopwatch(idle, 99_000));
+        Assert.Equal(".0", SessionText.Tenths(idle, 99_000));
 
         var armed = Session.Arm(5000);
         Assert.StartsWith("Armed", SessionText.Empty(armed));
@@ -1055,11 +1056,13 @@ public class TrackerTests
         Assert.Equal("counting", SessionText.TotalNote(live, anyone: true));
         Assert.Equal("started " + Format.Clock(6000), SessionText.ClockNote(live));
         Assert.Equal("01:05", SessionText.Stopwatch(live, 71_000));
+        Assert.Equal(".7", SessionText.Tenths(live, 71_750));
 
         var held = live.Pause(9000);
         Assert.Equal("Paused — nothing is being counted", SessionText.Empty(held));
         Assert.Equal("held — nothing counting", SessionText.TotalNote(held, anyone: true));
         Assert.Equal("started " + Format.Clock(6000) + " · held", SessionText.ClockNote(held));
         Assert.Equal("00:03", SessionText.Stopwatch(held, 71_000));
+        Assert.Equal(".0", SessionText.Tenths(held, 71_000));
     }
 }

@@ -35,7 +35,12 @@ bridge is one-way. Zerg shares no code with it or its calculators.
 - **The settings file is theirs.** A check that writes
   `%LOCALAPPDATA%\VibeXI\zerg\settings.json` copies it aside first and puts it
   back. The user may change it between your runs: read it before blaming code.
-- **Their Zerg is `dist/Zerg/Zerg.exe`** (desktop shortcut). Only one
+- **Their Zerg is `dist/Zerg/Zerg.exe`** (desktop shortcut `Zerg`), so a
+  publish there is what they run. `Zerg (Debug)` opens
+  `src/Zerg/bin/Debug/net10.0-windows/Zerg.exe`: after a version change,
+  build Debug too. An installed copy (1.5.0) is in
+  `%LOCALAPPDATA%\Programs\Zerg`; running a setup exe re-points `Zerg` there.
+  Only one
   `Zerg.exe` runs at a time: a second start brings the running one forward and
   exits 0 silently. Never stop a process you didn't start; ask them to close
   it. Don't publish over `dist/Zerg` unless asked.
@@ -324,7 +329,7 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
    python tools/replay.py tools/events/Hasaya_2026.07.30.jsonl <dir>/Hasaya_2026.10.03.jsonl --extras
    # replay.py prints first row time, last row time (Unix ms), row count. Wait until 3 s
    # past the last (~27 s). Pausing earlier cuts the session short silently; a whole
-   # one with --extras reads 153,687 damage (150,952 with skillchains off) in 00:23
+   # one with --extras reads 153,687 damage (150,952 with skillchains off) in 00:23.9
    # (23.9 s). Then one line that counts nothing, so a count happens after the last row:
    printf '{"t":%s}\n' "$(date +%s%3N)" >> <dir>/Hasaya_2026.10.03.jsonl
    dotnet run --file tools/drive.cs -- click <pid> Pause
@@ -454,11 +459,15 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
 
 ## Status and what's next
 
-- **Current: 1.7.0** (2026-11-02): kills and deaths from the addon's death
-  lines (`Zerg.Core/Kills`): the band's Kills / Deaths cell, Damage by
-  character's Deaths column, the Fights pane (since renamed the Battle Log;
-  Unreleased also merges By target and By damage type into the Filters
-  pane) (a fight isolated beside
+- **Current: 2.0.0** (2026-11-04): times in milliseconds, as VibeXI 2.0.0
+  writes them (older event files and parses refused; `.zerg` format 2),
+  measured spans shown to the tenth (`Format.Elapsed`/`Stopwatch`
+  `tenths:`); the Overview pane (By character / By target), the Filters
+  pane (By target and By damage type as tabs), characters isolated instead
+  of left out, Crit % and the Ranged columns, the Battle Log, a new
+  installed Damage layout. 1.7.0 was kills and deaths from the addon's
+  death lines (`Zerg.Core/Kills`): the band's Kills / Deaths cell, Damage by
+  character's Deaths column, the Fights pane (a fight isolated beside
   targets is a union), death and kill marks on the charts and the replay
   strip, Compare's kill figures. 1.6.0 was enfeebles no longer counted as
   damage but listed in the Support pane (its Buffs and Enfeebles switch),
@@ -472,7 +481,7 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
   View tab, cropped to a range and exported as a parse; 1.1.0 compared two
   different actions side by side; 1.0.0 was the first version for
   distribution, with an installer (`Zerg-<version>-setup.exe`) beside the zip.
-  `dist/Zerg` has 1.3.0's changes but was published under 1.2.0.
+  `dist/Zerg` is 2.0.0.
 - **Packaging** works (`tools/package.py`: zip and installer). The installer is
   per user (`%LOCALAPPDATA%\Programs\Zerg`, HKCU uninstall entry), ticks the
   desktop shortcut and the `.zerg` association by default, and its finish page

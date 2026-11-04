@@ -199,7 +199,7 @@ public sealed partial class DrillView : ObservableObject
         {
             var (e, side) = events[i];
             listed.Add(Of(e, side));
-            var row = new HitRow(Format.Elapsed(e.T), e.Target.Length > 0 ? nameOf(e.Target) : MainViewModel.None,
+            var row = new HitRow(Format.Elapsed(e.T, tenths: true), e.Target.Length > 0 ? nameOf(e.Target) : MainViewModel.None,
                                  e.Dmg, Words.Crits && e.Crit, side,
                                  side >= 0 ? fills[0][side] : null, side >= 0 ? fills[1][side] : null);
             row.Measure(avgs[At(side)], furthest[At(side)]);

@@ -31,6 +31,7 @@ public sealed partial class MainViewModel
     /// <summary>With targets isolated, why the party's DPS is a dash.</summary>
     [ObservableProperty] private string? dpsTip;
     [ObservableProperty] private string clockText = "00:00";
+    [ObservableProperty] private string clockTenths = ".0";
     [ObservableProperty] private string clockNote = None;
     /// <summary>The word in the tag beside the clock, which also colours the
     /// clock: the session's state, or Saved over a parse in the View section.</summary>
@@ -142,7 +143,7 @@ public sealed partial class MainViewModel
         DeathsText = Format.Int(c.Kills.Deaths.Count);
         HasDeaths = c.Kills.Deaths.Count > 0;
         killedIn = c.IsolatedFight is { } f && c.Isolated.Count == 0
-            ? f.Length is double l ? "killed in " + Format.Elapsed(l) : None
+            ? f.Length is double l ? "killed in " + Format.Elapsed(l, tenths: true) : None
             : null;
         KillsTip = c.Scope.Count > 0
             ? "Kills of " + string.Join(", ", c.Scope.Select(n => n + c.Tag(n))) + ", and the party's deaths"

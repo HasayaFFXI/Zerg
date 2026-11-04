@@ -8,8 +8,9 @@
     <!-- Every hit: the time, the target (which takes what is left), the
          damage (what a cast healed), how far it fell from the average as a
          mark and then as a figure, and the room the list's scroll bar is
-         drawn in. -->
-    <sys:String x:Key="Columns">60,*,76,84,52,14</sys:String>
+         drawn in. The time's is wide enough for an hour and its tenths,
+         1:02:07.4, in its fixed-width digits. -->
+    <sys:String x:Key="Columns">72,*,76,84,52,14</sys:String>
     <!-- The room the six figures need side by side: in less (v:Shed, on
          the scroll viewer below) they stand in two rows of three. -->
     <sys:String x:Key="Figures">72,72,72,72,72,72</sys:String>

@@ -638,7 +638,9 @@
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <v:Caps Text="Elapsed" Style="{StaticResource BandLabel}"/>
-            <TextBlock Text="{Binding ClockText}" Style="{StaticResource BandClock}"/>
+            <!-- The tenths smaller, so the seconds stay what is read. -->
+            <TextBlock Style="{StaticResource BandClock}"><Run Text="{Binding ClockText, Mode=OneWay}"/><Run
+                Text="{Binding ClockTenths, Mode=OneWay}" FontSize="15"/></TextBlock>
             <v:StateTag Grid.Column="1" Style="{StaticResource StateTag}" State="{Binding Tag}" VerticalAlignment="Top"
                         Margin="0,24,14,0"/>
             <TextBlock Text="{Binding ClockNote}" Style="{StaticResource BandNote}"/>
@@ -718,7 +720,9 @@
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <v:Caps Text="Elapsed" Style="{StaticResource BandLabel}"/>
-            <TextBlock Text="{Binding ClockText}" Style="{StaticResource BandClock}"/>
+            <!-- The tenths smaller, so the seconds stay what is read. -->
+            <TextBlock Style="{StaticResource BandClock}"><Run Text="{Binding ClockText, Mode=OneWay}"/><Run
+                Text="{Binding ClockTenths, Mode=OneWay}" FontSize="15"/></TextBlock>
             <v:StateTag Grid.Column="1" Style="{StaticResource StateTag}" State="{Binding Tag}" VerticalAlignment="Top"
                         Margin="0,24,14,0"/>
             <TextBlock Text="{Binding ClockNote}" Style="{StaticResource BandNote}"/>

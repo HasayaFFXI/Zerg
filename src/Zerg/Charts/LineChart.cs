@@ -394,7 +394,7 @@ public sealed class LineChart : Chart
         double to = i < times.Length - 1 ? (times[i] + times[i + 1]) / 2 : double.PositiveInfinity;
         foreach (var k in m.Kills ?? [])
             if (k.At > from && k.At <= to)
-                rows.Add(new ReadoutRow(k.Named + " killed", k.Length is double len ? "in " + Format.Elapsed(len) : ""));
+                rows.Add(new ReadoutRow(k.Named + " killed", k.Length is double len ? "in " + Format.Elapsed(len, tenths: true) : ""));
         foreach (var d in m.Deaths ?? [])
             if (d.At > from && d.At <= to)
                 rows.Add(new ReadoutRow(d.Name + " died", d.Next is double next

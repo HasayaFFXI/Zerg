@@ -7,6 +7,8 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+## 2.0.0 — 2026-11-04
+
 - Damage by character is the Overview pane, with a switch in its heading
   for two tabs: By character, the table it was, and By target, the same
   table under each target's heading. A heading carries the party's
@@ -92,6 +94,18 @@ takes its number when the version is cut.
 - A file that cannot be opened as a parse, for whatever reason, is refused
   with one message: "Unable to load parse: invalid format, check VibeXI
   version." (in View and in Compare; why goes to the log).
+- Times that measure something read to the tenth of a second, cut, never
+  rounded up: the Elapsed clock over Damage and Healing, its tenths drawn
+  smaller (00:23.9), and the floating panel's clock the same way; kill
+  times in the Battle Log (with its average, fastest and slowest), By
+  target and the band's "killed in"; the drill-down's list of hits
+  (0:23.8, its time column a little wider so 1:02:07.4 fits); Compare's
+  Length, Avg kill time and kill times by target, a change in time under a
+  minute in tenths too (−47.5s); a parse's or replay's length. Times of
+  day, the Battle Log's When, the charts' axes and readouts, the tray menu
+  and the replay range stay in whole seconds. A panel's text halo is now on
+  each part of its bar rather than the whole bar, so the clock's tenths
+  redraw only the clock's.
 
 ## 1.7.0 — 2026-11-02
 

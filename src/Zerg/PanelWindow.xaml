@@ -81,10 +81,12 @@
       <Border x:Name="Bar" DockPanel.Dock="Top" Height="29" Background="Transparent"
               BorderThickness="0,0,0,1" BorderBrush="{DynamicResource LineBrush}">
         <!-- Every glyph on a panel has a dark halo, so it holds over a
-             bright sky with the backdrop turned down. Here it is one effect
-             on the bar's line: nothing under it but the tint, and nothing in
-             it changes faster than the clock's seconds. -->
-        <Grid x:Name="Line" Margin="7,0,7,0" Effect="{StaticResource PanelHalo}">
+             bright sky with the backdrop turned down. Here it is an effect
+             on each part of the bar, not one on the whole line: the clock's
+             tenths change ten times a second, and an effect is drawn again
+             over all it covers whenever anything under it is, so the clock's
+             own covers only the clock. -->
+        <Grid x:Name="Line" Margin="7,0,7,0">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition/>
@@ -102,7 +104,7 @@
                figures of the main window. -->
           <StackPanel x:Name="Lead" Orientation="Horizontal">
             <!-- Gone while clicks pass through; the clock and the total stay. -->
-            <StackPanel x:Name="Pair" Orientation="Horizontal" Margin="0,0,10,0">
+            <StackPanel x:Name="Pair" Orientation="Horizontal" Margin="0,0,10,0" Effect="{StaticResource PanelHalo}">
               <Button Style="{StaticResource BarStart}" Command="{Binding StartCommand}" Content="{Binding View.StartText}"
                       ToolTip="{Binding View.StartTip}" IsEnabled="{Binding View.StartEnabled}" Margin="0,0,4,0"
                       AutomationProperties.AutomationId="Start"/>
@@ -115,16 +117,17 @@
                  only while the pointer is over a panel too narrow for them
                  and the tools both. -->
             <StackPanel x:Name="Readouts" Orientation="Horizontal">
-              <TextBlock Text="{Binding ClockText}" Style="{StaticResource Clock}" FontSize="12.5"
-                         VerticalAlignment="Center" Background="Transparent"
-                         ToolTip="Elapsed session time"/>
+              <TextBlock Style="{StaticResource Clock}" FontSize="12.5"
+                         VerticalAlignment="Center" Background="Transparent" Effect="{StaticResource PanelHalo}"
+                         ToolTip="Elapsed session time"><Run Text="{Binding ClockText, Mode=OneWay}"/><Run
+                         Text="{Binding ClockTenths, Mode=OneWay}" FontSize="10.5"/></TextBlock>
               <!-- Free to grow: it is last, so a seventh digit pushes only
                    the title. The total of what the card is about: a heal
                    panel is given the healing total in its place
                    (PanelWindow.xaml.cs). -->
               <TextBlock x:Name="BarTotal" Text="{Binding TotalText}" Style="{StaticResource Figure}" FontSize="12.5"
                          VerticalAlignment="Center" Margin="10,0,0,0" Background="Transparent"
-                         ToolTip="Total damage this session"/>
+                         Effect="{StaticResource PanelHalo}" ToolTip="Total damage this session"/>
             </StackPanel>
           </StackPanel>
 
@@ -133,13 +136,13 @@
           <TextBlock x:Name="BarTitle" Grid.Column="1" FontSize="11" FontWeight="SemiBold" Margin="12,0,0,0"
                      HorizontalAlignment="Right" VerticalAlignment="Center"
                      TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Text3Brush}"
-                     ToolTip="Drag to move the panel. Drag an edge to resize it."/>
+                     Effect="{StaticResource PanelHalo}" ToolTip="Drag to move the panel. Drag an edge to resize it."/>
 
           <!-- Click-through: nothing on the panel can be pressed, so the bar
                shows nothing that could be. This says why, at the bar's end. -->
           <TextBlock x:Name="Locked" Grid.Column="1" Visibility="Collapsed" HorizontalAlignment="Right"
                      VerticalAlignment="Center" FontFamily="{StaticResource IconFont}" Text="&#xE72E;" FontSize="11"
-                     Margin="0,1,1,0" Foreground="{DynamicResource Text3Brush}"
+                     Margin="0,1,1,0" Foreground="{DynamicResource Text3Brush}" Effect="{StaticResource PanelHalo}"
                      AutomationProperties.Name="Click-through: clicks pass through this panel"/>
 
           <!-- The tools. Not seen and not to be pressed until the pointer
@@ -150,7 +153,7 @@
                clicks pass through. The slider gives up its length first
                when the panel is too narrow for all of them. -->
           <Grid x:Name="Tools" Grid.ColumnSpan="2" HorizontalAlignment="Right" Width="125" Margin="0,0,-1,0"
-                Opacity="0" IsHitTestVisible="False">
+                Opacity="0" IsHitTestVisible="False" Effect="{StaticResource PanelHalo}">
             <Grid.ColumnDefinitions>
               <ColumnDefinition MaxWidth="64"/>
               <ColumnDefinition Width="32"/>

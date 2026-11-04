@@ -728,6 +728,7 @@ public sealed partial class MainViewModel : ObservableObject
         // value it already had, and nothing is told or redrawn.
         Tag = View.Tag;
         ClockText = SessionText.Stopwatch(s, now);
+        ClockTenths = SessionText.Tenths(s, now);
         ClockNote = SessionText.ClockNote(s);
         bool replay = Viewing && Shown.Replayed;
         TotalNote = totalShare + SessionText.TotalNote(s, agg is { Actors.Count: > 0 }, Viewing, replay: replay);

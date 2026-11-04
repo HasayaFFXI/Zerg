@@ -430,7 +430,7 @@ public sealed partial class PickFilter : ObservableObject
             row.AccuracyRate = f?.AutoAcc;
             row.WsAvg = f?.WsAvg is double avg ? Format.Int(avg) : None;
             row.WsShare = Percent(f?.WsShare);
-            row.KillTime = row.CanPick && KillTime(t.Name) is double ms ? Format.Elapsed(ms) : None;
+            row.KillTime = row.CanPick && KillTime(t.Name) is double ms ? Format.Elapsed(ms, tenths: true) : None;
             Mark(row);
         });
         HasTable = Table.Count > 0;

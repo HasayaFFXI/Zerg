@@ -73,7 +73,7 @@ public sealed partial class ViewedParse : ObservableObject
     internal void Loaded(Replay replay)
     {
         Started = Format.Day(replay.First) + " " + Format.Clock(replay.First) + " – " + Format.Clock(replay.Last);
-        Length = Format.Stopwatch(replay.Span);
+        Length = Format.Stopwatch(replay.Span, tenths: true);
         Lines = Format.Int(replay.Lines);
         int unreadable = replay.Reader.Unreadable;
         Skipped = unreadable > 0 ? Format.Int(unreadable) + " unreadable line" + (unreadable == 1 ? "" : "s") + " skipped" : "";

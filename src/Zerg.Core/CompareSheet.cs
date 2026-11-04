@@ -42,7 +42,7 @@ public sealed record Change(string Main, string Sub, ChangeTone Tone)
     /// The change from <paramref name="a"/> to <paramref name="b"/>.
     ///
     /// <para><b>Which way it went is read off what is printed</b>: a change
-    /// that prints as nothing ("0.0%", "0.0 pt", "0s") is "±" and flat, however
+    /// that prints as nothing ("0.0%", "0.0 pt", "0.0s") is "±" and flat, however
     /// far apart the two figures were before they were rounded, so a colour
     /// never says better or worse over two figures that read the same. The
     /// plain difference under a percentage takes its sign the same way, from
@@ -66,7 +66,7 @@ public sealed record Change(string Main, string Sub, ChangeTone Tone)
                 break;
             case ChangeKind.Time:
                 text = Format.Duration(size);
-                none = Format.Round(size) == 0;
+                none = Format.Round(size, 1) == 0;
                 break;
             case ChangeKind.Count:
                 text = Format.Int(size);
@@ -242,7 +242,7 @@ public sealed class CompareSheet
     static string Whole(double? x) => x is double v ? Format.Int(v) : Dash;
     static string Rate(double? x) => x is double v ? Format.Num(v, 1) : Dash;
     static string Percent(double? x) => x is double v ? Format.Num(v * 100, 1) + "%" : Dash;
-    static string Clock(double seconds) => Format.Stopwatch(seconds * 1000);
+    static string Clock(double seconds) => Format.Stopwatch(seconds * 1000, tenths: true);
 
     /// <summary>A bar's length: its value out of the largest. A value that is
     /// there at all keeps a sliver, so a small figure still has a mark.</summary>
@@ -332,7 +332,7 @@ public sealed class CompareSheet
              KillRate(ma), KillRate(mb), v => Format.Num(v, 1), ChangeKind.Percent, 1,
              "Monsters killed over each run's own length", sub: m => Format.Int(m.Killed.Count) + " kills", ma: ma, mb: mb),
         // Fewer seconds is the good way.
-        Tile("Avg kill time", AvgKill(ma), AvgKill(mb), v => Format.Elapsed(v * 1000), ChangeKind.Time, -1,
+        Tile("Avg kill time", AvgKill(ma), AvgKill(mb), v => Format.Elapsed(v * 1000, tenths: true), ChangeKind.Time, -1,
              "From the party's first action at a monster to its death, over each run's kills"),
         Tile("Deaths", Died(ma), Died(mb), Format.Int, ChangeKind.Count, -1, "How many times one of the party died"),
     ];
@@ -348,7 +348,7 @@ public sealed class CompareSheet
         if (t.Key.Length == 0) return t;
         int a = ma.Kills.KillsOf(t.Key), b = mb.Kills.KillsOf(t.Key);
         string Time(Measurement m) =>
-            KillTotals.AverageLength(m.Kills.Fights.Where(f => f.Target == t.Key)) is double ms ? Format.Elapsed(ms) : Dash;
+            KillTotals.AverageLength(m.Kills.Fights.Where(f => f.Target == t.Key)) is double ms ? Format.Elapsed(ms, tenths: true) : Dash;
         return t with
         {
             Name = a + b > 0 ? t.Name + " (" + Format.Int(a) + Dot + Format.Int(b) + ")" : t.Name,
@@ -729,7 +729,7 @@ public sealed class CompareSheet
         int party = run.Source.Roster.Kinds.Count(k => k.Value == "player");
         return new RunSummary(
             Format.Day(started) + " " + Format.Clock(started),
-            Format.Stopwatch(sn.Elapsed(sn.PausedAt)),
+            Format.Stopwatch(sn.Elapsed(sn.PausedAt), tenths: true),
             party.ToString(CultureInfo.InvariantCulture) + " character" + (party == 1 ? "" : "s"),
             run.Skipped > 0 ? Format.Int(run.Skipped) + " unreadable record" + (run.Skipped == 1 ? "" : "s") + " skipped" : "");
     }

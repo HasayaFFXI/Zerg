@@ -188,4 +188,9 @@ public static class SessionText
     /// <summary>The clock as it is watched: fixed width, and zero before a start.</summary>
     public static string Stopwatch(Session s, double? now = null) =>
         s.StartedAt != null ? Format.Stopwatch(s.Elapsed(now)) : "00:00";
+
+    /// <summary>The clock's tenths, drawn smaller after <see cref="Stopwatch"/>
+    /// where there is room (the band, a panel's bar; not the tray).</summary>
+    public static string Tenths(Session s, double? now = null) =>
+        s.StartedAt != null ? Format.Tenths(s.Elapsed(now)) : ".0";
 }

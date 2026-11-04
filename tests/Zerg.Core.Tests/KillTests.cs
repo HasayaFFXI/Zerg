@@ -251,12 +251,12 @@ public class KillTests
         var s = CompareSheet.Of(a, b, byJob: false, skillchains: true, hideNames: false);
         var tiles = s.DamageTiles.ToDictionary(t => t.Label);
 
-        Assert.Equal(("0:20", "0:10", "−10s"), (tiles["Avg kill time"].A, tiles["Avg kill time"].B, tiles["Avg kill time"].Change.Main));
+        Assert.Equal(("0:20.0", "0:10.0", "−10.0s"), (tiles["Avg kill time"].A, tiles["Avg kill time"].B, tiles["Avg kill time"].Change.Main));
         Assert.Equal(ChangeTone.Better, tiles["Avg kill time"].Change.Tone);
         Assert.Equal(("0", "1", "+1", ChangeTone.Worse),
                      (tiles["Deaths"].A, tiles["Deaths"].B, tiles["Deaths"].Change.Main, tiles["Deaths"].Change.Tone));
         var tiger = Assert.Single(s.Targets);
-        Assert.Equal(("Tiger (1 · 2)", "0:20", "0:10"), (tiger.Name, tiger.KillTime!.A, tiger.KillTime.B));
+        Assert.Equal(("Tiger (1 · 2)", "0:20.0", "0:10.0"), (tiger.Name, tiger.KillTime!.A, tiger.KillTime.B));
     }
 
     [Fact]

@@ -59,7 +59,7 @@ public sealed partial class MainViewModel
                     r.When = Format.Elapsed(f.At);
                     r.Name = f.Target;
                     r.Code = "[" + f.Code + "]";
-                    r.KillTime = f.Length is double l ? Format.Elapsed(l) : None;
+                    r.KillTime = f.Length is double l ? Format.Elapsed(l, tenths: true) : None;
                     r.Damage = Format.Int(f.Damage);
                     r.Dps = f.Dps is double d ? Format.Num(d, 1) : None;
                     r.Fraction = RowMarks.Fraction(f.Length ?? 0, longest);
@@ -88,14 +88,14 @@ public sealed partial class MainViewModel
         FightsCount = Format.Int(n) + (n == 1 ? " kill" : " kills") + Dot +
                       Format.Int(kills.Deaths.Count) + (kills.Deaths.Count == 1 ? " death" : " deaths");
         var timed = kills.Fights.Where(f => f.Length is > 0).ToList();
-        FightsKillTime = KillTotals.AverageLength(kills.Fights) is double avg ? Format.Elapsed(avg) : None;
+        FightsKillTime = KillTotals.AverageLength(kills.Fights) is double avg ? Format.Elapsed(avg, tenths: true) : None;
         FightsDamage = n > 0 ? Format.Int(kills.Fights.Sum(f => f.Damage)) : None;
         FightsDps = timed.Count > 0
             ? Format.Num(timed.Sum(f => f.Damage) / (timed.Sum(f => f.Length!.Value) / 1000), 1)
             : None;
         FightsTip = timed.Count > 0
-            ? "Average kill time " + FightsKillTime + ", fastest " + Format.Elapsed(timed.Min(f => f.Length!.Value)) +
-              ", slowest " + Format.Elapsed(timed.Max(f => f.Length!.Value)) +
+            ? "Average kill time " + FightsKillTime + ", fastest " + Format.Elapsed(timed.Min(f => f.Length!.Value), tenths: true) +
+              ", slowest " + Format.Elapsed(timed.Max(f => f.Length!.Value), tenths: true) +
               ". DPS is the damage over the kill times added up"
             : null;
 

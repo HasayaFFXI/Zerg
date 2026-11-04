@@ -79,43 +79,64 @@ public static class Format
     /// Milliseconds since the zero → the label Zerg reads time in: <c>m:ss</c>
     /// under an hour, <c>h:mm:ss</c> over. The leading field is unpadded, so
     /// <c>3:07</c> cannot be misread as a time of day.
+    ///
+    /// <para>With <paramref name="tenths"/>, <c>3:07.4</c>: for a span that
+    /// was measured (a kill, a run), not a place on the timeline. Tenths are
+    /// cut, as the seconds are, never rounded up: a clock does not read a
+    /// second before it has passed. Finer digits are not printed: a time is
+    /// when the packet reached the PC, and past the tenth that is the
+    /// connection's, not the fight's.</para>
     /// </summary>
-    public static string Elapsed(double ms)
+    public static string Elapsed(double ms, bool tenths = false)
     {
         if (!double.IsFinite(ms)) return "—";
-        var (h, m, s) = Parts(ms);
+        var (h, m, s, d) = Parts(ms);
         var text = h > 0
             ? string.Create(Us, $"{h}:{m:00}:{s:00}")
             : string.Create(Us, $"{m}:{s:00}");
-        return ms <= -1000 ? "-" + text : text;
+        if (tenths) text += Tenth(d);
+        return ms <= (tenths ? -100 : -1000) ? "-" + text : text;
     }
 
     /// <summary>
     /// The same clock at a fixed width: <c>MM:SS</c>, and <c>H:MM:SS</c> past
     /// the hour. For a readout that is watched: a figure that changes width at
-    /// 0:59 → 1:00 shifts every digit beside it.
+    /// 0:59 → 1:00 shifts every digit beside it. <paramref name="tenths"/> as
+    /// for <see cref="Elapsed"/>.
     /// </summary>
-    public static string Stopwatch(double ms)
+    public static string Stopwatch(double ms, bool tenths = false)
     {
         if (!double.IsFinite(ms)) return "—";
-        var (h, m, s) = Parts(ms);
-        return h > 0 ? string.Create(Us, $"{h}:{m:00}:{s:00}") : string.Create(Us, $"{m:00}:{s:00}");
+        var (h, m, s, d) = Parts(ms);
+        var text = h > 0 ? string.Create(Us, $"{h}:{m:00}:{s:00}") : string.Create(Us, $"{m:00}:{s:00}");
+        return tenths ? text + Tenth(d) : text;
     }
 
-    /// <summary>Whole hours, minutes and seconds in |<paramref name="ms"/>|.</summary>
-    static (long H, long M, long S) Parts(double ms)
+    /// <summary>The tenths of a <see cref="Stopwatch"/> alone, <c>.9</c>: for
+    /// a clock that draws them apart from its seconds.</summary>
+    public static string Tenths(double ms) =>
+        double.IsFinite(ms) ? Tenth(Parts(ms).D) : "";
+
+    static string Tenth(long d) => "." + (char)('0' + d);
+
+    /// <summary>Whole hours, minutes and seconds in |<paramref name="ms"/>|,
+    /// and the whole tenths of a second past them.</summary>
+    static (long H, long M, long S, long D) Parts(double ms)
     {
-        var sec = (long)Math.Min(Math.Floor(Math.Abs(ms) / 1000), long.MaxValue / 2);
-        return (sec / 3600, sec % 3600 / 60, sec % 60);
+        var t = (long)Math.Min(Math.Floor(Math.Abs(ms) / 100), long.MaxValue / 2);
+        var sec = t / 10;
+        return (sec / 3600, sec % 3600 / 60, sec % 60, t % 10);
     }
 
-    /// <summary>Seconds → "1h 5m", "4m 07s" or "42s".</summary>
+    /// <summary>Seconds → "1h 5m", "4m 07s", or under a minute to the tenth,
+    /// "42.4s" (a difference between two times printed to the tenth).</summary>
     public static string Duration(double sec)
     {
         if (!double.IsFinite(sec)) return "—";
-        var (h, m, s) = Parts(Math.Max(0, Round(sec)) * 1000);
+        sec = Math.Max(0, sec);
+        if (Round(sec, 1) < 60) return Num(sec, 1) + "s";
+        var (h, m, s, _) = Parts(Round(sec) * 1000);
         if (h > 0) return string.Create(Us, $"{h}h {m}m");
-        if (m > 0) return string.Create(Us, $"{m}m {s:00}s");
-        return string.Create(Us, $"{s}s");
+        return string.Create(Us, $"{m}m {s:00}s");
     }
 }

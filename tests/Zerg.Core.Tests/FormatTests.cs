@@ -98,7 +98,9 @@ public class FormatTests
         Assert.Equal("00:59", Format.Stopwatch(59_999));
         Assert.Equal("01:00", Format.Stopwatch(60_000));
         Assert.Equal("1:02:03", Format.Stopwatch(3_723_000));
-        Assert.Equal("42s", Format.Duration(42.4));
+        Assert.Equal("42.4s", Format.Duration(42.4));
+        Assert.Equal("0.0s", Format.Duration(0.04));
+        Assert.Equal("1m 00s", Format.Duration(59.96));
         Assert.Equal("4m 07s", Format.Duration(247));
         Assert.Equal("1h 5m", Format.Duration(3_930));
         // Under a second either side of zero is no time, and has no sign.
@@ -106,6 +108,25 @@ public class FormatTests
         Assert.Equal("—", Format.Elapsed(double.NaN));
         Assert.Equal("—", Format.Stopwatch(double.PositiveInfinity));
         Assert.Equal("—", Format.Duration(double.NaN));
+    }
+
+    [Fact]
+    public void ClocksToTheTenth()
+    {
+        // Cut, never rounded up: 23.99 s has not reached 24.
+        Assert.Equal("0:23.9", Format.Elapsed(23_999, tenths: true));
+        Assert.Equal("3:07.4", Format.Elapsed(187_400, tenths: true));
+        Assert.Equal("1:00:00.0", Format.Elapsed(3_600_000, tenths: true));
+        Assert.Equal("00:59.9", Format.Stopwatch(59_999, tenths: true));
+        Assert.Equal("01:00.0", Format.Stopwatch(60_000, tenths: true));
+        Assert.Equal("1:02:03.5", Format.Stopwatch(3_723_500, tenths: true));
+        Assert.Equal(".9", Format.Tenths(23_917));
+        Assert.Equal(".0", Format.Tenths(24_000));
+        // A sign once there is a tenth to print, none before.
+        Assert.Equal("-0:00.5", Format.Elapsed(-500, tenths: true));
+        Assert.Equal("0:00.0", Format.Elapsed(-99, tenths: true));
+        Assert.Equal("—", Format.Elapsed(double.NaN, tenths: true));
+        Assert.Equal("", Format.Tenths(double.NaN));
     }
 
     [Fact]

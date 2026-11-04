@@ -53,7 +53,8 @@ public class CompareSheetTests
         Assert.Equal(new Change("±0.0%", "+2", ChangeTone.Flat), Change.Of(2_606_500, 2_606_502, ChangeKind.Percent, Format.Int, 1));
         Assert.Equal(new Change("±0.0 pt", "", ChangeTone.Flat), Change.Of(0.9, 0.9004, ChangeKind.Points, Format.Int, 1));
         Assert.Equal(new Change("+0.1 pt", "", ChangeTone.Better), Change.Of(0.9, 0.9006, ChangeKind.Points, Format.Int, 1));
-        Assert.Equal(new Change("±0s", "", ChangeTone.Flat), Change.Of(60, 60.4, ChangeKind.Time, Format.Int, 1));
+        Assert.Equal(new Change("±0.0s", "", ChangeTone.Flat), Change.Of(60, 60.04, ChangeKind.Time, Format.Int, 1));
+        Assert.Equal(new Change("+0.4s", "", ChangeTone.Better), Change.Of(60, 60.4, ChangeKind.Time, Format.Int, 1));
         Assert.Equal(new Change("new", "+5", ChangeTone.Better), Change.Of(0, 5, ChangeKind.Percent, Format.Int, 1));
         Assert.Equal(new Change("±0", "±0", ChangeTone.Flat), Change.Of(0, 0, ChangeKind.Percent, Format.Int, 1));
     }
@@ -104,7 +105,7 @@ public class CompareSheetTests
         Assert.Equal(("0.0", "—", "0"), (tiles[6].A, tiles[7].A, tiles[8].B));
         Assert.Equal(("300", "600", "+100.0%", "+300"), (tiles[0].A, tiles[0].B, tiles[0].Change.Main, tiles[0].Change.Sub));
         // Length is neutral: shorter is not obviously better.
-        Assert.Equal(("00:20", "00:40", "+20s", ChangeTone.Flat), (tiles[1].A, tiles[1].B, tiles[1].Change.Main, tiles[1].Change.Tone));
+        Assert.Equal(("00:20.0", "00:40.0", "+20.0s", ChangeTone.Flat), (tiles[1].A, tiles[1].B, tiles[1].Change.Main, tiles[1].Change.Tone));
         Assert.Equal(("15.0", "15.0", "±0.0%"), (tiles[2].A, tiles[2].B, tiles[2].Change.Main));
         Assert.Equal(("100.0%", "50.0%", "−50.0 pt", ChangeTone.Worse),
                      (tiles[3].A, tiles[3].B, tiles[3].Change.Main, tiles[3].Change.Tone));
@@ -527,7 +528,7 @@ public class CompareSheetTests
         var began = DateTimeOffset.FromUnixTimeMilliseconds(10_000).ToLocalTime();
 
         Assert.Equal(began.ToString("yyyy'-'MM'-'dd HH':'mm':'ss", CultureInfo.InvariantCulture), info.Started);
-        Assert.Equal("01:05", info.Length);
+        Assert.Equal("01:05.0", info.Length);
         Assert.Equal("2 characters", info.Party);
         Assert.Equal("", info.Skipped);
     }
