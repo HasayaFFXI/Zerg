@@ -94,6 +94,7 @@ public sealed partial class MainViewModel
                 var lines = EventFiles.ReadAll(path);
                 return Replay.Read(lines, file.Name, n => told.Report((n, lines.Count)), range.Stopping);
             }, range.Stopping);
+            if (replay.Reader.Opened) LogAddon(file.Name, replay.Reader);
             if (!(replay.Damage > 0))
             {
                 CloseParse(tab);

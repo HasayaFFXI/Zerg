@@ -149,7 +149,20 @@ Any other line with no `actor` is no row: it is passed over and not counted
 as unreadable. A file begins with a `kind:"meta"` line, the addon's version
 and when it loaded (`{"kind":"meta","t":1785000000000,"version":"2.0.0"}`),
 which is read that way, and its time is not a record's (`EventFiles.Times`
-passes over it). Nothing in Zerg needs one.
+passes over it).
+
+**The addon's version is the first line's** (`EventReader.Addon`), checked
+against the one Zerg expects (`AddonVersion.Expected`, its own number, not
+Zerg's). A newer addon is taken as it is. An older one, a file whose first
+line is not a readable meta line (an addon from before it, or the old
+format's seconds), a meta line with no `version`, and a version that is not
+one to three whole numbers are all behind, and while that file is on screen
+(the followed file, or a replay's tab) a strip under the command bar and the
+status line say "VibeXI addon version is behind expected version: …, data
+may be inaccurate or missing". The reason: an older addon writes less, or
+writes it differently, and its file reads as a quieter fight rather than as
+an error. Nothing is refused for it; the counting is unchanged. A saved
+parse does not record its addon, so it is never warned about.
 
 ## `use` is per swing, not per action
 

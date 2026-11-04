@@ -89,8 +89,31 @@ public sealed class EventReader
         return record is null ? null : Ingest(record);
     }
 
+    /// <summary>
+    /// The addon version the file's first line states: the meta line's
+    /// <c>version</c>, "" when that line has none, and null when the first
+    /// line was something else (an addon from before the meta line, or a line
+    /// that could not be read). Null too until the first line is read.
+    /// Kept through <see cref="Reset"/>: the file is not read again.
+    /// </summary>
+    public string? Addon { get; private set; }
+
+    /// <summary>The file's first line has been read, so <see cref="Addon"/>
+    /// is what the file says.</summary>
+    public bool Opened { get; private set; }
+
+    /// <summary>The file was written by an addon older than
+    /// <see cref="AddonVersion.Expected"/>, or one that does not say
+    /// (<see cref="AddonVersion.IsBehind"/>). False until its first line is read.</summary>
+    public bool AddonBehind => Opened && AddonVersion.IsBehind(Addon);
+
     CombatEvent? Ingest(EventRecord raw)
     {
+        if (!Opened)
+        {
+            Opened = true;
+            Addon = raw is { Malformed: false, Kind: "meta" } ? raw.Version : null;
+        }
         if (raw.Malformed)
         {
             Unreadable++;
@@ -146,7 +169,7 @@ public sealed class EventReader
 
         // Everything after this is on the clock, and a row with no time
         // cannot be put on it. A line with no actor is no row: the meta line
-        // (the addon's version and when it loaded) is passed over here.
+        // (the addon's version and when it loaded, read above) is passed over here.
         if (raw.Kind.Length == 0 || raw.Actor.Length == 0) return null;
         if (raw.T is not double t)
         {

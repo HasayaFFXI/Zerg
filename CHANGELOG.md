@@ -7,6 +7,14 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- Zerg says when the event file on screen was written by a VibeXI addon
+  older than the one it expects (2.0.0): "VibeXI addon version is behind
+  expected version: 2.0.0, data may be inaccurate or missing", in an amber
+  strip under the command bar and again on the status line, for as long as
+  that file is on screen. The version is the one the file's first line
+  states; a file that states none counts as older, a newer addon does not.
+  The followed file and a replay's tab are checked; a saved parse is not.
+
 ## 2.0.0 — 2026-11-04
 
 - Damage by character is the Overview pane, with a switch in its heading

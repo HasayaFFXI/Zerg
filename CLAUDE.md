@@ -131,8 +131,11 @@ notice (a feature, layout, counting rule, settings key, `.zerg` format),
 tools and notes move nothing. The owner sometimes overrides this; 1.0.0 is
 theirs to call.
 
-Independent numbers, not this one: `addon.version` in the addon (no longer
-written into the event file), `ParseFile.Version` (`.zerg` format, raised only when an
+Independent numbers, not this one: `addon.version` in the addon (written on
+the event file's first line, the meta line), `AddonVersion.Expected` (the
+addon Zerg is written against; an older one is warned about, `RULES.md`
+says how; raised when Zerg comes to rely on what a newer addon writes),
+`ParseFile.Version` (`.zerg` format, raised only when an
 older Zerg couldn't read the file), `assemblyIdentity version` in
 `app.manifest` (leave at 1.0.0.0).
 
@@ -156,6 +159,7 @@ LICENSE                 the license (GPL-3.0); the downloads carry it as LICENSE
 src/Zerg.Core/          net10.0, no UI: everything testable
   EventFiles, EventTail, EventRecord   find and follow the newest *.jsonl; typed, strict reading
   EventReader, Roster, Events          records → damage rows, heals, roster
+  AddonVersion                         the VibeXI version expected; is a file's behind
   Session                              the session clock (arm, latch, pause, snapped end)
   Counting, Totals, Healing            filter, credit, aggregate; the Party line
   Targets, DamageTypes                 isolating targets and damage types

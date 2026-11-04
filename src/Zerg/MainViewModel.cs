@@ -135,6 +135,16 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string statusFile = "waiting for the addon";
     [ObservableProperty] private string statusDetail = "";
 
+    /// <summary>
+    /// While the event file on screen was written by an addon older than the
+    /// one Zerg expects (<see cref="AddonVersion"/>), what the player is told:
+    /// in a strip under the command bar and on the status line, for as long
+    /// as that file is the one on screen. Empty otherwise, and neither is drawn.
+    /// The followed file, or a replay while its tab is shown; a saved parse
+    /// does not say which addon wrote it, so it is never warned about.
+    /// </summary>
+    [ObservableProperty] private string addonWarning = "";
+
     /// <summary>The right-hand end of the status line: how many cards are
     /// floating over the game, and whether clicks pass through them. Empty
     /// with none out, and then that end of the line is not drawn.</summary>
@@ -468,9 +478,11 @@ public sealed partial class MainViewModel : ObservableObject
         }
         if (u.Skipped > 0) Log.Write($"{u.Skipped} bytes with no line break in {u.File} passed over");
         int unreadable = live.Reader.Unreadable;
+        bool opened = live.Reader.Opened;
         live.Feed(u.Records);
         if (live.Reader.Unreadable > unreadable)
             Log.Write($"{live.Reader.Unreadable - unreadable} unreadable line(s) in {u.File} skipped");
+        if (!opened && live.Reader.Opened) LogAddon(u.File, live.Reader);
 
         // A saved parse on screen is not moved by what the addon writes. The
         // lines are kept for the session, which is counted on the way back:
@@ -478,6 +490,12 @@ public sealed partial class MainViewModel : ObservableObject
         if (!Viewing && (fresh || u.Records.Count > 0)) RecountSoon(fresh);
         else DescribeStatus();
     }
+
+    /// <summary>Which addon wrote a file, as its first line says, once that
+    /// line is read; and whether it is older than the one expected.</summary>
+    internal static void LogAddon(string file, EventReader reader) =>
+        Log.Write($"{file}: addon " + (reader.Addon is { Length: > 0 } v ? v : "version not stated") +
+                  (reader.AddonBehind ? ", behind " + AddonVersion.Expected : ""));
 
     /// <summary>
     /// The least time between two counts that new lines ask for. In a fight
@@ -770,6 +788,10 @@ public sealed partial class MainViewModel : ObservableObject
 
     void DescribeStatus()
     {
+        var addon = Viewing ? viewed!.IsReplay ? viewed.Tracker.Reader : null
+                  : hasFile ? live.Reader : null;
+        AddonWarning = addon is { AddonBehind: true } ? AddonVersion.Warning : "";
+
         // A saved parse is what the line is about while one is on screen,
         // whatever the event folder is doing. It was never read line by
         // line, so it has no line count.

@@ -267,6 +267,7 @@
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
@@ -593,12 +594,37 @@
       </DockPanel>
     </Border>
 
+    <!-- The addon warning, under the command bar and never scrolling: the
+         event file on screen was written by a VibeXI older than the one
+         Zerg expects (AddonWarning says when). The window's whole width, in
+         the held tag's amber (the TagHeld* pair). Said again on the status
+         line. Collapsed while there is nothing to say. -->
+    <Border Grid.Row="2" Background="{DynamicResource TagHeldFillBrush}" BorderBrush="{DynamicResource TagHeldEdgeBrush}"
+            BorderThickness="0,0,0,1" Padding="12,5,12,5"
+            AutomationProperties.Name="{Binding AddonWarning}" AutomationProperties.LiveSetting="Assertive">
+      <Border.Style>
+        <Style TargetType="Border">
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding AddonWarning}" Value="">
+              <Setter Property="Visibility" Value="Collapsed"/>
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Border.Style>
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                   Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+        <TextBlock Text="{Binding AddonWarning}" Foreground="{DynamicResource AccentBrush}" FontSize="12"
+                   VerticalAlignment="Center" TextWrapping="Wrap"/>
+      </DockPanel>
+    </Border>
+
     <!-- The View section's band, under the command bar and never
          scrolling: the parse that is open and which side of it the figures
          and panes below are showing (they are the Damage and Healing
          sections' own, drawn from the parse); or, with none open, the place
          to open one. -->
-    <v:ViewCard Grid.Row="2" Visibility="{Binding IsView, Converter={StaticResource Visible}}"/>
+    <v:ViewCard Grid.Row="3" Visibility="{Binding IsView, Converter={StaticResource Visible}}"/>
 
     <!-- The page: the band of figures, the characters' line, then the
          section, each the window's whole width.
@@ -617,7 +643,7 @@
          where those two are, and stand still over its panes or, in a
          narrow window, scroll with them. The Settings page is as tall as
          it is, and scrolls. -->
-    <v:PageView x:Name="Body" Grid.Row="3" Style="{StaticResource ZScrollViewer}" VerticalScrollBarVisibility="Auto">
+    <v:PageView x:Name="Body" Grid.Row="4" Style="{StaticResource ZScrollViewer}" VerticalScrollBarVisibility="Auto">
     <v:PageStack x:Name="Page" Fill="{Binding FillsPage}" NarrowWidth="{StaticResource NarrowWidth}"
                  v:SplitPanel.Locked="{Binding LayoutLocked}">
 
@@ -1018,7 +1044,7 @@
          end, while any card floats over the game, how many do, whether
          clicks pass through them, and the way to bring them all back; and
          last, in the window's corner, the version. -->
-    <Border Grid.Row="4" Height="{StaticResource StatusBarHeight}" Background="{DynamicResource Bg0Brush}"
+    <Border Grid.Row="5" Height="{StaticResource StatusBarHeight}" Background="{DynamicResource Bg0Brush}"
             BorderBrush="{DynamicResource Line2Brush}" BorderThickness="0,1,0,0">
       <DockPanel Margin="12,0,14,0">
         <Ellipse DockPanel.Dock="Left" Style="{StaticResource StatusDot}" VerticalAlignment="Center"/>
@@ -1060,6 +1086,20 @@
               </Style.Triggers>
             </Style>
           </TextBlock.Style>
+        </TextBlock>
+        <!-- The addon warning again, after the file it is about, in amber.
+             Collapsed while there is nothing to say. -->
+        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource AccentBrush}">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource Label}">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding AddonWarning}" Value="">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+          <Run Text="&#xE7BA;" FontFamily="{StaticResource IconFont}"/><Run Text=" "/><Run Text="{Binding AddonWarning, Mode=OneWay}"/>
         </TextBlock>
         <TextBlock Text="{Binding StatusDetail}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="10,0,0,0"
                    Typography.NumeralAlignment="Tabular" TextTrimming="CharacterEllipsis"/>

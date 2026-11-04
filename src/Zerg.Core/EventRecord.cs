@@ -71,6 +71,8 @@ public sealed class EventRecord
     public string Sub { get; private set; } = "";
     public double SubId { get; private set; }
     public double SubLevel { get; private set; }
+    /// <summary>The addon's version, on the meta line.</summary>
+    public string Version { get; private set; } = "";
 
     /// <summary>
     /// Not a record the contract allows: not JSON, not an object, or a known
@@ -138,6 +140,7 @@ public sealed class EventRecord
                 case "sub": r.Sub = Str(v, ref bad); break;
                 case "subId": r.SubId = Num(v, ref bad); break;
                 case "subLvl": r.SubLevel = Num(v, ref bad); break;
+                case "version": r.Version = Str(v, ref bad); break;
             }
         }
         if (r.T is double t && (t is < 0 or > LatestTime || InSeconds(t))) bad = true;
