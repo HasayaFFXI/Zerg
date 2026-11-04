@@ -8,14 +8,14 @@ static class Lines
 {
     static int use;
 
-    /// <summary>A damage row. <paramref name="t"/> is in seconds, as the file's is.</summary>
+    /// <summary>A damage row. <paramref name="t"/> is in seconds, written as the file's milliseconds.</summary>
     public static string Hit(double t, string actor, double dmg, string kind = "melee", string action = "Attack",
                              string actorKind = "player", string target = "Goblin", bool hit = true,
                              string? owner = null, string targetKind = "mob", bool crit = false)
     {
         var pet = owner != null ? $",\"owner\":\"{owner}\",\"pet\":\"{actor}\"" : "";
         return string.Create(CultureInfo.InvariantCulture,
-            $"{{\"t\":{t},\"seq\":1,\"use\":{++use},\"kind\":\"{kind}\",\"actor\":\"{actor}\",\"actorKind\":\"{actorKind}\"," +
+            $"{{\"t\":{t * 1000},\"seq\":1,\"use\":{++use},\"kind\":\"{kind}\",\"actor\":\"{actor}\",\"actorKind\":\"{actorKind}\"," +
             $"\"action\":\"{action}\",\"actionId\":1,\"target\":\"{target}\",\"targetKind\":\"{targetKind}\",\"dmg\":{dmg}," +
             $"\"hit\":{(hit ? "true" : "false")},\"crit\":{(crit ? "true" : "false")},\"burst\":false,\"msg\":1{pet}}}");
     }
@@ -26,7 +26,7 @@ static class Lines
     {
         var pet = owner != null ? $",\"owner\":\"{owner}\",\"pet\":\"{actor}\"" : "";
         return string.Create(CultureInfo.InvariantCulture,
-            $"{{\"kind\":\"heal\",\"t\":{t},\"seq\":1,\"use\":{use ?? ++Lines.use},\"via\":\"{(owner != null ? "pet" : "magic")}\"," +
+            $"{{\"kind\":\"heal\",\"t\":{t * 1000},\"seq\":1,\"use\":{use ?? ++Lines.use},\"via\":\"{(owner != null ? "pet" : "magic")}\"," +
             $"\"actor\":\"{actor}\",\"actorKind\":\"{(owner != null ? "pet" : "player")}\",\"action\":\"{action}\",\"actionId\":4," +
             $"\"target\":\"{target}\",\"targetKind\":\"player\",\"hp\":{hp},\"msg\":7{pet}}}");
     }
@@ -34,7 +34,7 @@ static class Lines
     public static string Job(string actor, string main, string? sub = null)
     {
         var s = sub != null ? $",\"sub\":\"{sub}\",\"subId\":1,\"subLvl\":37" : "";
-        return $"{{\"kind\":\"job\",\"t\":1,\"actor\":\"{actor}\",\"main\":\"{main}\",\"mainId\":1,\"mainLvl\":75{s}}}";
+        return $"{{\"kind\":\"job\",\"t\":1000,\"actor\":\"{actor}\",\"main\":\"{main}\",\"mainId\":1,\"mainLvl\":75{s}}}";
     }
 }
 
@@ -181,7 +181,7 @@ public class TrackerTests
         var c = t.Count(Nobody, true, 15_000);
         Assert.Empty(c.Events);
         Assert.Equal(0, c.Totals.Total);
-        Assert.Empty(c.Listed);
+        Assert.Empty(c.Characters);
         Assert.Equal(0, c.Elapsed);
         Assert.Equal(1, t.Lines);
     }
@@ -208,39 +208,48 @@ public class TrackerTests
     }
 
     [Fact]
-    public void A_swing_in_the_second_start_was_pressed_counts()
+    public void Arming_is_exact_to_the_millisecond()
     {
+        // A swing a millisecond before the press is before the session; one
+        // at the press is in it.
         var t = Following();
-        t.Start(20_900);
+        t.Start(20_001);
         t.Feed([Lines.Hit(20, "Hasaya", 100)]);
-        Assert.Equal(100, t.Count(Nobody, true, 21_000).Totals.Total);
+        Assert.Equal(0, t.Count(Nobody, true, 21_000).Totals.Total);
+        var at = Following();
+        at.Start(20_000);
+        at.Feed([Lines.Hit(20, "Hasaya", 100)]);
+        Assert.Equal(100, at.Count(Nobody, true, 21_000).Totals.Total);
     }
 
     [Fact]
-    public void An_excluded_character_does_not_start_the_clock_until_included()
+    public void Isolating_a_character_moves_no_clock()
     {
         var t = Following();
         t.Start(20_000);
         t.Feed([Lines.Hit(21, "Hasaya", 100), Lines.Hit(24, "Tank", 50)]);
-        var c = t.Count(new HashSet<string> { "Hasaya" }, true, 30_000);
-        Assert.Equal(24_000, t.Session.StartedAt);
+        // Tank isolated: the party's first swing is still the zero.
+        var c = t.Count(new HashSet<string> { "Tank" }, true, 30_000);
+        Assert.Equal(21_000, t.Session.StartedAt);
+        Assert.Equal(9_000, c.Elapsed);
         Assert.Equal(50, c.Totals.Total);
-        // The zero is set once: including them later does not move it.
-        c = t.Count(Nobody, true, 30_000);
-        Assert.Equal(24_000, t.Session.StartedAt);
-        Assert.Equal(50, c.Totals.Total);
+        Assert.Equal(50 / 9.0, c.Rate(c.Totals.Total, c.Elapsed / 1000));   // a character's rate stays
+        Assert.Equal(150, t.Count(Nobody, true, 30_000).Totals.Total);
     }
 
     [Fact]
-    public void An_excluded_character_keeps_their_chip()
+    public void An_isolated_character_is_counted_alone_and_everyone_stays_listed()
     {
         var t = Following();
         t.Start(20_000);
         t.Feed([Lines.Hit(21, "Hasaya", 100), Lines.Hit(22, "Tank", 150)]);
-        var c = t.Count(new HashSet<string> { "Tank" }, true, 30_000);
+        var c = t.Count(new HashSet<string> { "Hasaya" }, true, 30_000);
         Assert.Equal(["Hasaya"], c.Totals.Actors.Select(a => a.Name));
-        Assert.Equal(["Tank", "Hasaya"], c.Listed);
+        Assert.Equal(["Hasaya"], c.IsolatedCharacters);
         Assert.Equal(100, c.Totals.Total);
+        Assert.Equal(250, c.Whole);
+        // Each with their own figures and their share of everyone's.
+        Assert.Equal([("Tank", 150d, 0.6), ("Hasaya", 100d, 0.4)], c.Characters.Select(a => (a.Name, a.Total, a.Share)));
     }
 
     [Fact]
@@ -268,7 +277,8 @@ public class TrackerTests
         t.Feed([Lines.Hit(40, "Hasaya", 999)]);
         var held = t.Count(Nobody, true, 50_000);
         Assert.Equal(100, held.Totals.Total);
-        Assert.Equal(1_000, held.Elapsed);                     // read at the last swing, not at the press
+        Assert.Equal(0, held.Elapsed);                         // read at the last swing, not at the press
+        Assert.Null(held.Rate(held.Totals.Total, 0));          // one swing is no time, and no rate
         t.Second(60_000);                                      // resume
         t.Feed([Lines.Hit(65, "Hasaya", 50)]);
         var c = t.Count(Nobody, true, 70_000);
@@ -289,17 +299,17 @@ public class TrackerTests
         t.Count(Nobody, true, 29_000);
         t.Second(60_000);                                      // pause, 35 s after the last swing
 
-        // To the end of the second that swing landed in, a miss though it was.
+        // At that swing, a miss though it was.
         var held = t.Count(Nobody, true, 90_000);
-        Assert.Equal((60_000d, 26_000d), (t.Session.PausedAt, t.Session.EndedAt));
-        Assert.Equal(6_000, held.Elapsed);
-        Assert.Equal([("Hasaya", 50d), ("Tank", 20d)], held.Totals.Actors.Select(a => (a.Name, a.Dps)));
+        Assert.Equal((60_000d, 25_000d), (t.Session.PausedAt, t.Session.EndedAt));
+        Assert.Equal(5_000, held.Elapsed);
+        Assert.Equal([("Hasaya", 60d), ("Tank", 24d)], held.Totals.Actors.Select(a => (a.Name, a.Dps)));
         // What came after it is outside the session, the heal included.
         Assert.Equal(0, held.Healing.Total);
 
         // The end is the session's, not the viewer's: no switch moves it.
-        Assert.Equal(6_000, t.Count(new HashSet<string> { "Hasaya" }, true, 90_000).Elapsed);
-        Assert.Equal(6_000, t.Count(Nobody, false, 90_000).Elapsed);
+        Assert.Equal(5_000, t.Count(new HashSet<string> { "Hasaya" }, true, 90_000).Elapsed);
+        Assert.Equal(5_000, t.Count(Nobody, false, 90_000).Elapsed);
     }
 
     [Fact]
@@ -310,15 +320,14 @@ public class TrackerTests
         t.Feed([Lines.Hit(20, "Hasaya", 100)]);
         t.Count(Nobody, true, 21_000);
         t.Second(30_400);
-        Assert.Equal(21_000, t.Session.EndedAt);
+        Assert.Equal(20_000, t.Session.EndedAt);
 
         // Written at 30 s, and polled after the press at 30.4 s.
         t.Feed([Lines.Hit(30, "Hasaya", 50), Lines.Hit(31, "Hasaya", 999)]);
         var held = t.Count(Nobody, true, 50_000);
         Assert.Equal(150, held.Totals.Total);
-        // Its second runs past the press, and the clock never ends later than it stopped.
-        Assert.Equal(30_400, t.Session.EndedAt);
-        Assert.Equal(10_400, held.Elapsed);
+        Assert.Equal(30_000, t.Session.EndedAt);
+        Assert.Equal(10_000, held.Elapsed);
     }
 
     [Fact]
@@ -329,29 +338,33 @@ public class TrackerTests
         t.Feed([Lines.Hit(20, "Hasaya", 100), Lines.Hit(25, "Hasaya", 200)]);
         t.Count(Nobody, true, 26_000);
         t.Second(40_000);                                      // pause
-        Assert.Equal(6_000, t.Count(Nobody, true, 45_000).Elapsed);
+        Assert.Equal(5_000, t.Count(Nobody, true, 45_000).Elapsed);
         t.Second(50_000);                                      // resume: the wait is back on the clock
         Assert.Null(t.Session.EndedAt);
         Assert.Equal(30_000, t.Count(Nobody, true, 60_000).Elapsed);
         t.Second(70_000);                                      // paused again, and nobody swung
-        Assert.Equal(6_000, t.Count(Nobody, true, 99_000).Elapsed);
+        Assert.Equal(5_000, t.Count(Nobody, true, 99_000).Elapsed);
 
         // The file is one that was paused there: the later pause is inside that one.
         var parse = ParseFile.Import(t.Export(99_000)!);
-        Assert.Equal(26_000, parse.Session.PausedAt);
+        Assert.Equal(25_000, parse.Session.PausedAt);
         Assert.Empty(parse.Session.Spans);
-        Assert.Equal(6_000, Tracker.Of(parse).Count(Nobody, true).Elapsed);
+        // Paused at the last row, and that row still counted.
+        var back = Tracker.Of(parse).Count(Nobody, true);
+        Assert.Equal(5_000, back.Elapsed);
+        Assert.Equal(300, back.Totals.Total);
     }
 
     [Fact]
-    public void A_snapped_clock_never_runs_into_an_earlier_pause()
+    public void A_snapped_clock_ends_at_its_last_row_before_an_earlier_pause()
     {
-        // Paused 300 ms into the last swing's second, resumed, and paused again.
+        // Paused 300 ms after the last swing, resumed, and paused again.
         var s = Session.Arm(20_000).Start(20_000).Pause(25_300).Resume(40_000).Pause(50_000);
         Assert.Equal(15_300, s.Elapsed(99_000));
-        Assert.Equal(25_300, s.Snap(25_000).EndedAt);
-        Assert.Equal(5_300, s.Elapsed(99_000));
-        Assert.Null(s.At(25_300));
+        Assert.Equal(25_000, s.Snap(25_000).EndedAt);
+        Assert.Equal(5_000, s.Elapsed(99_000));
+        Assert.Equal(5_000, s.At(25_000));                     // the last row is in
+        Assert.Null(s.At(25_001));
 
         // Nothing to snap to, or a session that is running: read as before.
         Assert.Null(s.Snap(null).EndedAt);
@@ -678,11 +691,11 @@ public class TrackerTests
                 Lines.Hit(21, "Hasaya", 40, kind: "skillchain", action: "Skillchain: Fusion"),
                 Lines.Hit(22, "Tank", 0, hit: false)]);
         // One character alone: the party's line is that character's row.
-        var alone = t.Count(new HashSet<string> { "Tank" }, true, 30_000).Totals;
+        var alone = t.Count(new HashSet<string> { "Hasaya" }, true, 30_000).Totals;
         var row = alone.Actors[0];
         Assert.Equal(new SplitFigures(row.AutoAcc, row.AutoCrit, row.RangedAcc, row.RangedCrit, row.WsTotal, row.WsAvg, row.WsShare, row.WsAcc,
                                       row.ScTotal, row.ScShare, row.PetTotal, row.PetAcc), alone.Party);
-        Assert.Null(alone.Party.AutoAcc);                        // the excluded character's miss is not in it
+        Assert.Null(alone.Party.AutoAcc);                        // the other character's miss is not in it
 
         // Skillchains off: a dash, as in the rows.
         var off = t.Count(Nobody, false, 30_000).Totals.Party;
@@ -701,7 +714,7 @@ public class TrackerTests
         t.Feed([Lines.Hit(21, "Hasaya", 100), Lines.Heal(22, "Sylviane", 300), Lines.Heal(23, "Sylviane", 200, "Cure III")]);
         var c = t.Count(Nobody, true, 31_000);
         Assert.Equal(100, c.Totals.Total);
-        Assert.Equal(["Hasaya"], c.Listed);
+        Assert.Equal(["Hasaya"], c.Characters.Select(a => a.Name));
         Assert.Equal(500, c.Healing.Total);
         Assert.Equal(2, c.Healing.Casts);
         Assert.Equal(["Sylviane"], c.Healers.Select(a => a.Name));
@@ -728,17 +741,20 @@ public class TrackerTests
     }
 
     [Fact]
-    public void An_excluded_healer_is_left_out_and_keeps_their_chip()
+    public void An_isolated_healer_is_counted_alone_and_everyone_stays_listed()
     {
         var t = Following();
         t.Start(20_000);
         t.Feed([Lines.Hit(21, "Hasaya", 100), Lines.Heal(22, "Sylviane", 300), Lines.Heal(23, "Rhyllis", 90, "Curing Waltz")]);
-        var c = t.Count(new HashSet<string> { "Sylviane" }, true, 30_000);
+        var c = t.Count(Nobody, true, 30_000, healers: new HashSet<string> { "Rhyllis" });
         Assert.Equal(["Rhyllis"], c.Healing.Actors.Select(a => a.Name));
         Assert.Equal(90, c.Healing.Total);
+        Assert.Equal(["Rhyllis"], c.IsolatedHealers);
         Assert.Equal(["Sylviane", "Rhyllis"], c.Healers.Select(a => a.Name));
-        // One list for both sections: the damage side is untouched by a healer's exclusion.
+        // Each section has its own: the damage side is untouched by a healer isolated,
+        // and the healing side by a damage dealer.
         Assert.Equal(100, c.Totals.Total);
+        Assert.Equal(390, t.Count(new HashSet<string> { "Hasaya" }, true, 30_000).Healing.Total);
     }
 
     [Fact]
@@ -763,8 +779,8 @@ public class TrackerTests
         Assert.Equal(420, best.Max);
         Assert.Equal("Parabellum", best.Who);
         Assert.Equal("Wyvern: Healing Breath III", best.What);
-        // Excluding the owner takes the pet's heals with them.
-        c = t.Count(new HashSet<string> { "Parabellum" }, true, 30_000);
+        // Isolating someone else takes the owner's pet's heals with them.
+        c = t.Count(Nobody, true, 30_000, healers: new HashSet<string> { "Sylviane" });
         Assert.Equal(0, c.Healing.PetTotal);
         Assert.Equal(["Parabellum", "Sylviane"], c.Healers.Select(a => a.Name));
     }

@@ -59,17 +59,10 @@ public sealed class Measurement
     public OrderedDictionary<string, double> HealSpells { get; set; } = new(StringComparer.Ordinal);
     /// <summary>Party healing by who received it, pet heals included.</summary>
     public OrderedDictionary<string, double> HealTargets { get; set; } = new(StringComparer.Ordinal);
-    /// <summary>Whether the parse could have healing at all: one exported before
-    /// the addon recorded heals has none, which is not the same as healing 0.</summary>
-    public bool HasHeals { get; set; }
     /// <summary>The run's kills and the party's deaths (<see cref="Zerg.Core.Kills"/>).</summary>
     public KillTotals Kills { get; set; } = KillTotals.None;
     /// <summary>The kills of the targets isolated; every kill with none.</summary>
     public IReadOnlyList<Fight> Killed { get; set; } = [];
-    /// <summary>Whether the parse could have kills at all: one exported before
-    /// the addon wrote death lines and ids has none, which is not the same
-    /// as killing nothing.</summary>
-    public bool HasKills { get; set; }
 }
 
 /// <summary>A row present in either run; a side is null where the key was absent.</summary>
@@ -277,7 +270,7 @@ public static class Compare
             Members = members,
             Duration = secs,
             Total = agg.Total,
-            Dps = only != null ? null : secs > 0 ? agg.Total / secs : 0,
+            Dps = only != null ? null : Counting.PerSecond(agg.Total, secs),
             Isolated = only != null,
             Accuracy = party.AutoAcc,
             WsTotal = party.WsTotal,
@@ -295,10 +288,8 @@ public static class Compare
             HealRows = hl,
             HealSpells = healSpells,
             HealTargets = healTargets,
-            HasHeals = run.Source.Heals.Count > 0,
             Kills = kills,
             Killed = only != null ? kills.Fights.Where(f => only.Contains(f.Target)).ToList() : kills.Fights,
-            HasKills = run.Source.Deaths.Count > 0 || run.Source.Events.Any(e => e.TargetId != null),
         };
     }
 

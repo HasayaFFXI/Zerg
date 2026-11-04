@@ -144,8 +144,8 @@ public static class SessionText
     /// <summary>
     /// What an empty chart says. The overwhelmingly common reason a chart is
     /// empty is that nobody has pressed Start, so it says that first. While
-    /// armed it says so loudly: with every character excluded nothing can
-    /// start the clock, and that is the one way arming can look stuck.
+    /// armed it says so loudly: the clock waits for the party's first hit,
+    /// and that is the one way arming can look stuck.
     /// </summary>
     public static string Empty(Session s, bool imported = false, string what = "damage") =>
         imported ? "Nothing to show in this parse"

@@ -450,7 +450,7 @@
                               AutomationProperties.Name="Shade characters in their colour"/>
                 <TextBlock Text="on unless switched off" Style="{StaticResource Aside}" Margin="10,0,0,0"/>
               </StackPanel>
-              <TextBlock Text="A character's row in Damage by character and Healing by character, their heading in Actions and Heals, and the two runs in Compare."
+              <TextBlock Text="A character's row in Overview and Healing by character, their heading in Actions and Heals, and the two runs in Compare."
                          Style="{StaticResource Words}" Margin="0,6,12,0"/>
               <StackPanel Orientation="Horizontal" Margin="0,13,0,0">
                 <ToggleButton Content="Shade actions and heals" IsChecked="{Binding ShadeActions}"

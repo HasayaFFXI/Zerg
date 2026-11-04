@@ -237,13 +237,20 @@ DEATHS = [(1, 9, 'Rhyllis'), (2, 14, 'Xatsh')]
 class Writer:
     """Mints ids and stamps the clock the same way the addon does.
 
-    `t` is whole seconds (the addon does not link LuaSocket for a finer clock --
-    addon-dev/PLAN.md, Decision 1) and `seq` orders events inside one second, so
-    the pair is what the reader sorts on.
+    `t` is Unix MILLISECONDS, as the addon writes it from 2.0.0 on, and `seq`
+    orders the lines that share one, so the pair is what the reader sorts on.
+    The script's own clock steps in whole seconds (`advance`); each second it
+    reaches is stamped at a millisecond inside it, drawn from a stream of its
+    own (`mrand`) so the damage rolls are the same whatever the stamps are.
+    Every line written in one second shares that stamp, as every line of one
+    packet does in the addon.
     """
 
-    def __init__(self, start):
+    def __init__(self, start, mrand):
         self.t = start
+        self.mrand = mrand
+        self.ms_at = None
+        self.ms = 0
         self.use = 0
         self.seq = 0
         self.seq_at = 0
@@ -254,13 +261,25 @@ class Writer:
     def advance(self, seconds):
         self.t += seconds
 
+    def stamp(self):
+        """The current second's millisecond stamp: `t` on the wire."""
+        if self.ms_at != self.t:
+            self.ms_at = self.t
+            self.ms = self.t * 1000 + self.mrand.randrange(1000)
+        return self.ms
+
+    def meta(self, version='2.0.0'):
+        """The meta line, field-for-field `vx_emit.encode_meta`: which addon
+        wrote the file and when it loaded. The file's first line."""
+        self.raw({'kind': 'meta', 't': self.stamp(), 'version': version})
+
     def next_use(self):
         self.use += 1
         return self.use
 
     def _next_seq(self):
-        if self.t != self.seq_at:
-            self.seq_at = self.t
+        if self.stamp() != self.seq_at:
+            self.seq_at = self.stamp()
             self.seq = 0
         self.seq += 1
         return self.seq
@@ -277,7 +296,7 @@ class Writer:
         """
         e = {
             'kind': 'job',
-            't': self.t,
+            't': self.stamp(),
             'actor': actor,
             'main': main,
             'mainId': JOB_IDS[main],
@@ -298,7 +317,7 @@ class Writer:
         """
         e = {
             'kind': 'heal',
-            't': self.t,
+            't': self.stamp(),
             'seq': self._next_seq(),
             'use': use,
             'via': via,
@@ -327,7 +346,7 @@ class Writer:
         """
         e = {
             'kind': 'enfeeble',
-            't': self.t,
+            't': self.stamp(),
             'seq': self._next_seq(),
             'use': use,
             'via': via,
@@ -354,7 +373,7 @@ class Writer:
         A monster's names the party member who killed it (none with msg 20)
         and carries its id; a player's names only who died.
         """
-        e = {'kind': 'death', 't': self.t, 'seq': self._next_seq()}
+        e = {'kind': 'death', 't': self.stamp(), 'seq': self._next_seq()}
         if actor:
             e.update(actor=actor, actorKind=actor_kind)
         e.update(target=target, targetKind=target_kind)
@@ -370,7 +389,7 @@ class Writer:
         # Field order matches vx_emit.encode, so a fixture line and a real line
         # are the same bytes for the same event.
         e = {
-            't': self.t,
+            't': self.stamp(),
             'seq': self._next_seq(),
             'use': use,
             'kind': kind,
@@ -400,7 +419,9 @@ def generate(seed=SEED, start=None):
     if start is None:
         # A fixed wall-clock start, so the fixture is reproducible.
         start = int(time.mktime((2026, 7, 30, 14, 2, 0, 0, 0, -1)))
-    w = Writer(start)
+    # The stamps' own stream, for the reason the enfeebles have one.
+    w = Writer(start, random.Random(seed + 2))
+    w.meta()
 
     def roll(mean, sd, floor=1):
         return max(floor, int(round(rand.gauss(mean, sd))))
@@ -704,7 +725,8 @@ def to_export(w, owner, file_name, now_iso):
     The session is what a Start press just before the first swing and a Pause
     just after the last would have made: the zero is the first event Zerg
     would COUNT (an actor that is ours -- `Counting.Counted`), and the pause lands
-    five seconds after the last line. Only lines inside it are kept, the same
+    five seconds after the last line. Times are milliseconds, the format's
+    version 2. Only lines inside it are kept, the same
     `keep` rule Export applies.
     """
     recs = [json.loads(l) for l in w.lines]
@@ -727,15 +749,15 @@ def to_export(w, owner, file_name, now_iso):
         note(r.get('actor'), r.get('actorKind'))
         note(r.get('target'), r.get('targetKind'))
 
-    timed = [r for r in recs if r.get('kind') != 'job']
+    timed = [r for r in recs if r.get('kind') not in ('job', 'meta')]
     first = min(r['t'] for r in timed
                 if r['kind'] not in ('heal', 'enfeeble', 'death') and r.get('actorKind') in OURS)
     last = max(r['t'] for r in timed)
-    started = first * 1000
-    paused = last * 1000 + 5000
+    started = first
+    paused = last + 5000
 
     def keep(r):
-        return started <= r['t'] * 1000 < paused
+        return started <= r['t'] <= paused
 
     def job_record(r):
         out = {'kind': 'job', 'actor': r['actor'], 'main': r['main'],
@@ -746,7 +768,7 @@ def to_export(w, owner, file_name, now_iso):
 
     head = {
         'format': 'vibexi-parse',
-        'version': 1,
+        'version': 2,
         'exported': now_iso,
         'file': file_name,
         'owner': owner,

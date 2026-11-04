@@ -173,14 +173,14 @@ src/Zerg/               net10.0-windows WPF exe
                         (.Pairs: a drill-down's second action, B, set beside it;
                         .Replay: an event file read into a View tab, cropped)
   CompareViewModel      the Compare section
-  PickFilter            target / type filters and their tables
+  PickFilter            target / type / character filters and their tables
   PairPick              what one side of a pair is set to (Views/PairPicker draws it)
   ReplayRange, ReplayMenu   a replay tab's range (Views/RangeBand, Charts/RangeStrip);
                         the command bar's Replay menu
   Rows, DrillView, ViewedParse, Panels, PanelWindow, TrayMenu, EventFeed, Settings,
   AppTheme, Inks, Debouncer, Log
   Views/                one UserControl per card, plus the panels Zerg lays out with
-                        (Pane, SplitPanel, PageStack, FigureBand, ChipLine, TabStrip, ...)
+                        (Pane, SplitPanel, PageStack, FigureBand, TabStrip, ...)
   Charts/               chart elements that only paint
   Themes/               Dark.xaml, Light.xaml (tokens), Panel.xaml, Controls.xaml (every control's look)
   Native/               Win32: TaskDialog, WindowPlacement, Overlay, SingleInstance,
@@ -240,16 +240,29 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   share of the leader at the strength `RowShade` allows. Shading settings are
   set once on a card (`Views/Shading`) and inherited. Columns come from
   `Layout/Columns`; narrow tables drop columns (`Views/Shed`), then scroll.
+  The Overview's Columns menu hides whole groups (`Views/ColumnGroup`:
+  a local `Collapsed` over the shedding trigger; `Layout/CharacterColumns`
+  leaves them out of the room needed; saved in `settings.hiddenColumns`).
   A heading that sorts is a `Views/SortHead` round the heading's `TextBlock`
   (the shedding style goes on it); each table's order is a `ColumnSort`
   (saved in `settings.sorts`), rows listed through `Zerg.Core/TableOrder`'s
   `Ordering`; a press redraws from the last count, never counts.
-- **Filters.** Target and Type (`PickFilter`) cut together; each list shows
-  what the other leaves. While a target is isolated every DPS is a dash
+- **Filters.** Target, Type and Character (`PickFilter`) cut together;
+  each list shows what the others leave. Characters are isolated by
+  pressing a character's row of the Overview (`ActorRow.Pick`) or from the
+  Character menu; the Healing section has its own (`HealerFilter`, rows
+  only). Neither moves the clock. While a target is isolated every DPS is a dash
   (`MainViewModel.Rate`, which the beat goes through too). Never saved.
   `RULES.md` has the rules. In the Damage section their tables
   (`Views/TallyCard`) are the Filters pane's two tabs (`Views/FiltersCard`);
   both are drawn on every count, `FiltersBy` (saved) says which is seen.
+- **Overview.** The Damage section's per-character pane (key `bars`,
+  `Views/BarsCard`) has two tabs, `OverviewBy` (saved): By character, and
+  By target, the same table under each target's heading (`TargetRows`,
+  drawn from `Snapshot.TargetGroups`, which is worked out only when
+  asked). Both tabs use one row template (`ActorLine`); only the tab shown
+  is drawn. A heading picks the target (`TargetFilter`), its caret opens
+  it (every target starts folded; not saved). Floating, it is the characters' strip either way.
 - **Compare.** `CompareViewModel` over a `CompareSheet`; redraws only on a
   change and only while on screen. A pair the player made (A's action
   against another of B's) is a `CrossPair`, a row before its row's actions.
@@ -309,11 +322,11 @@ Under `%LOCALAPPDATA%\VibeXI\zerg\`:
    src/Zerg/bin/Debug/net10.0-windows/Zerg.exe --events-dir <dir> >/dev/null 2>&1 &
    dotnet run --file tools/drive.cs -- click <pid> Start
    python tools/replay.py tools/events/Hasaya_2026.07.30.jsonl <dir>/Hasaya_2026.10.03.jsonl --extras
-   # replay.py prints first row time, last row time (Unix s), row count. Wait until 3 s
-   # past the second (~27 s). Pausing earlier cuts the session short silently; a whole
-   # one with --extras reads 153,687 damage in 00:24. Then one line that counts nothing,
-   # so a count happens after the last row:
-   printf '{"t":%s}\n' "$(date +%s)" >> <dir>/Hasaya_2026.10.03.jsonl
+   # replay.py prints first row time, last row time (Unix ms), row count. Wait until 3 s
+   # past the last (~27 s). Pausing earlier cuts the session short silently; a whole
+   # one with --extras reads 153,687 damage (150,952 with skillchains off) in 00:23
+   # (23.9 s). Then one line that counts nothing, so a count happens after the last row:
+   printf '{"t":%s}\n' "$(date +%s%3N)" >> <dir>/Hasaya_2026.10.03.jsonl
    dotnet run --file tools/drive.cs -- click <pid> Pause
    ```
    `tools/drive.cs` commands: `front`, `fg`, `snap <png>`, `text` (all text,

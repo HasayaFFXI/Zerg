@@ -15,9 +15,8 @@ public sealed record Pulse(double Bucket, IReadOnlyList<double> Bars, IReadOnlyL
 
 /// <summary>
 /// Where the main window's bands put things, as numbers: the marks beside
-/// three of the five figures, how many figures stand in a row, and how many
-/// of the characters' chips one line holds. No drawing; <c>Zerg/Charts/Spark</c>
-/// and the panels in <c>Zerg/Views</c> paint what this decides.
+/// three of the five figures and how many figures stand in a row. No
+/// drawing; <c>Zerg/Charts/Spark</c> and the panels in <c>Zerg/Views</c> paint what this decides.
 /// </summary>
 public static class BandMarks
 {
@@ -166,35 +165,5 @@ public static class BandMarks
             x += lengths[i] + gap;
         }
         return result;
-    }
-
-    // ------------------------------------------------------------ characters
-
-    /// <summary>
-    /// How many chips, first to last, one line holds. All of them when all
-    /// fit in <paramref name="room"/>. Otherwise as many as fit with the
-    /// "+N" chip after them, which is <paramref name="more"/> wide; that may
-    /// be none.
-    /// </summary>
-    /// <param name="widths">Each chip's width, in the order they are drawn.</param>
-    /// <param name="gap">The room between two chips.</param>
-    public static int Fit(IReadOnlyList<double> widths, double gap, double room, double more)
-    {
-        // Layout rounds to whole pixels: a hair over is not "does not fit".
-        const double Slack = 0.01;
-        double all = 0;
-        for (int i = 0; i < widths.Count; i++) all += widths[i] + (i > 0 ? gap : 0);
-        if (all <= room + Slack) return widths.Count;
-
-        double x = 0;
-        int count = 0;
-        for (int i = 0; i < widths.Count; i++)
-        {
-            double end = x + (i > 0 ? gap : 0) + widths[i];
-            if (end + gap + more > room + Slack) break;
-            x = end;
-            count++;
-        }
-        return count;
     }
 }

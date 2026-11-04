@@ -77,9 +77,11 @@ public static class EventFiles
     }
 
     /// <summary>
-    /// When an event file's records begin and end, in Unix seconds, from its
-    /// first and its last few kilobytes alone: what a list of files says about
-    /// each without reading it. Null for either end with no time in reach.
+    /// When an event file's records begin and end, in Unix milliseconds, from
+    /// its first and its last few kilobytes alone: what a list of files says
+    /// about each without reading it. Null for either end with no time in
+    /// reach. The meta line's time is when the addon loaded, perhaps at
+    /// character select, and is passed over.
     /// </summary>
     public static (double? First, double? Last) Times(string path)
     {
@@ -93,7 +95,8 @@ public static class EventFiles
             var tail = new byte[(int)(fs.Length - fs.Position)];
             fs.ReadExactly(tail);
             static IEnumerable<double> Stamps(IEnumerable<string> lines) =>
-                lines.Select(EventRecord.Parse).Where(r => r is { Malformed: false, T: not null }).Select(r => r!.T!.Value);
+                lines.Select(EventRecord.Parse).Where(r => r is { Malformed: false, T: not null } && r.Kind != "meta")
+                     .Select(r => r!.T!.Value);
             var first = Stamps(Encoding.UTF8.GetString(head).Split('\n')).Cast<double?>().FirstOrDefault();
             var last = Stamps(Encoding.UTF8.GetString(tail).Split('\n').Reverse()).Cast<double?>().FirstOrDefault();
             return (first, last);

@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Zerg.Core;
+using Zerg.Core.Layout;
 
 namespace Zerg;
 
@@ -38,7 +39,6 @@ public sealed partial class MainViewModel : ObservableObject
     readonly EventFeed feed;
     /// <summary>The session being followed. Fed by every poll, whatever is on screen.</summary>
     readonly Tracker live = new();
-    readonly HashSet<string> excluded;
     /// <summary>The last count, which the clock re-divides between polls.</summary>
     Snapshot? snapshot;
     /// <summary>What the last count was of: the session, or a saved parse.</summary>
@@ -46,9 +46,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>What one parse was being looked into with: its
     /// drill-downs (a heal one for each of the Heals table's three ways) and the
-    /// targets, types and fight isolated in it.</summary>
-    sealed record Looking(DrillOn? Drill, DrillOn? HealDrill, DrillOn? PersonDrill, DrillOn? HealedDrill, string[] Targets, string[] Types,
-                          Fight? Fight);
+    /// characters, healers, targets, types and fight isolated in it.</summary>
+    sealed record Looking(DrillOn? Drill, DrillOn? HealDrill, DrillOn? PersonDrill, DrillOn? HealedDrill, string[] Characters,
+                          string[] Healers, string[] Targets, string[] Types, Fight? Fight);
 
     /// <summary>
     /// What each parse that is not on screen was left being looked into
@@ -57,8 +57,6 @@ public sealed partial class MainViewModel : ObservableObject
     /// and never saved; a parse's goes when its tab is closed.
     /// </summary>
     readonly Dictionary<Tracker, Looking> looking = new(ReferenceEqualityComparer.Instance);
-    /// <summary>The characters with a chip right now: what All and None act on.</summary>
-    List<string> listed = [];
     string? error;
     bool hasFile;
 
@@ -103,11 +101,6 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(GroupTip))]
     private bool groupSmallLines;
-
-    /// <summary>The characters' line is opened onto every chip, on as many
-    /// lines as they take; otherwise it is one line of as many as fit. The
-    /// chip after the chips flips it.</summary>
-    [ObservableProperty] private bool charactersOpen;
 
     public string SkillchainsTip => Skillchains
         ? "Skillchains counted: credited to the character whose weaponskill closed each one. Click to leave them out."
@@ -161,7 +154,19 @@ public sealed partial class MainViewModel : ObservableObject
 
     // --------------------------------------------------------------- filters
 
-    public ObservableCollection<ChipRow> Chips { get; } = [];
+    /// <summary>
+    /// Which characters the damage on screen is isolated to, and the list
+    /// they are picked from: the Character button on the command bar, and
+    /// the rows of the Overview table. Of the session, or of the
+    /// parse open in the View section, kept and emptied as the target filter
+    /// is (<see cref="Looking"/>). Not saved. It cuts no healing.
+    /// </summary>
+    public PickFilter CharacterFilter { get; }
+
+    /// <summary>Which characters the healing is isolated to: the rows of the
+    /// Healing by character table, which has no button. The Healing
+    /// section's own; it cuts no damage. Kept and emptied as the other is.</summary>
+    public PickFilter HealerFilter { get; }
 
     /// <summary>
     /// Which targets the damage on screen is isolated to, and the list they
@@ -203,9 +208,69 @@ public sealed partial class MainViewModel : ObservableObject
         settings.Save();
     }
 
+    const string OverviewByCharacters = "Characters", OverviewByTargets = "Targets";
+
+    /// <summary>Which of the Overview pane's tabs is shown: "Characters"
+    /// (By character) or "Targets" (By target, the same table under each
+    /// target). Saved. Only the tab shown is drawn; the other is drawn from
+    /// the last count when it is shown. A floating Overview is the
+    /// characters' strip whichever this is.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverviewByTarget), nameof(OverviewShown))]
+    private string overviewBy = OverviewByCharacters;
+
+    /// <summary>The By target tab is shown.</summary>
+    public bool OverviewByTarget => OverviewBy == OverviewByTargets;
+
+    /// <summary>The filter the tab shown sets by its rows' headings: what
+    /// the docked pane's note says and its Clear link clears.</summary>
+    public PickFilter OverviewShown => OverviewByTarget ? TargetFilter : CharacterFilter;
+
+    partial void OnOverviewByChanged(string value)
+    {
+        settings.OverviewBy = value;
+        settings.Save();
+        if (snapshot is { } c) DrawBars(c);
+    }
+
+    // ------------------------------------------------------------- columns
+
+    // Which of the Overview table's column groups are shown: its Columns
+    // menu ticks them. Hiding one only collapses its cells (Views/ColumnGroup):
+    // no count, no new row. Saved (settings.HiddenColumns).
+    [ObservableProperty] private bool showRanged = true;
+    [ObservableProperty] private bool showWeaponskill = true;
+    [ObservableProperty] private bool showSkillchain = true;
+    [ObservableProperty] private bool showPet = true;
+
+    /// <summary>The groups hidden, as <c>Views/ColumnGroup.Hidden</c> takes them: "ranged,pet".</summary>
+    public string HiddenColumns => string.Join(",", Hidden());
+
+    IEnumerable<string> Hidden()
+    {
+        if (!ShowRanged) yield return CharacterColumns.Ranged;
+        if (!ShowWeaponskill) yield return CharacterColumns.Weaponskill;
+        if (!ShowSkillchain) yield return CharacterColumns.Skillchain;
+        if (!ShowPet) yield return CharacterColumns.Pet;
+    }
+
+    partial void OnShowRangedChanged(bool value) => ColumnsChanged();
+    partial void OnShowWeaponskillChanged(bool value) => ColumnsChanged();
+    partial void OnShowSkillchainChanged(bool value) => ColumnsChanged();
+    partial void OnShowPetChanged(bool value) => ColumnsChanged();
+
+    void ColumnsChanged()
+    {
+        OnPropertyChanged(nameof(HiddenColumns));
+        settings.HiddenColumns = [.. Hidden()];
+        Log.Write($"settings: hidden columns [{HiddenColumns}]");
+        settings.Save();
+    }
+
     // ------------------------------------------------------------- sorting
 
-    /// <summary>The order of the Damage by character table, and of its strip.</summary>
+    /// <summary>The order of the Overview pane's table and of its strip: of
+    /// the characters, or of the targets and the characters under each.</summary>
     public ColumnSort BarsSort { get; }
     /// <summary>The order of each character's actions in the Actions table.
     /// The headings stay in the table's own order: largest first.</summary>
@@ -238,15 +303,13 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The Compare section: two saved parses side by side.</summary>
     public CompareViewModel Compare { get; }
 
-    [ObservableProperty] private string charactersLabel = "Characters";
-    [ObservableProperty] private string charactersHint = "";
-
     public MainViewModel(Settings settings, EventFeed feed)
     {
         this.settings = settings;
         this.feed = feed;
         MakeSavers();
-        excluded = new HashSet<string>(settings.Excluded, StringComparer.Ordinal);
+        CharacterFilter = PickFilter.OfCharacters(NameOf);
+        HealerFilter = PickFilter.OfHealers(NameOf);
         Panels = new PanelSet(settings);
         DamageDrill = new DrillView(DrillWords.Damage, Panels["actions"], CloseDrillCommand, SwapDrillCommand,
                                     MakeDamagePick(), new ColumnSort("hits", settings));
@@ -275,7 +338,11 @@ public sealed partial class MainViewModel : ObservableObject
         healsBy = settings.HealsBy is HealsByCaster or HealsByTarget ? settings.HealsBy : HealsBySpell;
         supportBy = settings.SupportBy == SupportByEnfeebles ? SupportByEnfeebles : SupportByBuffs;
         filtersBy = settings.FiltersBy == FiltersByTypes ? FiltersByTypes : FiltersByTargets;
-        charactersOpen = settings.CharactersOpen;
+        overviewBy = settings.OverviewBy == OverviewByTargets ? OverviewByTargets : OverviewByCharacters;
+        showRanged = !settings.HiddenColumns.Contains(CharacterColumns.Ranged);
+        showWeaponskill = !settings.HiddenColumns.Contains(CharacterColumns.Weaponskill);
+        showSkillchain = !settings.HiddenColumns.Contains(CharacterColumns.Skillchain);
+        showPet = !settings.HiddenColumns.Contains(CharacterColumns.Pet);
         shadeCharacters = settings.ShadeCharacters;
         shadeActions = settings.ShadeActions;
         lowAccuracy = LowMark.Clamp(settings.LowAccuracy);
@@ -290,6 +357,16 @@ public sealed partial class MainViewModel : ObservableObject
         Compare = new CompareViewModel(settings, this) { Active = IsCompare };
         ReadLayouts();
 
+        CharacterFilter.Changed += () =>
+        {
+            Log.Write("characters " + (CharacterFilter.IsOn ? string.Join(", ", CharacterFilter.Picked) : "all"));
+            Recount();
+        };
+        HealerFilter.Changed += () =>
+        {
+            Log.Write("healers " + (HealerFilter.IsOn ? string.Join(", ", HealerFilter.Picked) : "all"));
+            Recount();
+        };
         TargetFilter.Changed += () =>
         {
             Log.Write("targets " + (TargetFilter.IsOn ? TargetFilter.Names : "all"));
@@ -374,7 +451,10 @@ public sealed partial class MainViewModel : ObservableObject
             if (!Viewing)
             {
                 drill = healDrill = personDrill = healedDrill = null;
-                // The targets were the old file's, and what was isolated with them.
+                // The targets were the old file's, and what was isolated with
+                // them; so were its characters.
+                CharacterFilter.Reset();
+                HealerFilter.Reset();
                 TargetFilter.Reset();
                 TypeFilter.Reset();
                 fight = null;
@@ -478,7 +558,9 @@ public sealed partial class MainViewModel : ObservableObject
         // The next pull has targets of its own, and none yet: a filter kept
         // from this one would count nothing, with nothing listed to untick.
         // The types go with them: one pull's question, not the next one's,
-        // and so does a fight.
+        // and so do a fight and the characters isolated.
+        CharacterFilter.Reset();
+        HealerFilter.Reset();
         TargetFilter.Reset();
         TypeFilter.Reset();
         fight = null;
@@ -557,50 +639,6 @@ public sealed partial class MainViewModel : ObservableObject
         Recount();
     }
 
-    /// <summary>How the chips are laid out filters nothing, so nothing is recounted.</summary>
-    partial void OnCharactersOpenChanged(bool value)
-    {
-        settings.CharactersOpen = value;
-        settings.Save();
-    }
-
-    void SetIncluded(string name, bool included)
-    {
-        // Already so: the chip was only being brought up to date with a count.
-        if (excluded.Contains(name) != included) return;
-        if (included) excluded.Remove(name);
-        else excluded.Add(name);
-        ExclusionsChanged();
-    }
-
-    /// <summary>All and None act on the characters listed now, not on every
-    /// name ever excluded.</summary>
-    [RelayCommand]
-    void IncludeAll()
-    {
-        foreach (var n in listed) excluded.Remove(n);
-        ExclusionsChanged();
-    }
-
-    [RelayCommand]
-    void IncludeNone()
-    {
-        foreach (var n in listed) excluded.Add(n);
-        // A drill-down with nobody left in it closes rather than sitting
-        // there empty. The heal one only when it was the healers who were
-        // listed: from the Damage section its healer may not be among them.
-        drill = null;
-        if (IsHealing) healDrill = personDrill = healedDrill = null;
-        ExclusionsChanged();
-    }
-
-    void ExclusionsChanged()
-    {
-        settings.Excluded = [.. excluded.Order(StringComparer.Ordinal)];
-        settings.Save();
-        Recount();
-    }
-
     // ---------------------------------------------------------- the two beats
 
     /// <summary>Counts the session as it stands and redraws every card from it.</summary>
@@ -618,25 +656,30 @@ public sealed partial class MainViewModel : ObservableObject
         if (!ReferenceEquals(drawn, Shown))
         {
             if (drawn != null)
-                looking[drawn] = new(drill, healDrill, personDrill, healedDrill, [.. TargetFilter.Picked], [.. TypeFilter.Picked], fight);
+                looking[drawn] = new(drill, healDrill, personDrill, healedDrill, [.. CharacterFilter.Picked],
+                                     [.. HealerFilter.Picked], [.. TargetFilter.Picked], [.. TypeFilter.Picked], fight);
             drawn = Shown;
             looking.Remove(drawn, out var back);
             (drill, healDrill, personDrill, healedDrill) = (back?.Drill, back?.HealDrill, back?.PersonDrill, back?.HealedDrill);
+            CharacterFilter.Set(back?.Characters ?? []);
+            HealerFilter.Set(back?.Healers ?? []);
             TargetFilter.Set(back?.Targets ?? []);
             TypeFilter.Set(back?.Types ?? []);
             fight = back?.Fight;
         }
-        var c = snapshot = Shown.Count(excluded, Skillchains, now, TargetFilter.Only, TypeFilter.Only, fight);
+        var c = snapshot = Shown.Count(CharacterFilter.Only, Skillchains, now, TargetFilter.Only, TypeFilter.Only, fight,
+                                       HealerFilter.Only);
         if (c.Latched) LogSession("started");
         // A drill-down into an action never used on what is isolated closes,
-        // as it does when its character is left out; one set beside it goes.
-        if (c.Scope.Count > 0 || c.IsolatedTypes.Count > 0)
+        // as it does when its character is not among those isolated; one set
+        // beside it goes.
+        if (c.Scope.Count > 0 || c.IsolatedTypes.Count > 0 || c.IsolatedCharacters.Count > 0)
             drill = Still(drill, (actor, action) => c.Totals.Actors.Any(a => a.Name == actor && a.Actions.ContainsKey(action)));
         View = SessionView.Of(Shown.Session, Viewing, live.Asking, replay: Viewing && Shown.Replayed);
         DescribeParse();
         Compare.SessionChanged(live.Session.StartedAt != null);
 
-        DrawChips(c);
+        DrawCharacters(c);
         DrawTargets(c);
         DrawFights(c);
         DrawTiles(c);
@@ -689,7 +732,7 @@ public sealed partial class MainViewModel : ObservableObject
         bool replay = Viewing && Shown.Replayed;
         TotalNote = totalShare + SessionText.TotalNote(s, agg is { Actors.Count: > 0 }, Viewing, replay: replay);
         var heals = snapshot?.Healing;
-        HealTotalNote = SessionText.TotalNote(s, heals is { Actors.Count: > 0 }, Viewing, what: "healing", replay: replay);
+        HealTotalNote = healTotalShare + SessionText.TotalNote(s, heals is { Actors.Count: > 0 }, Viewing, what: "healing", replay: replay);
         // In both sections' bands, so on either beat.
         if (damage || healing) KillsNote = KillRate(secs);
 
@@ -708,8 +751,8 @@ public sealed partial class MainViewModel : ObservableObject
         if (healing)
         {
             // Healing per second is over the same clock as the damage's.
-            HpsText = Format.Num(heals != null && secs > 0 ? heals.Total / secs : 0, 1);
-            foreach (var row in Healers) row.Hps = Format.Num(secs > 0 ? row.Total / secs : 0, 1);
+            HpsText = Format.Num(Counting.PerSecond(heals?.Total ?? 0, secs) ?? double.NaN, 1);
+            foreach (var row in Healers) row.Hps = Format.Num(Counting.PerSecond(row.Total, secs) ?? double.NaN, 1);
             HealParty.Hps = HpsText;
         }
 
@@ -863,7 +906,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>
     /// The name as drawn. Every place that puts a character in front of the
     /// user goes through here, and nothing else does: a name stays real
-    /// wherever it is a key (the exclusions, the drill-down, a colour, the
+    /// wherever it is a key (the filters, the drill-down, a colour, the
     /// count itself). If a total ever moves when names are hidden, something
     /// has started keying on a drawn name.
     /// </summary>
@@ -875,40 +918,4 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>The job that rides beside a name, or "" when the name is the job.</summary>
     string JobBadge(string name) => Aliased(name) ? "" : Roster.JobLabel(name);
-
-    // ----------------------------------------------------------------- chips
-
-    /// <summary>
-    /// Whoever the section on screen is about: the characters who dealt
-    /// damage, or the ones who healed. One list of exclusions serves both,
-    /// by name, so someone switched off in one section is off in the other.
-    /// </summary>
-    void DrawChips(Snapshot c)
-    {
-        listed = IsHealing ? c.Healers.Select(a => a.Name).ToList() : c.Listed.ToList();
-        Rows.Sync(Chips, listed, n => n, n => new ChipRow(n) { Flipped = SetIncluded }, (row, n) =>
-        {
-            bool included = !excluded.Contains(n);
-            var full = Roster.JobTitle(n);
-            row.Name = NameOf(n);
-            row.Swatch = SwatchOf(n);
-            row.Included = included;
-            row.Tip = (included ? "Exclude " : "Include ") + NameOf(n) + (full.Length > 0 ? Dot + full : "");
-        });
-
-        if (listed.Count == 0)
-        {
-            CharactersLabel = "Characters";
-            CharactersHint = "";
-            return;
-        }
-        // Read while a chip is not on the line (more characters than fit on
-        // it), so an exclusion is never invisible. A long list stops naming
-        // names; the count is what matters.
-        var off = listed.Where(excluded.Contains).ToList();
-        CharactersLabel = $"Characters {listed.Count - off.Count}/{listed.Count}";
-        CharactersHint = off.Count == 0 ? "all included"
-            : off.Count > 4 ? off.Count + " excluded"
-            : off.Count + " excluded: " + string.Join(", ", off.Select(NameOf));
-    }
 }

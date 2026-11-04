@@ -21,12 +21,23 @@ public class EventFilesTests
     public void Times_are_read_off_the_first_and_last_records_with_a_time()
     {
         using var t = new TempDir();
-        var path = t.Write("A.jsonl", "{\"kind\":\"job\",\"t\":100,\"actor\":\"A\"}\n" + "not json\n" +
+        // The meta line's time is when the addon loaded, not a record's.
+        var path = t.Write("A.jsonl", "{\"kind\":\"meta\",\"t\":40,\"version\":\"2.0.0\"}\n" +
+                                      "{\"kind\":\"job\",\"t\":100,\"actor\":\"A\"}\n" + "not json\n" +
                                       "{\"t\":105,\"kind\":\"melee\",\"actor\":\"A\"}\n" +
                                       "{\"t\":230,\"kind\":\"melee\",\"actor\":\"A\"}\n" + "{\"t\":231,\"ki");
         Assert.Equal((100d, 230d), EventFiles.Times(path));
         Assert.Equal((null, null), EventFiles.Times(t.Write("B.jsonl", "")));
         Assert.Equal((null, null), EventFiles.Times(Path.Combine(t.Dir, "gone.jsonl")));
+    }
+
+    [Fact]
+    public void A_file_in_the_old_formats_seconds_has_no_times()
+    {
+        using var t = new TempDir();
+        var path = t.Write("A.jsonl", "{\"t\":1785000004,\"kind\":\"melee\",\"actor\":\"A\"}\n" +
+                                      "{\"t\":1785000009,\"kind\":\"melee\",\"actor\":\"A\"}\n");
+        Assert.Equal((null, null), EventFiles.Times(path));
     }
 
     [Fact]

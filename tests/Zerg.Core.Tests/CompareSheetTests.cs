@@ -100,9 +100,8 @@ public class CompareSheetTests
         Assert.Equal(["Total damage", "Length", "Party DPS", "Accuracy", "WS damage", "Skillchain damage",
                       "Kills per hour", "Avg kill time", "Deaths"],
                      tiles.Select(t => t.Label));
-        // Rows with no ids and no death lines: a parse from before kills
-        // were written, so dashes, not zeroes.
-        Assert.Equal(("—", "—", "—"), (tiles[6].A, tiles[7].A, tiles[8].B));
+        // Nothing killed: none an hour, no average kill time, no deaths.
+        Assert.Equal(("0.0", "—", "0"), (tiles[6].A, tiles[7].A, tiles[8].B));
         Assert.Equal(("300", "600", "+100.0%", "+300"), (tiles[0].A, tiles[0].B, tiles[0].Change.Main, tiles[0].Change.Sub));
         // Length is neutral: shorter is not obviously better.
         Assert.Equal(("00:20", "00:40", "+20s", ChangeTone.Flat), (tiles[1].A, tiles[1].B, tiles[1].Change.Main, tiles[1].Change.Tone));
@@ -117,36 +116,28 @@ public class CompareSheetTests
     }
 
     [Fact]
-    public void A_parse_with_no_heal_lines_reads_as_dashes_not_zeroes()
+    public void A_run_nobody_healed_in_healed_nothing()
     {
+        // Every addon writes heal lines: a run without one is a run nobody
+        // healed in, and reads 0, not a dash.
         var a = Run(30, Lines.Hit(10, "Hasaya", 100));
         var b = Run(30, Lines.Hit(10, "Hasaya", 100), Lines.Heal(12, "Mage", 300, use: 900), Lines.Heal(14, "Mage", 100, use: 901));
         var s = Sheet(a, b);
 
-        Assert.False(s.A.HasHeals);
-        Assert.Equal(("—", "400", "—"), (s.HealTiles[0].A, s.HealTiles[0].B, s.HealTiles[0].Change.Main));
-        Assert.Equal(("—", "20.0"), (s.HealTiles[2].A, s.HealTiles[2].B));
-        Assert.Equal(("—", "2"), (s.HealTiles[3].A, s.HealTiles[3].B));
-        Assert.Equal(("—", "200"), (s.HealTiles[4].A, s.HealTiles[4].B));
-        Assert.Equal(("—", "300"), (s.HealTiles[5].A, s.HealTiles[5].B));
-
-        Assert.Equal("Parse A has no healing lines — healing is recorded by the VibeXI addon 0.3.0 and later, " +
-                     "so its side reads as a dash.", s.HealNote);
+        Assert.Equal(("0", "400", "new"), (s.HealTiles[0].A, s.HealTiles[0].B, s.HealTiles[0].Change.Main));
+        Assert.Equal(("0.0", "20.0"), (s.HealTiles[2].A, s.HealTiles[2].B));
+        Assert.Equal(("0", "2"), (s.HealTiles[3].A, s.HealTiles[3].B));
+        Assert.Equal("", s.HealNote);
         var mage = Assert.Single(s.Healers);
-        Assert.Equal(new AB("—", "400"), new AB(mage.Healing.TextA, mage.Healing.TextB));
-        Assert.Equal((0d, 1d), (mage.Healing.A, mage.Healing.B));
-        Assert.Equal(Change.Nothing, mage.HealingChange);
-        Assert.Equal(new AB("—", "2"), mage.Casts);
-        Assert.Equal(new AB("—", "400"), new AB(s.Party.Healing.TextA, s.Party.Healing.TextB));
-        Assert.Equal(new AB("—", "400"), Assert.Single(mage.Heals).Total);
-        Assert.Equal(new AB("—", "400"), new AB(s.HealSpells[0].Amount.TextA, s.HealSpells[0].Amount.TextB));
-
-        // No line at all for the side that could not be measured.
-        Assert.All(s.HealPace.A, v => Assert.True(double.IsNaN(v)));
+        Assert.Equal(new AB("0", "400"), new AB(mage.Healing.TextA, mage.Healing.TextB));
+        Assert.Equal(new AB("0", "2"), mage.Casts);
+        Assert.Equal(new AB("0", "400"), Assert.Single(mage.Heals).Total);
+        Assert.Equal(new AB("0", "400"), new AB(s.HealSpells[0].Amount.TextA, s.HealSpells[0].Amount.TextB));
+        // A line flat at zero.
+        Assert.All(s.HealPace.A, v => Assert.Equal(0, v));
         Assert.Equal(400, s.HealPace.B[^1]);
 
-        Assert.Equal("Neither parse has healing lines — healing is recorded by the VibeXI addon 0.3.0 and later.",
-                     Sheet(a, a).HealNote);
+        Assert.Equal("No healing in either run.", Sheet(a, a).HealNote);
     }
 
     [Fact]
@@ -175,7 +166,6 @@ public class CompareSheetTests
                                                                 targetKind: "player"),
                         Lines.Heal(12, "Goblin", 300, target: "Goblin"));
         var s = Sheet(a, a);
-        Assert.True(s.A.HasHeals);
         Assert.Empty(s.Healers);
         Assert.Equal("No healing in either run.", s.HealNote);
     }
@@ -421,14 +411,15 @@ public class CompareSheetTests
     }
 
     [Fact]
-    public void A_parse_with_no_heal_lines_has_no_casts_to_count()
+    public void A_run_nobody_healed_in_cast_the_heal_0_times()
     {
         var a = Run(30, Lines.Hit(10, "Hasaya", 100));
         var b = Run(30, Lines.Hit(10, "Hasaya", 100), Lines.Heal(12, "Mage", 300), Lines.Heal(13, "Mage", 500));
         var s = Sheet(a, b).HealSpread("Mage", "Cure IV");
 
-        Assert.Equal(("—", "2", Change.Nothing), (s.Lines[0].A, s.Lines[0].B, s.Lines[0].Change));
-        Assert.All(s.Lines, x => Assert.Equal("—", x.A));
+        Assert.Equal(("0", "2", "new"), (s.Lines[0].A, s.Lines[0].B, s.Lines[0].Change.Main));
+        // Nothing cast is no average, no largest, no spread.
+        Assert.All(s.Lines.Skip(1), x => Assert.Equal("—", x.A));
         Assert.Equal((0, 2), (s.HitsA, s.HitsB));
         Assert.Equal([0, 0, 0, 0, 0, 0], s.Bins.Select(x => x.A));
     }
@@ -576,13 +567,14 @@ public class CompareSheetTests
         var t = new Tracker();
         t.Follow("Hasaya_2026.07.30.jsonl");
         t.Start(0);
-        t.Feed([Lines.Hit(10, "Hasaya", 100)]);
+        t.Feed([Lines.Hit(10, "Hasaya", 100), Lines.Hit(12.5, "Hasaya", 100)]);
         t.Count(Nobody, true, 20_000);
         t.TogglePause(20_000);
 
         var run = ParseFile.Import(CompareSheet.Snapshot(t.Reader, t.Session, t.File, 90_000)!);
-        // As its export would be: to the end of the last swing's second.
-        Assert.Equal(11_000, run.Session.PausedAt);
-        Assert.Equal(1, Compare.Measure(run).Duration);
+        // As its export would be: to the last swing.
+        Assert.Equal(12_500, run.Session.PausedAt);
+        Assert.Equal(2.5, Compare.Measure(run).Duration);
+        Assert.Equal(80, Compare.Measure(run).Dps);
     }
 }

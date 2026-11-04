@@ -98,7 +98,7 @@ public sealed partial class PanelSet : ObservableObject
         defaultOpacity = opacities.Default;
 
         Add(Line, "Cumulative damage");
-        Add(Bars, "Damage by character");
+        Add(Bars, "Overview");
         Add(Actions, "Actions");
         Add(Filters, "Filters");
         Add(Fights, "Battle Log");

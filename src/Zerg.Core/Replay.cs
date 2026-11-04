@@ -14,10 +14,10 @@ namespace Zerg.Core;
 /// counted, drawn and exported by the code that counts the live one.</para>
 ///
 /// <para><b>Asked without the viewer's switches.</b> The bars and a crop's
-/// zero and end are all of every party row: excluded characters and
-/// skillchains included, as a paused session's end is
+/// zero and end are all of every party row: skillchains included and
+/// whoever is isolated, as a paused session's end is
 /// (<see cref="Counting.LastCounted"/>). A range is picked over rows already
-/// read, and a zero that moved with each chip would re-date the parse.</para>
+/// read, and a zero that moved with each filter would re-date the parse.</para>
 ///
 /// <para><b>One range, one clock</b>, from its zero to its end, quiet
 /// stretches included, as a session left running through them has it.</para>
@@ -32,7 +32,7 @@ public sealed class Replay
     public int Lines => Reader.LineNo;
     /// <summary>The first row or heal's time, wall-clock milliseconds; 0 with none.</summary>
     public double First { get; }
-    /// <summary>The end of the second the last row or heal landed in.</summary>
+    /// <summary>The last row or heal's time.</summary>
     public double Last { get; }
     public double Span => Last - First;
     /// <summary>The party's damage over the whole file. None, and there is
@@ -45,9 +45,10 @@ public sealed class Replay
     public IReadOnlyList<double> Kills { get; }
     public IReadOnlyList<double> Deaths { get; }
 
-    /// <summary>How many kills and deaths fall in a range of the file.</summary>
+    /// <summary>How many kills and deaths fall in a range of the file, its
+    /// ends included as a session's are.</summary>
     public (int Kills, int Deaths) Within(double from, double to) =>
-        (Kills.Count(t => t >= from && t < to), Deaths.Count(t => t >= from && t < to));
+        (Kills.Count(t => t >= from && t <= to), Deaths.Count(t => t >= from && t <= to));
 
     /// <summary>The party's rows' times, in order: what a crop's zero is looked up in.</summary>
     readonly double[] times;
@@ -65,7 +66,7 @@ public sealed class Replay
         foreach (var e in reader.Events)
             if (Counting.Counted(e, roster, null, skillchains: true) is { } row) party.Add(row);
         // The file's order is the addon's, which is the clock's within a
-        // second; stable, so rows of one second keep it.
+        // millisecond; stable, so rows of one millisecond keep it.
         party = [.. party.OrderBy(e => e.T)];
         times = [.. party.Select(e => e.T)];
         dealt = [.. party.Select(e => e.Hit && double.IsFinite(e.Dmg) ? e.Dmg : 0)];
@@ -78,7 +79,7 @@ public sealed class Replay
         foreach (var h in reader.Heals) (first, last) = (Math.Min(first, h.T), Math.Max(last, h.T));
         foreach (var e in reader.Support) (first, last) = (Math.Min(first, e.T), Math.Max(last, e.T));
         foreach (var e in reader.Enfeebles) (first, last) = (Math.Min(first, e.T), Math.Max(last, e.T));
-        (First, Last) = double.IsFinite(first) ? (first, last + Session.Second) : (0, 0);
+        (First, Last) = double.IsFinite(first) ? (first, last) : (0, 0);
     }
 
     /// <summary>
@@ -110,20 +111,17 @@ public sealed class Replay
     /// <para>As Start and Pause would have made it: armed at
     /// <paramref name="from"/>, its zero the first party row from there on,
     /// paused at <paramref name="to"/> and snapped back to the last party row
-    /// before it (<see cref="Session.Snap"/>). Both are whole seconds, the
-    /// wire clock's: <paramref name="from"/> is floored, as arming is, and
-    /// <paramref name="to"/> raised.</para>
+    /// before it (<see cref="Session.Snap"/>). A row at either end is in
+    /// the range.</para>
     /// </summary>
     public Session? Crop(double from, double to)
     {
-        from = Math.Floor(from / Session.Second) * Session.Second;
-        to = Math.Ceiling(to / Session.Second) * Session.Second;
         // The first row at or after the arming: a search lands on any of
-        // several rows of one second, so it steps back to the first.
+        // several rows of one millisecond, so it steps back to the first.
         int at = Array.BinarySearch(times, from);
         if (at < 0) at = ~at;
         while (at > 0 && times[at - 1] >= from) at--;
-        if (at >= times.Length || times[at] >= to) return null;
+        if (at >= times.Length || times[at] > to) return null;
         double zero = times[at];
 
         var s = new Session { ArmedAt = from, StartedAt = zero, PausedAt = to };

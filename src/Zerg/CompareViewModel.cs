@@ -550,6 +550,7 @@ public sealed partial class CompareViewModel : ObservableObject
         catch (ParseImportException e)
         {
             slot.Error = e.Message;
+            Log.Write($"not compared {file.Name}: {e.Reason}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

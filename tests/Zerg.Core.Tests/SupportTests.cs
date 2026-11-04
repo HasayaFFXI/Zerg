@@ -13,7 +13,7 @@ public class SupportTests
     {
         var pet = owner != null ? $",\"owner\":\"{owner}\",\"pet\":\"{actor}\"" : "";
         return string.Create(CultureInfo.InvariantCulture,
-            $"{{\"t\":{t},\"seq\":1,\"use\":{use},\"kind\":\"{(owner != null ? "pet" : "magic")}\",\"actor\":\"{actor}\"," +
+            $"{{\"t\":{t * 1000},\"seq\":1,\"use\":{use},\"kind\":\"{(owner != null ? "pet" : "magic")}\",\"actor\":\"{actor}\"," +
             $"\"actorKind\":\"{(owner != null ? "pet" : "player")}\",\"action\":\"{action}\",\"actionId\":46," +
             $"\"target\":\"{target}\",\"targetKind\":\"player\",\"dmg\":{dmg},\"hit\":{(hit ? "true" : "false")}," +
             $"\"crit\":false,\"burst\":false,\"msg\":75{pet}}}");
@@ -142,12 +142,14 @@ public class SupportTests
     }
 
     [Fact]
-    public void An_excluded_characters_support_is_not_counted()
+    public void Support_follows_the_healers_isolated_and_not_the_damage_dealers()
     {
         var t = Armed();
         t.Feed([Lines.Hit(21, "Tank", 100), Buff(22, "Mage", "Haste", "Tank", 920)]);
 
-        Assert.Equal(0, t.Count(new HashSet<string> { "Mage" }, true, 30_000).Support.Casts);
+        Assert.Equal(0, t.Count(Nobody, true, 30_000, healers: new HashSet<string> { "Tank" }).Support.Casts);
+        Assert.Equal(1, t.Count(Nobody, true, 30_000, healers: new HashSet<string> { "Mage" }).Support.Casts);
+        Assert.Equal(1, t.Count(new HashSet<string> { "Tank" }, true, 30_000).Support.Casts);
         Assert.Equal(1, t.Count(Nobody, true, 30_000).Support.Casts);
     }
 
@@ -159,8 +161,8 @@ public class SupportTests
         t.Count(Nobody, true, 29_000);
         t.TogglePause(35_000);
 
-        // The end is the second the last swing landed in, not the buff's.
-        Assert.Equal(22_000, t.Session.EndedAt);
+        // The end is the last swing, not the buff.
+        Assert.Equal(21_000, t.Session.EndedAt);
     }
 
     [Fact]
@@ -178,23 +180,6 @@ public class SupportTests
 
         var c = Tracker.Of(parse).Count(Nobody, true);
         Assert.Equal(150, c.Totals.Total);
-        Assert.Equal(1, c.Support.Casts);
-    }
-
-    [Fact]
-    public void A_parse_saved_before_support_was_filed_apart_counts_it_as_support()
-    {
-        // Older exports have buffs among the damage rows, as the file did.
-        var t = Armed();
-        t.Feed([Lines.Hit(21, "Tank", 100)]);
-        t.Count(Nobody, true, 23_000);
-        t.TogglePause(25_000);
-        var text = t.Export(40_000)!;
-        var buff = Buff(21, "Mage", "Protect", "Tank", 950, dmg: 40, hit: true);
-        text = text.Replace("\"events\": [\n", "\"events\": [\n    " + buff + ",\n");
-
-        var c = Tracker.Of(ParseFile.Import(text)).Count(Nobody, true);
-        Assert.Equal(100, c.Totals.Total);
         Assert.Equal(1, c.Support.Casts);
     }
 }

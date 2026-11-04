@@ -6,7 +6,7 @@ public class ReplayTests
     static readonly HashSet<string> Nobody = [];
 
     /// <summary>Two fights 100 s apart, a monster swinging between them, and
-    /// a heal before the first: one is 100–110 s, the other 210–215 s.</summary>
+    /// a heal before the first: one is 100–109 s, the other 210–214 s.</summary>
     static Replay TwoFights() => Replay.Read(
     [
         Lines.Job("Hasaya", "SAM", "WAR"),
@@ -31,10 +31,27 @@ public class ReplayTests
         Assert.Single(r.Reader.Heals);
         Assert.Equal("Hasaya", r.Reader.Roster.Owner);
         Assert.Equal("SAM/WAR", r.Reader.Roster.JobLabel("Hasaya"));
-        // From the first record on the clock to the end of the last one's second.
-        Assert.Equal((95_000d, 215_000d), (r.First, r.Last));
+        // From the first record on the clock to the last.
+        Assert.Equal((95_000d, 214_000d), (r.First, r.Last));
         // The monster's swing is no party damage.
         Assert.Equal(660, r.Damage);
+    }
+
+    [Fact]
+    public void A_file_in_the_old_formats_seconds_is_unreadable_and_has_nothing_to_replay()
+    {
+        var r = Replay.Read(
+        [
+            "{\"kind\":\"meta\",\"t\":1785000000,\"version\":\"1.3.0\"}",
+            "{\"kind\":\"job\",\"t\":1785000001,\"actor\":\"Hasaya\",\"main\":\"SAM\",\"mainId\":12,\"mainLvl\":75}",
+            "{\"t\":1785000004,\"seq\":1,\"use\":1,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\"," +
+            "\"action\":\"Attack\",\"actionId\":0,\"target\":\"Tiger\",\"targetKind\":\"mob\",\"dmg\":112,\"hit\":true," +
+            "\"crit\":false,\"burst\":false,\"msg\":1}",
+        ], "Hasaya-20260725123320.jsonl");
+        Assert.Equal(3, r.Reader.Unreadable);
+        Assert.Empty(r.Reader.Events);
+        Assert.Empty(r.Reader.Roster.Jobs);
+        Assert.Equal(0, r.Damage);
     }
 
     [Fact]
@@ -50,19 +67,20 @@ public class ReplayTests
     public void A_crop_is_the_session_start_and_pause_would_have_made()
     {
         var r = TwoFights();
-        // Armed mid-second, before the fight: the zero is the first party row,
-        // the end the last party row's second, not the 200 s the range ran to.
+        // Armed before the fight: the zero is the first party row, the end
+        // the last party row, not the 200 s the range ran to.
         var s = r.Crop(97_400, 200_000)!;
-        Assert.Equal(97_000, s.ArmedAt);
+        Assert.Equal(97_400, s.ArmedAt);
         Assert.Equal(100_000, s.StartedAt);
         Assert.Equal(200_000, s.PausedAt);
-        Assert.Equal(110_000, s.EndedAt);
-        Assert.Equal(10_000, s.Elapsed(1e12));
+        Assert.Equal(109_000, s.EndedAt);
+        Assert.Equal(9_000, s.Elapsed(1e12));
 
         // Nothing the party did falls in it: no clock.
         Assert.Null(r.Crop(120_000, 200_000));
-        // A range raised to the second holds a row stamped inside it.
-        Assert.Equal(215_000, r.Crop(205_000, 214_200)!.EndedAt);
+        // A row at either end of a range is in it.
+        Assert.Equal(214_000, r.Crop(205_000, 214_000)!.EndedAt);
+        Assert.Equal(210_000, r.Crop(210_000, 211_000)!.StartedAt);
     }
 
     [Fact]
@@ -75,9 +93,9 @@ public class ReplayTests
         var t = Tracker.Replaying("f.jsonl");
         t.Load(r, whole);
         var c = t.Count(Nobody, true, 1e12);
-        // From the first party row to the end of the last one's second, the
-        // hundred seconds between the fights included.
-        Assert.Equal(115_000, c.Elapsed);
+        // From the first party row to the last, the hundred seconds between
+        // the fights included.
+        Assert.Equal(114_000, c.Elapsed);
         Assert.Equal(660, c.Totals.Total);
         // The heal before the zero is outside the range, as it would be live.
         Assert.Empty(c.Heals);
@@ -95,7 +113,7 @@ public class ReplayTests
         var parse = ParseFile.Import(t.Export(1e12)!);
         Assert.Equal([50d, 40d, 70d], parse.Source.Events.Select(e => e.Dmg));
         Assert.Empty(parse.Source.Heals);
-        Assert.Equal((210_000d, 215_000d), (parse.Session.StartedAt, parse.Session.PausedAt));
+        Assert.Equal((210_000d, 214_000d), (parse.Session.StartedAt, parse.Session.PausedAt));
         Assert.Equal("Hasaya-20261020222434.jsonl", parse.File);
         Assert.Equal("SAM/WAR", parse.Source.Roster.JobLabel("Hasaya"));
 

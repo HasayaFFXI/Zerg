@@ -22,26 +22,34 @@ public abstract class Row(string key) : ObservableObject
     public abstract override string ToString();
 }
 
-/// <summary>One character's on/off switch in the filter bar.</summary>
-public sealed partial class ChipRow(string key) : Row(key)
+/// <summary>One character in the per-character table: a row to press, which
+/// isolates them (or, isolated, lets them go), as their line of the
+/// Character button's menu does. In the Overview pane's By target tab, also
+/// a target's heading (<see cref="IsTarget"/>), pressed to isolate the
+/// target, and the characters under it (<see cref="Nested"/>).</summary>
+public sealed partial class ActorRow(string key, Action<string> pick, Action<string>? fold = null) : Row(key)
 {
-    /// <summary>Told when the switch is flipped, with the character's real
-    /// name. Bound both ways, not run by a click: a screen reader flips a
-    /// switch without clicking it.</summary>
-    public Action<string, bool>? Flipped { get; init; }
+    /// <summary>A target's heading in By target: the party's figures
+    /// against it, its characters' rows under it while it is open.</summary>
+    public bool IsTarget { get; init; }
+    /// <summary>A character's row under a target's heading.</summary>
+    public bool Nested { get; init; }
+    /// <summary>A target's characters show under its heading.</summary>
+    [ObservableProperty] private bool open;
+    /// <summary>After a target's name: how many of it were killed, "(4)"; none for none.</summary>
+    [ObservableProperty] private string tag = "";
 
-    partial void OnIncludedChanged(bool value) => Flipped?.Invoke(Key, value);
+    [RelayCommand]
+    void Fold() => fold?.Invoke(Key);
 
-    [ObservableProperty] private string name = "";
-    public override string ToString() => Name;
-    [ObservableProperty] private Brush? swatch;
-    [ObservableProperty] private bool included = true;
-    [ObservableProperty] private string tip = "";
-}
+    /// <summary>Damage is isolated to this character, alone or among others.</summary>
+    [ObservableProperty] private bool isolated;
+    /// <summary>Damage is isolated to others and not this character.</summary>
+    [ObservableProperty] private bool dimmed;
 
-/// <summary>One character in the per-character table.</summary>
-public sealed partial class ActorRow(string key) : Row(key)
-{
+    [RelayCommand]
+    void Pick() => pick(Key);
+
     /// <summary>The damage DPS is worked out from, on every clock tick.</summary>
     public double Total { get; set; }
 
@@ -142,6 +150,9 @@ public sealed partial class StripRow(string key) : Row(key)
     /// session, marked so it is found without reading names.</summary>
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private string tip = "";
+    /// <summary>Damage is isolated to others and not this character: the
+    /// row is listed, quieter. A panel's row is not pressed.</summary>
+    [ObservableProperty] private bool dimmed;
 }
 
 /// <summary>One kill in the Battle Log: one life of one spawn, pressed to
@@ -252,9 +263,18 @@ public interface IGroupedRow
     bool IsUnder => false;
 }
 
-/// <summary>One character in the Healing section's per-character table.</summary>
-public sealed partial class HealerRow(string key) : Row(key)
+/// <summary>One character in the Healing section's per-character table: a
+/// row to press, which isolates their healing (or lets it go).</summary>
+public sealed partial class HealerRow(string key, Action<string> pick) : Row(key)
 {
+    /// <summary>Healing is isolated to this character, alone or among others.</summary>
+    [ObservableProperty] private bool isolated;
+    /// <summary>Healing is isolated to others and not this character.</summary>
+    [ObservableProperty] private bool dimmed;
+
+    [RelayCommand]
+    void Pick() => pick(Key);
+
     /// <summary>The healing HPS is worked out from, on every clock tick.</summary>
     public double Total { get; set; }
 
@@ -314,6 +334,8 @@ public sealed partial class HealStripRow(string key) : Row(key)
     [ObservableProperty] private string casts = "";
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private string tip = "";
+    /// <summary>Healing is isolated to others and not this character.</summary>
+    [ObservableProperty] private bool dimmed;
 }
 
 /// <summary>

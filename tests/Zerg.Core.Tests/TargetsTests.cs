@@ -174,8 +174,8 @@ public class TargetsTests
         // Paused, the end is the last party row, at any target.
         t.Second(40_000);
         var held = t.Count(Nobody, true, 50_000, Only("Kirin"));
-        Assert.Equal(25_000, t.Session.EndedAt);
-        Assert.Equal(15_000, held.Elapsed);
+        Assert.Equal(24_000, t.Session.EndedAt);
+        Assert.Equal(14_000, held.Elapsed);
     }
 
     [Fact]
@@ -193,7 +193,8 @@ public class TargetsTests
         var t = Fight();
         var all = t.Count(Nobody, true, 30_000);
         Assert.Equal(25, all.Rate(500, 20));
-        Assert.Equal(0, all.Rate(500, 0));
+        Assert.Null(all.Rate(500, 0));                         // damage over no time has no rate
+        Assert.Equal(0, all.Rate(0, 0));
 
         var kirin = t.Count(Nobody, true, 30_000, Only("Kirin"));
         Assert.Null(kirin.Rate(140, 20));
@@ -209,13 +210,20 @@ public class TargetsTests
     }
 
     [Fact]
-    public void Everyone_who_acted_keeps_their_chip()
+    public void The_target_and_character_lists_are_each_of_what_the_other_leaves()
     {
-        // Mage never touched Kirin, and can still be excluded.
+        // Mage never touched Kirin: with Kirin isolated, the character list has Hasaya alone.
         var t = Session(Lines.Hit(10, "Hasaya", 100, target: "Kirin"), Lines.Hit(12, "Mage", 80, target: "Genbu"));
         var c = t.Count(Nobody, true, 30_000, Only("Kirin"));
-        Assert.Equal(["Hasaya", "Mage"], c.Listed);
+        Assert.Equal(["Hasaya"], c.Characters.Select(a => a.Name));
         Assert.Equal(["Hasaya"], c.Totals.Actors.Select(a => a.Name));
+
+        // With Mage isolated, every target is still listed, of Mage's damage alone.
+        var mage = t.Count(Only("Mage"), true, 30_000);
+        Assert.Equal([("Genbu", 80d)], mage.Targets.Select(x => (x.Name, x.Total)));
+        Assert.Equal(["Hasaya", "Mage"], mage.Characters.Select(a => a.Name));
+        Assert.Equal([100d / 180, 80d / 180], mage.Characters.Select(a => a.Share));
+        Assert.Equal(180, mage.Whole);
     }
 
     // -------------------------------------------------------------- the list
@@ -246,7 +254,7 @@ public class TargetsTests
             Lines.Hit(14, "Hasaya", 50, kind: "skillchain", action: "Skillchain: Light", target: "Kirin"));
         Assert.Equal([new TargetTotal("Genbu", 40), new TargetTotal("Kirin", 150)], t.Count(Nobody, true, 30_000).Targets);
         Assert.Equal([new TargetTotal("Genbu", 40), new TargetTotal("Kirin", 100)], t.Count(Nobody, false, 30_000).Targets);
-        Assert.Equal([new TargetTotal("Kirin", 150)], t.Count(Only("Tank"), true, 30_000).Targets);
+        Assert.Equal([new TargetTotal("Kirin", 150)], t.Count(Only("Hasaya"), true, 30_000).Targets);
     }
 
     [Fact]

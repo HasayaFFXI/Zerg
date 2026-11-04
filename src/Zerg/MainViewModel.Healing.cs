@@ -28,6 +28,13 @@ public sealed partial class MainViewModel
 
     [ObservableProperty] private string healTotalText = "0";
     [ObservableProperty] private string healTotalNote = "";
+    /// <summary>"Total healing", or with healers isolated "Healing by
+    /// Sylviane"; every one of them by name for the pointer.</summary>
+    [ObservableProperty] private string healTotalLabel = Healing.Heading([]);
+    [ObservableProperty] private string? healTotalTip;
+    /// <summary>With a healer isolated, what leads the note under the total:
+    /// how much of all the healing this is.</summary>
+    string healTotalShare = "";
     [ObservableProperty] private string hpsText = "0.0";
     [ObservableProperty] private string hpsNote = None;
     [ObservableProperty] private string topHealerName = None;
@@ -63,6 +70,13 @@ public sealed partial class MainViewModel
     {
         var h = c.Healing;
         HealTotalText = Format.Int(h.Total);
+        var by = c.IsolatedHealers.Select(NameOf).ToList();
+        HealTotalLabel = Healing.Heading(by);
+        HealTotalTip = Healing.Told(by);
+        double whole = c.Healers.Sum(a => a.Total);
+        healTotalShare = by.Count > 0 && whole > 0
+            ? Format.Num(h.Total / whole * 100, 1) + "% of " + Format.Int(whole) + Dot
+            : "";
         // Whoever healed anything, their pet's heals included.
         int n = h.Actors.Count(a => a.Total > 0);
         HpsNote = n > 0 ? n + " healer" + (n == 1 ? "" : "s") : None;
@@ -131,9 +145,16 @@ public sealed partial class MainViewModel
 
     void DrawHealBars(Snapshot c)
     {
-        // Everyone who healed anything, a pet's heals counting as theirs.
-        // Largest first, or as the headings order it; the strip the same.
-        var actors = HealersSort.Order(c.Healing.Actors.Where(a => a.Total > 0), HealerKey);
+        // Everyone who healed anything, a pet's heals counting as theirs,
+        // whoever is isolated: as in the Damage section, one isolated or not
+        // is listed with their own figures, and one isolated stays though
+        // they healed nothing. Largest first, or as the headings order it;
+        // the strip the same.
+        var picked = HealerFilter.Picked;
+        var listed = c.Healers.Where(a => a.Total > 0 || picked.Contains(a.Name)).ToList();
+        foreach (var n in picked)
+            if (!listed.Any(a => a.Name == n)) listed.Add(new HealerTotals { Name = n });
+        var actors = HealersSort.Order(listed, HealerKey);
 
         // The row is the bar, to the leading healer's healing.
         double top = RowMarks.Largest(actors.Select(a => a.Total));
@@ -141,13 +162,16 @@ public sealed partial class MainViewModel
         string Tip(HealerTotals a) => RowTip(a.Name, a.Avg is double avg ? Format.Int(avg) + " avg per cast" : null);
 
         HasHealers = actors.Count > 0;
-        Rows.Sync(Healers, actors, a => a.Name, a => new HealerRow(a.Name), (row, a) =>
+        Rows.Sync(Healers, actors, a => a.Name, a => new HealerRow(a.Name, HealerFilter.Toggle), (row, a) =>
         {
+            var (isolated, dimmed, pick) = HealerFilter.Marks(a.Name, NameOf(a.Name));
             row.Total = a.Total;
             row.Shade = ShadeOf(a.Name);
             row.Fraction = RowMarks.Fraction(a.Total, top);
             row.IsOwner = a.Name == Roster.Owner;
-            row.Tip = Tip(a);
+            row.Isolated = isolated;
+            row.Dimmed = dimmed;
+            row.Tip = Tip(a) + "\n" + pick;
             row.Name = NameOf(a.Name);
             row.Swatch = SwatchOf(a.Name);
             row.Job = Roster.JobLabel(a.Name) is { Length: > 0 } job ? job : None;
@@ -162,12 +186,14 @@ public sealed partial class MainViewModel
         });
 
         // The Party line: the party's own figures, which the count already
-        // has (HealTotals). The number under Job is how many rows stand
-        // above it; its HPS is written by the draw beat with every row's.
+        // has (HealTotals), of the healers who count, and its Healing % theirs
+        // out of everyone's. The number under Job is how many rows above it
+        // count; its HPS is written by the draw beat with every row's.
         var h = c.Healing;
-        HealParty.Count = Format.Int(actors.Count);
+        double everyone = c.Healers.Sum(a => a.Total);
+        HealParty.Count = Format.Int(actors.Count(a => !HealerFilter.Marks(a.Name, "").Dimmed));
         HealParty.Healing = Format.Int(h.Total);
-        HealParty.Share = h.Total > 0 ? Percent(1) : None;
+        HealParty.Share = everyone > 0 ? Percent(h.Total / everyone) : None;
         HealParty.Casts = Format.Int(h.Casts);
         HealParty.Avg = Whole(h.Avg);
         HealParty.PetHealing = h.PetTotal != 0 ? Format.Int(h.PetTotal) : None;
@@ -185,6 +211,7 @@ public sealed partial class MainViewModel
             row.Share = Percent(a.Share);
             row.Casts = Format.Int(a.Casts);
             row.IsOwner = a.Name == Roster.Owner;
+            row.Dimmed = HealerFilter.Marks(a.Name, "").Dimmed;
             row.Tip = Tip(a);
         });
     }

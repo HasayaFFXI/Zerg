@@ -4,7 +4,7 @@ namespace Zerg.Core.Tests;
 
 /// <summary>
 /// A real parse, saved by Zerg: a 55-minute session of seven characters with
-/// healing (Parses/MNK.zerg). Its figures are pinned here so a change to how a
+/// healing (Parses/MNK.zerg), in format version 2. Its figures are pinned here so a change to how a
 /// parse is read, counted or written cannot move them unnoticed.
 /// </summary>
 public class SavedParseTests
@@ -46,6 +46,10 @@ public class SavedParseTests
         var parse = ParseFile.Import(text);
         var exported = DateTimeOffset.Parse(parse.Exported!, CultureInfo.InvariantCulture).ToUnixTimeMilliseconds();
 
-        Assert.Equal(text, Tracker.Of(parse).Export(exported));
+        // But for its end: saved when a session ran to the end of its last
+        // row's second, it is snapped to that row itself (RULES.md).
+        Assert.Equal(1_791_604_144_000, parse.Session.PausedAt);
+        Assert.Equal(text.Replace("\"pausedAt\": 1791604144000", "\"pausedAt\": 1791604143000"),
+                     Tracker.Of(parse).Export(exported));
     }
 }

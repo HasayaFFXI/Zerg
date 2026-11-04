@@ -66,7 +66,8 @@ public sealed partial class ReplayRange : ObservableObject
         if (Replay is not { } r) return;
         if (to < from) (from, to) = (to, from);
         double first = Math.Floor(r.First / Session.Second) * Session.Second;
-        double last = Math.Ceiling(r.Last / Session.Second) * Session.Second;
+        // Raised past the last row, so a file of one second still has a range.
+        double last = Math.Max(Math.Ceiling(r.Last / Session.Second) * Session.Second, first + Session.Second);
         from = Math.Clamp(Math.Floor(from / Session.Second) * Session.Second, first, last - Session.Second);
         to = Math.Clamp(Math.Ceiling(to / Session.Second) * Session.Second, from + Session.Second, last);
         bool same = from == From && to == To;

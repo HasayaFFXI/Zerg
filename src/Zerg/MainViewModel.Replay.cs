@@ -32,12 +32,12 @@ public sealed partial class MainViewModel
         {
             var (first, last) = EventFiles.Times(f.FullName);
             string when = "", length = "";
-            if (first is double a && last is double b && Format.TryLocal(a * 1000, out var from)
-                && Format.TryLocal(b * 1000, out var to))
+            if (first is double a && last is double b && Format.TryLocal(a, out var from)
+                && Format.TryLocal(b, out var to))
             {
                 when = from.ToString("MMM d, HH':'mm", CultureInfo.InvariantCulture) + " – " +
                        to.ToString("HH':'mm", CultureInfo.InvariantCulture);
-                length = Format.Elapsed((b - a + 1) * 1000);
+                length = Format.Elapsed(b - a);
             }
             bool followed = string.Equals(f.Name, live.File, StringComparison.OrdinalIgnoreCase);
             list.Add(new EventFileEntry(f.FullName, EventReader.OwnerOf(f.Name) ?? f.Name, when, length, Size(f.Length),
@@ -97,9 +97,14 @@ public sealed partial class MainViewModel
             if (!(replay.Damage > 0))
             {
                 CloseParse(tab);
-                ViewError = file.Name + ": nothing to replay. It holds " + Format.Int(replay.Lines) + " line" +
-                            (replay.Lines == 1 ? "" : "s") + " and no party damage.";
-                Log.Write($"not replayed {file.Name}: no party damage in {replay.Lines} lines");
+                // Lines it could not read, and nothing else: most likely an
+                // addon of another version (times in seconds, say).
+                ViewError = replay.Reader.Unreadable > 0
+                    ? file.Name + ": unable to replay: invalid format, check VibeXI version."
+                    : file.Name + ": nothing to replay. It holds " + Format.Int(replay.Lines) + " line" +
+                      (replay.Lines == 1 ? "" : "s") + " and no party damage.";
+                Log.Write($"not replayed {file.Name}: no party damage in {replay.Lines} lines, " +
+                          $"{replay.Reader.Unreadable} unreadable");
                 return true;
             }
             tab.Loaded(replay);

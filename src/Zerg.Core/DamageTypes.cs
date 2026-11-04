@@ -86,21 +86,30 @@ public static class DamageTypes
     /// nothing; of targets alone, what <see cref="Targets.Heading"/> says
     /// ("Damage to Kirin"); of a type, "Melee damage", and of several,
     /// "Damage of 3 types"; of both, the two together ("Melee damage to Kirin").
+    /// Characters isolated come after what it is: "Damage by Hasaya",
+    /// "Melee damage by 2 characters to Kirin".
     /// </summary>
+    /// <param name="by">The characters isolated, as they are drawn.</param>
     public static string Heading(IReadOnlyCollection<string> types, IReadOnlyCollection<string> targets,
-                                 Func<string, string>? tag = null)
+                                 Func<string, string>? tag = null, IReadOnlyCollection<string>? by = null)
     {
-        if (types.Count == 0) return Targets.Heading(targets, tag: tag);
-        var what = types.Count == 1 ? Label(types.First()) + " damage" : "Damage of " + Format.Int(types.Count) + " types";
-        return what + (targets.Count == 0 ? ""
+        by ??= Array.Empty<string>();
+        if (types.Count == 0 && by.Count == 0) return Targets.Heading(targets, tag: tag);
+        var what = types.Count == 0 ? "Damage"
+            : types.Count == 1 ? Label(types.First()) + " damage" : "Damage of " + Format.Int(types.Count) + " types";
+        return what + (by.Count == 0 ? ""
+            : by.Count == 1 ? " by " + Targets.Short(by.First(), Targets.LabelLength)
+            : " by " + Format.Int(by.Count) + " characters") + (targets.Count == 0 ? ""
             : targets.Count == 1 ? " to " + Targets.Called(targets.First(), tag)
             : " to " + Format.Int(targets.Count) + " targets");
     }
 
     /// <summary>The same in a sentence, with every name, for the pointer;
     /// null with nothing isolated.</summary>
-    public static string? Told(IReadOnlyCollection<string> types, IReadOnlyCollection<string> targets) =>
-        types.Count == 0 && targets.Count == 0 ? null
+    public static string? Told(IReadOnlyCollection<string> types, IReadOnlyCollection<string> targets,
+                               IReadOnlyCollection<string>? by = null) =>
+        types.Count == 0 && targets.Count == 0 && by is not { Count: > 0 } ? null
         : "Only " + (types.Count > 0 ? Names(types) + " damage" : "the damage") +
-          (targets.Count > 0 ? " dealt to " + Targets.Names(targets) : "");
+          (by is { Count: > 0 } ? " dealt by " + string.Join(", ", by) : "") +
+          (targets.Count > 0 ? (by is { Count: > 0 } ? " to " : " dealt to ") + Targets.Names(targets) : "");
 }

@@ -138,7 +138,7 @@ public static class Healing
 {
     /// <summary>
     /// The same scoping <see cref="Counting.Filter"/> applies to damage (session
-    /// window, monsters, exclusions), so healing and damage are always measured
+    /// window, monsters, the characters isolated), so healing and damage are always measured
     /// over the same window. Copies, on the session clock, with a pet's heal
     /// credited to its owner. Skillchains do not apply.
     /// </summary>
@@ -160,12 +160,26 @@ public static class Healing
             var c = h;
             if (Counting.Credited(h.Owner, h.Actor, h.Pet) is { } by)
                 c = c with { Actor = h.Owner!, By = by, Action = Counting.Credited(by, h.Action), Spell = h.Spell };
-            if (opts.Actors != null && opts.Actors.TryGetValue(c.Actor, out var on) && !on) continue;
+            if (!Counting.Counts(opts.Characters, c.Actor)) continue;
             if (el is double t) c = c with { T = t };
             output.Add(c);
         }
         return output;
     }
+
+    /// <summary>The label over the healing total: "Total healing" with no
+    /// healer isolated, "Healing by Sylviane" with one (a long name cut),
+    /// "Healing by 2 characters" with more.</summary>
+    /// <param name="by">The healers isolated, as they are drawn.</param>
+    public static string Heading(IReadOnlyCollection<string> by) =>
+        by.Count == 0 ? "Total healing"
+        : by.Count == 1 ? "Healing by " + Targets.Short(by.First(), Targets.LabelLength)
+        : "Healing by " + Format.Int(by.Count) + " characters";
+
+    /// <summary>The same in a sentence, with every name, for the pointer;
+    /// null with no healer isolated.</summary>
+    public static string? Told(IReadOnlyCollection<string> by) =>
+        by.Count == 0 ? null : "Only the healing done by " + string.Join(", ", by);
 
     /// <summary>
     /// The heals as rows the cumulative line and the distribution can read

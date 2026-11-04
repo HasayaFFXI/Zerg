@@ -233,26 +233,4 @@ public class BandMarksTests
         Assert.All(s, x => Assert.True(x.Width >= 1));
         for (int i = 1; i < s.Count; i++) Assert.Equal(s[i - 1].X + s[i - 1].Width + 1, s[i].X, 9);
     }
-
-    // ------------------------------------------------------------ characters
-
-    [Fact]
-    public void Every_chip_is_on_the_line_when_all_fit()
-    {
-        // 66 + 4 + 75 + 4 + 59 = 208.
-        Assert.Equal(3, BandMarks.Fit([66, 75, 59], gap: 4, room: 208, more: 33));
-        Assert.Equal(0, BandMarks.Fit([], gap: 4, room: 0, more: 33));
-    }
-
-    [Fact]
-    public void When_not_all_fit_the_line_keeps_room_for_the_chip_that_says_how_many_are_not_shown()
-    {
-        // One unit short of all three: two fit, with 4 and the 33 after them.
-        Assert.Equal(2, BandMarks.Fit([66, 75, 59], gap: 4, room: 207, more: 33));
-        // 66 + 4 + 75 + 4 + 33 = 182 is the least that holds two.
-        Assert.Equal(2, BandMarks.Fit([66, 75, 59], gap: 4, room: 182, more: 33));
-        Assert.Equal(1, BandMarks.Fit([66, 75, 59], gap: 4, room: 181, more: 33));
-        // Not even one: the chip alone.
-        Assert.Equal(0, BandMarks.Fit([66, 75, 59], gap: 4, room: 90, more: 33));
-    }
 }

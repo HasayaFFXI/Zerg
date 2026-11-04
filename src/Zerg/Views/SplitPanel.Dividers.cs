@@ -23,7 +23,7 @@ namespace Zerg.Views;
 /// double-click does.</para>
 ///
 /// <para>To UI Automation it is a thumb named for the two panes it is
-/// between ("Divider between Damage by character and Actions") with a
+/// between ("Divider between Overview and Actions") with a
 /// value: the first of those two's size across the rule, in units, between
 /// the least and the most the panes' least sizes allow. Setting the value
 /// moves the rule, which is how a script moves one without the mouse.</para>

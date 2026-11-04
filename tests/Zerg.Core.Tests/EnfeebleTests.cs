@@ -13,7 +13,7 @@ public class EnfeebleTests
     {
         var pet = owner != null ? $",\"owner\":\"{owner}\",\"pet\":\"{actor}\"" : "";
         return string.Create(CultureInfo.InvariantCulture,
-            $"{{\"kind\":\"enfeeble\",\"t\":{t},\"seq\":1,\"use\":{use},\"via\":\"{(owner != null ? "pet" : "magic")}\"," +
+            $"{{\"kind\":\"enfeeble\",\"t\":{t * 1000},\"seq\":1,\"use\":{use},\"via\":\"{(owner != null ? "pet" : "magic")}\"," +
             $"\"actor\":\"{actor}\",\"actorKind\":\"{(owner != null ? "pet" : "player")}\",\"action\":\"{action}\"," +
             $"\"actionId\":273,\"target\":\"{target}\",\"targetKind\":\"mob\",\"hit\":{(hit ? "true" : "false")}," +
             $"\"msg\":{msg}{pet}}}");
@@ -82,7 +82,7 @@ public class EnfeebleTests
     }
 
     [Fact]
-    public void A_pets_enfeeble_is_its_owners_under_its_own_name_and_an_excluded_characters_is_not_counted()
+    public void A_pets_enfeeble_is_its_owners_under_its_own_name_and_isolating_a_caster_counts_theirs_alone()
     {
         var t = Armed();
         t.Feed([
@@ -96,7 +96,9 @@ public class EnfeebleTests
             e.Casters.Select(c => (c.Name, c.Actions[0].Name)));
 
         Assert.Equal(new[] { "Smn" },
-            t.Count(new HashSet<string> { "Mage" }, true, 30_000).Enfeebles.Casters.Select(c => c.Name));
+            t.Count(Nobody, true, 30_000, healers: new HashSet<string> { "Smn" }).Enfeebles.Casters.Select(c => c.Name));
+        // Damage isolated cuts no enfeeble: they are the Healing section's.
+        Assert.Equal(2, t.Count(new HashSet<string> { "Tank" }, true, 30_000).Enfeebles.Casts);
     }
 
     [Fact]
@@ -107,8 +109,8 @@ public class EnfeebleTests
         t.Count(Nobody, true, 29_000);
         t.TogglePause(35_000);
 
-        // The end is the second the last swing landed in, not the Stun's.
-        Assert.Equal(22_000, t.Session.EndedAt);
+        // The end is the last swing, not the Stun.
+        Assert.Equal(21_000, t.Session.EndedAt);
     }
 
     [Fact]
@@ -123,7 +125,7 @@ public class EnfeebleTests
         t.TogglePause(25_000);
 
         var text = t.Export(40_000)!;
-        Assert.Contains("{\"kind\":\"enfeeble\",\"t\":21,\"seq\":1,\"use\":990,\"via\":\"magic\",\"actor\":\"Mage\"," +
+        Assert.Contains("{\"kind\":\"enfeeble\",\"t\":21000,\"seq\":1,\"use\":990,\"via\":\"magic\",\"actor\":\"Mage\"," +
                         "\"actorKind\":\"player\",\"action\":\"Sleepga\",\"actionId\":273,\"target\":\"Crab\"," +
                         "\"targetKind\":\"mob\",\"hit\":false,\"msg\":85}", text);
         var parse = ParseFile.Import(text);

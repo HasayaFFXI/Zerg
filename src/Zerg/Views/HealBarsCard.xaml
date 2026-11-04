@@ -84,10 +84,28 @@
        Floating, it is a strip, as the damage card is: one short row per
        character, the bar behind the name, and the three figures a glance
        during a fight is for. -->
-  <v:Pane Title="Healing by character" Note="Total healed since the session started"
-          Hint="Total healed since the session started. Hover a column heading for how it is counted, and press one to sort by it."
+  <v:Pane Title="Healing by character" Note="{Binding HealerFilter.TableNote}"
+          Hint="Total healed since the session started. Select a character to isolate their healing, and another to add them. Hover a column heading for how it is counted, and press one to sort by it."
           PopOutCommand="{Binding Panels[hbars].PopOutCommand}"
           v:Shading.Characters="{Binding ShadeCharacters}">
+    <!-- Clear, while a healer is isolated: there is no button for them. -->
+    <v:Pane.Tools>
+      <Button Content="Clear" Command="{Binding HealerFilter.ClearCommand}"
+              ToolTip="{Binding HealerFilter.ClearTip}"
+              AutomationProperties.Name="{Binding HealerFilter.TableClearName}"
+              Visibility="{Binding HealerFilter.IsOn, Converter={StaticResource Visible}}">
+        <Button.Style>
+          <Style TargetType="Button" BasedOn="{StaticResource LinkButton}">
+            <Setter Property="Margin" Value="0,0,10,0"/>
+            <Style.Triggers>
+              <Trigger Property="v:Float.On" Value="True">
+                <Setter Property="Margin" Value="0,3,10,1"/>
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Button.Style>
+      </Button>
+    </v:Pane.Tools>
     <Grid>
       <!-- The strip, as the damage card's is (Views/BarsCard.xaml): the
            shade, the 3-unit edge, the owner's mark, the cells, and no
@@ -112,7 +130,8 @@
         <ItemsControl ItemsSource="{Binding HealStrip}" Focusable="False">
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <Grid Height="{StaticResource HitRowHeight}" Margin="3,0,3,1" Background="Transparent" ToolTip="{Binding Tip}">
+              <Grid x:Name="Line" Height="{StaticResource HitRowHeight}" Margin="3,0,3,1" Background="Transparent"
+                    ToolTip="{Binding Tip}">
                 <Rectangle Style="{StaticResource RowShade}" Fill="{Binding Fill}" RadiusX="{StaticResource BarRadius}"
                            RadiusY="{StaticResource BarRadius}" v:Grow.Share="{Binding Fraction}"/>
                 <Rectangle Width="3" HorizontalAlignment="Left" RadiusX="1.5" RadiusY="1.5" Fill="{Binding Edge}"
@@ -137,6 +156,9 @@
               <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsOwner}" Value="True">
                   <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Dimmed}" Value="True">
+                  <Setter TargetName="Line" Property="Opacity" Value="0.5"/>
                 </DataTrigger>
               </DataTemplate.Triggers>
             </DataTemplate>
@@ -211,45 +233,52 @@
               <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
             </Grid>
 
-            <!-- The rows. Back to front: the shade, the rule, what the row
-                 wears under the pointer, the owner's mark, the cells. The
-                 Healing % has a small bar beside it only while the row is
-                 not shaded. -->
+            <!-- The rows, pressed to isolate a character's healing as the
+                 damage card's are (CharacterPick): the accent down an
+                 isolated row's edge, the others dimmed with their own
+                 figures. Back to front: the shade and the cells (what dims),
+                 the rule, the accent, the owner's mark, then what the row
+                 wears under the pointer. The Healing % has a small bar
+                 beside it only while the row is not shaded. -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           v:WheelChain.On="True" Focusable="False">
               <ItemsControl ItemsSource="{Binding Healers}" Focusable="False">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Grid x:Name="Row" Height="{StaticResource RowHeight}" Background="Transparent" ToolTip="{Binding Tip}">
-                      <Rectangle Style="{StaticResource RowShade}" Margin="0,0,0,1" Fill="{Binding Shade}"
-                                 v:Grow.Share="{Binding Fraction}"/>
-                      <Rectangle Style="{StaticResource RowRule}"/>
-                      <Border x:Name="Hover" Style="{StaticResource RowHover}"/>
-                      <Path Style="{StaticResource OwnerMark}"
-                            Visibility="{Binding IsOwner, Converter={StaticResource Visible}}"/>
-                      <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
-                        <DockPanel Margin="12,0,8,0" VerticalAlignment="Center">
-                          <Rectangle Style="{StaticResource Swatch}" Fill="{Binding Swatch}" Margin="0,0,6,0"/>
-                          <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis"
-                                     VerticalAlignment="Center"/>
-                        </DockPanel>
-                        <TextBlock Text="{Binding Job}" Style="{StaticResource JobCell}" ToolTip="{Binding JobTip}"
-                                   Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
-                        <TextBlock Text="{Binding Healing}" Style="{StaticResource Cell}" FontWeight="SemiBold"/>
-                        <v:SmallBar For="Character" Length="48" Value="{Binding Fraction}" Fill="{Binding Swatch}">
-                          <TextBlock Text="{Binding Share}" Style="{StaticResource Fig}"/>
-                        </v:SmallBar>
-                        <TextBlock Text="{Binding Hps}" Style="{StaticResource Cell}"/>
-                        <TextBlock Text="{Binding Casts}" Style="{StaticResource Cell}"/>
-                        <TextBlock Text="{Binding Avg}" Style="{StaticResource FigQuiet}"/>
-                        <TextBlock Text="{Binding PetHealing}" Style="{StaticResource Fig}"/>
-                      </v:Cells>
-                    </Grid>
+                    <Button Style="{StaticResource CharacterPick}" Height="{StaticResource RowHeight}">
+                      <Grid>
+                        <Grid Style="{StaticResource PickCells}">
+                          <Rectangle Style="{StaticResource RowShade}" Margin="0,0,0,1" Fill="{Binding Shade}"
+                                     v:Grow.Share="{Binding Fraction}"/>
+                          <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
+                            <DockPanel Margin="12,0,8,0" VerticalAlignment="Center">
+                              <Rectangle Style="{StaticResource Swatch}" Fill="{Binding Swatch}" Margin="0,0,6,0"/>
+                              <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                         VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <TextBlock Text="{Binding Job}" Style="{StaticResource JobCell}" ToolTip="{Binding JobTip}"
+                                       Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
+                            <TextBlock Text="{Binding Healing}" Style="{StaticResource Cell}" FontWeight="SemiBold"/>
+                            <v:SmallBar For="Character" Length="48" Value="{Binding Fraction}" Fill="{Binding Swatch}">
+                              <TextBlock Text="{Binding Share}" Style="{StaticResource Fig}"/>
+                            </v:SmallBar>
+                            <TextBlock Text="{Binding Hps}" Style="{StaticResource Cell}"/>
+                            <TextBlock Text="{Binding Casts}" Style="{StaticResource Cell}"/>
+                            <TextBlock Text="{Binding Avg}" Style="{StaticResource FigQuiet}"/>
+                            <TextBlock Text="{Binding PetHealing}" Style="{StaticResource Fig}"/>
+                          </v:Cells>
+                        </Grid>
+                        <Rectangle Style="{StaticResource RowRule}"/>
+                        <Rectangle Style="{StaticResource PickEdge}"/>
+                        <Path Style="{StaticResource OwnerMark}"
+                              Visibility="{Binding IsOwner, Converter={StaticResource Visible}}"/>
+                      </Grid>
+                    </Button>
                     <DataTemplate.Triggers>
-                      <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-                        <Setter TargetName="Hover" Property="Visibility" Value="Visible"/>
-                      </Trigger>
                       <DataTrigger Binding="{Binding IsOwner}" Value="True">
+                        <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Isolated}" Value="True">
                         <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
                       </DataTrigger>
                     </DataTemplate.Triggers>

@@ -91,9 +91,11 @@ public sealed partial class MainViewModel
     {
         TargetFilter.Draw(c.Targets, c.AllTargets, NameOf, c.TargetFigures, c.Kills);
         TypeFilter.Draw(c.Types, c.AllTypes, n => n);
-        bool isolated = c.Scope.Count > 0, any = isolated || c.IsolatedTypes.Count > 0;
-        TotalLabel = DamageTypes.Heading(c.IsolatedTypes, c.Scope, c.Tag);
-        TotalTip = DamageTypes.Told(c.IsolatedTypes, c.Scope.Select(n => NameOf(n) + c.Tag(n)).ToList());
+        bool isolated = c.Scope.Count > 0,
+             any = isolated || c.IsolatedTypes.Count > 0 || c.IsolatedCharacters.Count > 0;
+        var by = c.IsolatedCharacters.Select(NameOf).ToList();
+        TotalLabel = DamageTypes.Heading(c.IsolatedTypes, c.Scope, c.Tag, by);
+        TotalTip = DamageTypes.Told(c.IsolatedTypes, c.Scope.Select(n => NameOf(n) + c.Tag(n)).ToList(), by);
         totalShare = any && c.Whole > 0
             ? Format.Num(c.Totals.Total / c.Whole * 100, 1) + "% of " + Format.Int(c.Whole) + Dot
             : "";
@@ -268,15 +270,34 @@ public sealed partial class MainViewModel
     /// <summary>The card as it floats: one short row per character.</summary>
     public ObservableCollection<StripRow> Strip { get; } = [];
 
+    /// <summary>The Character button's menu: everyone who dealt damage, each
+    /// with their share of everyone's, of what the target and type filters
+    /// leave. And the healers' filter, which has no button, told who is
+    /// listed so its note and a panel's bar say the same as its table.</summary>
+    void DrawCharacters(Snapshot c)
+    {
+        var dealt = c.Characters.Where(a => a.Total > 0).Select(a => new TargetTotal(a.Name, a.Total)).ToList();
+        CharacterFilter.DrawMenu(dealt, dealt.Sum(t => t.Total));
+        var healed = c.Healers.Where(a => a.Total > 0).Select(a => new TargetTotal(a.Name, a.Total)).ToList();
+        HealerFilter.DrawMenu(healed, healed.Sum(t => t.Total));
+    }
+
     void DrawBars(Snapshot c)
     {
-        // Nobody at zero. A character reaches the count by acting, not by
-        // dealing damage (a bard whose only song was resisted is there with
-        // 0), and a row of zeroes and dashes is nothing but height. Only this
-        // card drops them: they keep their chip, so they can still be
-        // excluded, and the actions table still shows what they did.
-        // Largest first, or as the headings order it; the strip the same.
-        var actors = BarsSort.Order(c.Totals.Actors.Where(a => a.Total > 0), column => BarKey(c, column));
+        // Every character, whoever is isolated: one isolated or not is
+        // listed with their own figures, as a target is in By target, so
+        // the next one is picked from the same place. Nobody at zero,
+        // though. A character reaches the count by acting, not by dealing
+        // damage (a bard whose only song was resisted is there with 0), and
+        // a row of zeroes and dashes is nothing but height; the actions
+        // table still shows what they did. One isolated stays, as a picked
+        // target does: a filter that could not be seen could not be taken
+        // off. Largest first, or as the headings order it; the strip the same.
+        var picked = CharacterFilter.Picked;
+        var listed = c.Characters.Where(a => a.Total > 0 || picked.Contains(a.Name)).ToList();
+        foreach (var n in picked)
+            if (!listed.Any(a => a.Name == n)) listed.Add(new ActorTotals { Name = n });
+        var actors = BarsSort.Order(listed, column => BarKey(c, column));
 
         // The row is the bar: each is shaded to its damage out of the
         // leader's, not out of the party's. With ten to eighteen characters
@@ -285,21 +306,20 @@ public sealed partial class MainViewModel
         // carries the share of the whole.
         double top = RowMarks.Largest(actors.Select(a => a.Total));
 
-        string Tip(ActorTotals a) => RowTip(a.Name, Format.Int(a.Avg) + " avg per action");
+        string Tip(ActorTotals a, string pick) => RowTip(a.Name, Format.Int(a.Avg) + " avg per action") + "\n" + pick;
 
         ShowJob = !HideNames;
         HasActors = actors.Count > 0;
-        Rows.Sync(Actors, actors, a => a.Name, a => new ActorRow(a.Name), (row, a) =>
+        Rows.Sync(Actors, actors, a => a.Name, a => new ActorRow(a.Name, CharacterFilter.Toggle), (row, a) =>
         {
+            var (isolated, dimmed, pick) = CharacterFilter.Marks(a.Name, NameOf(a.Name));
             row.Total = a.Total;
             row.Shade = ShadeOf(a.Name);
             row.Fraction = RowMarks.Fraction(a.Total, top);
             row.IsOwner = a.Name == Roster.Owner;
-            row.Tip = Tip(a);
-            row.AccuracyRate = a.AutoAcc;
-            row.RangedAccuracyRate = a.RangedAcc;
-            row.WsAccuracyRate = a.WsAcc;
-            row.PetAccuracyRate = a.PetAcc;
+            row.Isolated = isolated;
+            row.Dimmed = dimmed;
+            row.Tip = Tip(a, pick);
             row.Name = NameOf(a.Name);
             row.Swatch = SwatchOf(a.Name);
             row.Job = Roster.JobLabel(a.Name) is { Length: > 0 } job ? job : None;
@@ -308,30 +328,22 @@ public sealed partial class MainViewModel
             row.Damage = Format.Int(a.Total);
             row.Share = Percent(a.Share);
             row.Dps = Rate(a.Total, c.Elapsed / 1000);
-            row.Accuracy = Percent(a.AutoAcc);
-            row.Crit = Percent(a.AutoCrit);
-            row.RangedAccuracy = Percent(a.RangedAcc);
-            row.RangedCrit = Percent(a.RangedCrit);
-            row.WsDamage = Whole(a.WsTotal);
-            row.WsAvg = Whole(a.WsAvg);
-            row.WsShare = Percent(a.WsShare);
-            row.WsAccuracy = Percent(a.WsAcc);
-            row.ScDamage = Whole(a.ScTotal);
-            row.ScShare = Percent(a.ScShare);
-            row.PetDamage = Whole(a.PetTotal);
-            row.PetAccuracy = Percent(a.PetAcc);
-            row.Deaths = Died(c.Kills.DeathsOf(a.Name));
+            Split(row, Figures(a));
+            row.Deaths = Died(c.DiedOf(a.Name));
         });
 
         // The Party line, under the columns it sums. The split columns are
         // the party's own (Aggregate.Party): everyone's swings together,
-        // the characters at zero included, not an average of the rows. The
-        // number under Job is how many rows stand above it. Its DPS is the
-        // party's, written by the draw beat with every row's.
+        // the characters at zero included, not an average of the rows. Of
+        // the characters who count: with some isolated, theirs, and its
+        // Damage % theirs out of everyone's. The number under Job is how
+        // many rows above it count. Its DPS is the party's, written by the
+        // draw beat with every row's.
         var party = c.Totals.Party;
-        Party.Count = Format.Int(actors.Count);
+        double everyone = c.Characters.Sum(a => a.Total);
+        Party.Count = Format.Int(actors.Count(a => !CharacterFilter.Marks(a.Name, "").Dimmed));
         Party.Damage = Format.Int(c.Totals.Total);
-        Party.Share = c.Totals.Total > 0 ? Percent(1) : None;
+        Party.Share = everyone > 0 ? Percent(c.Totals.Total / everyone) : None;
         Party.Accuracy = Percent(party.AutoAcc);
         Party.Crit = Percent(party.AutoCrit);
         Party.RangedAccuracy = Percent(party.RangedAcc);
@@ -365,14 +377,168 @@ public sealed partial class MainViewModel
             row.Crit = Percent(a.AutoCrit);
             row.RangedAccuracy = Percent(a.RangedAcc);
             row.RangedCrit = Percent(a.RangedCrit);
-            row.Deaths = Died(c.Kills.DeathsOf(a.Name));
+            row.Deaths = Died(c.DiedOf(a.Name));
             row.IsOwner = a.Name == Roster.Owner;
-            row.Tip = Tip(a);
+            row.Dimmed = CharacterFilter.Marks(a.Name, "").Dimmed;
+            row.Tip = RowTip(a.Name, Format.Int(a.Avg) + " avg per action");
         });
+
+        if (OverviewByTarget) DrawTargetRows(c);
+    }
+
+    /// <summary>A character's split columns, as their row prints them.</summary>
+    static SplitFigures Figures(ActorTotals a) =>
+        new(a.AutoAcc, a.AutoCrit, a.RangedAcc, a.RangedCrit, a.WsTotal, a.WsAvg, a.WsShare, a.WsAcc,
+            a.ScTotal, a.ScShare, a.PetTotal, a.PetAcc);
+
+    /// <summary>The split columns of a row of the Overview table: a character's, or a target's.</summary>
+    static void Split(ActorRow row, SplitFigures f)
+    {
+        row.AccuracyRate = f.AutoAcc;
+        row.RangedAccuracyRate = f.RangedAcc;
+        row.WsAccuracyRate = f.WsAcc;
+        row.PetAccuracyRate = f.PetAcc;
+        row.Accuracy = Percent(f.AutoAcc);
+        row.Crit = Percent(f.AutoCrit);
+        row.RangedAccuracy = Percent(f.RangedAcc);
+        row.RangedCrit = Percent(f.RangedCrit);
+        row.WsDamage = Whole(f.WsTotal);
+        row.WsAvg = Whole(f.WsAvg);
+        row.WsShare = Percent(f.WsShare);
+        row.WsAccuracy = Percent(f.WsAcc);
+        row.ScDamage = Whole(f.ScTotal);
+        row.ScShare = Percent(f.ScShare);
+        row.PetDamage = Whole(f.PetTotal);
+        row.PetAccuracy = Percent(f.PetAcc);
+    }
+
+    // ------------------------------------------------- overview, by target
+
+    /// <summary>The Overview pane's By target tab: each target's heading,
+    /// and while it is open the characters under it.</summary>
+    public ObservableCollection<ActorRow> TargetRows { get; } = [];
+    [ObservableProperty] private bool hasTargetRows;
+    /// <summary>The targets whose characters show under their heading, by
+    /// name. Every target starts folded: a session meets dozens of names, and
+    /// their headings alone are the list to read first. Not saved: the names
+    /// are a session's.</summary>
+    readonly HashSet<string> openTargets = new(StringComparer.Ordinal);
+
+    void FoldTarget(string name)
+    {
+        if (!openTargets.Remove(name)) openTargets.Add(name);
+        // Nothing is counted again: the last count, with more or fewer of its lines.
+        if (snapshot is { } c) DrawTargetRows(c);
     }
 
     /// <summary>
-    /// What each column of the Damage by character table is ordered by:
+    /// The damage by target, as the per-character table: each target a
+    /// heading with the party's figures against it, pressed to isolate it
+    /// as its line of By target is, and under it every character who dealt
+    /// it damage, pressed to isolate them. Every target, isolated or not, of
+    /// what the character and type filters leave, as By target lists them;
+    /// one isolated that nothing reached stays, to be let go. A target's
+    /// Damage % is its share of what every target took; a character's is
+    /// their share of what this target took, and their row is shaded to
+    /// their damage out of its leader's. No DPS: damage to one target over
+    /// the session clock is no rate anybody dealt (Snapshot.Rate). No
+    /// deaths: a death is not at a target.
+    /// </summary>
+    void DrawTargetRows(Snapshot c)
+    {
+        var targets = TargetFilter.Picked;
+        var characters = CharacterFilter.Picked;
+        // Largest first, as By target lists them, unless a heading orders them.
+        var groups = c.TargetGroups.Where(g => g.Total > 0 || targets.Contains(g.Name))
+            .OrderByDescending(g => g.Total).ToList();
+        foreach (var n in targets)
+            if (!groups.Any(g => g.Name == n)) groups.Add(new TargetGroup(n, 0, default, []));
+        groups = BarsSort.Order(groups, TargetKey);
+
+        var lines = new List<(string Key, TargetGroup Group, ActorTotals? Actor, double Top)>();
+        foreach (var g in groups)
+        {
+            lines.Add(("t" + PickFilter.Rest + g.Name, g, null, 0));
+            if (!openTargets.Contains(g.Name)) continue;
+            var listed = g.Characters.Where(a => a.Total > 0 || characters.Contains(a.Name)).ToList();
+            double top = RowMarks.Largest(listed.Select(a => a.Total));
+            foreach (var a in BarsSort.Order(listed, column => NestedKey(c, column)))
+                lines.Add(("c" + PickFilter.Rest + g.Name + PickFilter.Rest + a.Name, g, a, top));
+        }
+
+        double all = c.AllTargets;
+        HasTargetRows = lines.Count > 0;
+        Rows.Sync(TargetRows, lines, l => l.Key,
+            l => l.Actor is { } who
+                ? new ActorRow(l.Key, _ => CharacterFilter.Toggle(who.Name)) { Nested = true }
+                : new ActorRow(l.Key, _ => TargetFilter.Toggle(l.Group.Name), _ => FoldTarget(l.Group.Name)) { IsTarget = true },
+            (row, l) =>
+            {
+                var g = l.Group;
+                var (onTarget, offTarget, pickTarget) = TargetFilter.Marks(g.Name, NameOf(g.Name));
+                row.ShowJob = ShowJob;
+                row.Dps = None;
+                row.Deaths = None;
+                if (l.Actor is not { } a)
+                {
+                    var killed = c.Kills.KillsOf(g.Name) is int n and > 0 ? "(" + Format.Int(n) + ")" : "";
+                    row.Name = NameOf(g.Name);
+                    row.Tag = killed.Length > 0 ? " " + killed : "";
+                    row.Open = openTargets.Contains(g.Name);
+                    row.Isolated = onTarget;
+                    row.Dimmed = offTarget;
+                    row.Tip = NameOf(g.Name) + (killed.Length > 0 ? " " + killed : "") + "\n" + pickTarget;
+                    row.Damage = Format.Int(g.Total);
+                    row.Share = all > 0 ? Percent(g.Total / all) : None;
+                    Split(row, g.Party);
+                    return;
+                }
+                var (isolated, dimmed, pick) = CharacterFilter.Marks(a.Name, NameOf(a.Name));
+                row.Total = a.Total;
+                row.Shade = ShadeOf(a.Name);
+                row.Fraction = RowMarks.Fraction(a.Total, l.Top);
+                row.IsOwner = a.Name == Roster.Owner;
+                row.Isolated = isolated;
+                row.Dimmed = dimmed || offTarget;
+                row.Tip = RowTip(a.Name, Format.Int(a.Avg) + " avg per action at " + NameOf(g.Name)) + "\n" + pick;
+                row.Name = NameOf(a.Name);
+                row.Swatch = SwatchOf(a.Name);
+                row.Job = Roster.JobLabel(a.Name) is { Length: > 0 } job ? job : None;
+                row.JobTip = Roster.JobTitle(a.Name);
+                row.Damage = Format.Int(a.Total);
+                row.Share = Percent(a.Share);
+                Split(row, Figures(a));
+            });
+    }
+
+    /// <summary>What each column orders the targets by: their figures, as
+    /// their headings print them. Job, DPS and Deaths have none to give.</summary>
+    SortKey<TargetGroup>? TargetKey(string column) => column switch
+    {
+        "name" => SortKey<TargetGroup>.Of(g => NameOf(g.Name)),
+        "damage" or "share" => SortKey<TargetGroup>.Of(g => g.Total),
+        "accuracy" => SortKey<TargetGroup>.Of(g => g.Party.AutoAcc),
+        "crit" => SortKey<TargetGroup>.Of(g => g.Party.AutoCrit),
+        "rangedAccuracy" => SortKey<TargetGroup>.Of(g => g.Party.RangedAcc),
+        "rangedCrit" => SortKey<TargetGroup>.Of(g => g.Party.RangedCrit),
+        "wsDamage" => SortKey<TargetGroup>.Of(g => g.Party.WsTotal),
+        "wsAvg" => SortKey<TargetGroup>.Of(g => g.Party.WsAvg),
+        "wsShare" => SortKey<TargetGroup>.Of(g => g.Party.WsShare),
+        "wsAccuracy" => SortKey<TargetGroup>.Of(g => g.Party.WsAcc),
+        "scDamage" => SortKey<TargetGroup>.Of(g => g.Party.ScTotal),
+        "scShare" => SortKey<TargetGroup>.Of(g => g.Party.ScShare),
+        "petDamage" => SortKey<TargetGroup>.Of(g => g.Party.PetTotal),
+        "petAccuracy" => SortKey<TargetGroup>.Of(g => g.Party.PetAcc),
+        _ => null,
+    };
+
+    /// <summary>The characters under a target: as the per-character table
+    /// orders them, but by nothing for DPS and Deaths, which they print as dashes.</summary>
+    SortKey<ActorTotals>? NestedKey(Snapshot c, string column) =>
+        column is "dps" or "deaths" ? null : BarKey(c, column);
+
+    /// <summary>
+    /// What each column of the Overview table is ordered by:
     /// what it prints, a dash being nothing. Damage % and DPS are the damage
     /// over one whole and one clock, so they go as Damage does; while a
     /// target is isolated every DPS is a dash, and the order is the table's own.
@@ -395,7 +561,7 @@ public sealed partial class MainViewModel
         "scShare" => SortKey<ActorTotals>.Of(a => a.ScShare),
         "petDamage" => SortKey<ActorTotals>.Of(a => a.PetTotal),
         "petAccuracy" => SortKey<ActorTotals>.Of(a => a.PetAcc),
-        "deaths" => SortKey<ActorTotals>.Of(a => c.Kills.DeathsOf(a.Name) is int n and > 0 ? (double?)n : null),
+        "deaths" => SortKey<ActorTotals>.Of(a => c.DiedOf(a.Name) is int n and > 0 ? (double?)n : null),
         _ => null,
     };
 

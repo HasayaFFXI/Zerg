@@ -6,8 +6,7 @@ namespace Zerg.Core;
 /// One monster the party killed: the fight that ended in its death line.
 /// </summary>
 /// <param name="Target">The monster, by name.</param>
-/// <param name="Id">Its id, where the file has one: a spawn point
-/// (<see cref="Kills"/>).</param>
+/// <param name="Id">Its id: a spawn point (<see cref="Kills"/>).</param>
 /// <param name="At">When it was killed, on the session clock: the killing
 /// blow's time, the last party row at it before the death line.</param>
 /// <param name="Length">How long it was fought, in milliseconds: from the
@@ -17,10 +16,10 @@ namespace Zerg.Core;
 /// <param name="After">The line of the death that came before it on the same
 /// spawn (or 0): its rows are after that line.</param>
 /// <param name="Through">Its own death line: its rows are before it.</param>
-public sealed record Fight(string Target, double? Id, double At, double? Length, double Damage, int After, int Through)
+public sealed record Fight(string Target, double Id, double At, double? Length, double Damage, int After, int Through)
 {
     /// <summary>Its id as XIUI's target bar shows it: "002".</summary>
-    public string? Code => Id is double id ? Kills.Code(id) : null;
+    public string Code => Kills.Code(Id);
 
     /// <summary>"Tiger [002]": one monster, one life of it.</summary>
     public string Named => Kills.Named(Target, Id);
@@ -28,10 +27,9 @@ public sealed record Fight(string Target, double? Id, double At, double? Length,
     /// <summary>Its damage over its own length; null with no length.</summary>
     public double? Dps => Length is double l && l > 0 ? Damage / (l / 1000) : null;
 
-    /// <summary>A row of this fight: at this spawn (or this name, in a file
-    /// without ids), between the death before it and its own.</summary>
-    public bool Holds(CombatEvent e) =>
-        e.Line > After && e.Line < Through && (Id is double id ? e.TargetId == id : e.TargetId == null && e.Target == Target);
+    /// <summary>A row of this fight: at this spawn, between the death before
+    /// it and its own.</summary>
+    public bool Holds(CombatEvent e) => e.Line > After && e.Line < Through && e.TargetId == Id;
 }
 
 /// <summary>One of the party who died.</summary>
@@ -73,8 +71,8 @@ public sealed record KillTotals(IReadOnlyList<Fight> Fights, IReadOnlyList<Party
 /// party's rows at that monster since the last time it died. The id names a
 /// spawn point, not one life: a monster that respawns comes back with the
 /// same id, so the death line is what splits one fight on it from the next.
-/// A file from before rows carried ids is matched by name, and two monsters
-/// of one name fought at once are then one fight, ended by the first death.</para>
+/// A row or a death line at a monster with no id is no fight's: the addon
+/// writes one on every line aimed at a monster.</para>
 ///
 /// <para><b>A kill is in the session when its killing blow is</b>: the last
 /// party row at it before the death line. The death line comes about a second
@@ -96,8 +94,8 @@ public static class Kills
         return hex.Length >= 3 ? hex[^3..] : hex.PadLeft(3, '0');
     }
 
-    /// <summary>"Tiger [002]", or the name alone with no id.</summary>
-    public static string Named(string target, double? id) => id is double d ? target + " [" + Code(d) + "]" : target;
+    /// <summary>"Tiger [002]".</summary>
+    public static string Named(string target, double id) => target + " [" + Code(id) + "]";
 
     /// <summary>"Tiger (10)": every monster of that name, and how many were
     /// killed; the name alone when none was.</summary>
@@ -114,19 +112,19 @@ public static class Kills
     /// of a session is; a fight's damage is what the characters who count
     /// dealt it, as By target's is.
     /// </summary>
-    /// <param name="actors">Characters switched off, keyed by name
-    /// (<see cref="FilterOptions.Actors"/>): their damage is no fight's, and
-    /// their deaths are not listed.</param>
+    /// <param name="characters">Characters isolated, by name
+    /// (<see cref="FilterOptions.Characters"/>): anyone else's damage is no
+    /// fight's, and their deaths are not listed. Null or empty: everyone.</param>
     public static KillTotals Count(EventReader reader, Session session,
-                                   IReadOnlyDictionary<string, bool>? actors = null, bool skillchains = true)
+                                   IReadOnlySet<string>? characters = null, bool skillchains = true)
     {
         if (session.StartedAt == null || reader.Deaths.Count == 0) return KillTotals.None;
         var roster = reader.Roster;
         var rows = reader.Events;
         var deaths = reader.Deaths;
 
-        var open = new Dictionary<string, Open>(StringComparer.Ordinal);
-        var lastDeath = new Dictionary<string, int>(StringComparer.Ordinal);
+        var open = new Dictionary<double, Open>();
+        var lastDeath = new Dictionary<double, int>();
         var fights = new List<Fight>();
         var died = new List<DeathEvent>();
         int i = 0;
@@ -136,13 +134,13 @@ public static class Kills
             for (; i < rows.Count && rows[i].Line < d.Line; i++)
             {
                 var e = rows[i];
-                if (e.TargetKind != "mob" || Counting.Counted(e, roster, null, true) == null) continue;
-                var key = Key(e.TargetId, e.Target);
+                if (e.TargetKind != "mob" || e.TargetId is not double key
+                    || Counting.Counted(e, roster, null, true) == null) continue;
                 if (!open.TryGetValue(key, out var o))
                     open[key] = o = new Open { After = lastDeath.GetValueOrDefault(key) };
                 o.First ??= e.T;
                 o.Last = e.T;
-                if (e.Hit && !double.IsNaN(e.Dmg) && Counting.Counted(e, roster, actors, skillchains) != null)
+                if (e.Hit && !double.IsNaN(e.Dmg) && Counting.Counted(e, roster, characters, skillchains) != null)
                     o.Damage += e.Dmg;
             }
 
@@ -151,24 +149,20 @@ public static class Kills
                 if (d.TargetKind == "player") died.Add(d);
                 continue;
             }
-            // Rows of a file without ids are kept by name; its death lines may
-            // still carry one.
-            var k = Key(d.TargetId, d.Target);
-            if (!open.ContainsKey(k) && d.TargetId != null && open.ContainsKey(Key(null, d.Target))) k = Key(null, d.Target);
+            if (d.TargetId is not double k) continue;
             open.Remove(k, out var fight);
             int after = fight?.After ?? lastDeath.GetValueOrDefault(k);
             lastDeath[k] = d.Line;
             if (session.At(fight?.Last ?? d.T) is not double at) continue;
             double? length = fight?.First is double first ? Math.Max(0, d.T - first) : null;
-            fights.Add(new Fight(d.Target, k.StartsWith('#') ? d.TargetId : null, at, length, fight?.Damage ?? 0,
-                                 after, d.Line));
+            fights.Add(new Fight(d.Target, k, at, length, fight?.Damage ?? 0, after, d.Line));
         }
 
         var party = new List<PartyDeath>();
         foreach (var d in died)
         {
             if (session.At(d.T) is not double at) continue;
-            if (actors != null && actors.TryGetValue(d.Target, out var on) && !on) continue;
+            if (!Counting.Counts(characters, d.Target)) continue;
             party.Add(new PartyDeath(d.Target, at, NextOf(reader, d.Target, d.Line) is double t ? session.At(t) : null));
         }
         return new KillTotals(fights, party);
@@ -180,9 +174,6 @@ public static class Kills
         public double? First, Last;
         public double Damage;
     }
-
-    static string Key(double? id, string name) =>
-        id is double d ? "#" + d.ToString(CultureInfo.InvariantCulture) : "n:" + name;
 
     /// <summary>The time of the first thing <paramref name="name"/> did after
     /// line <paramref name="line"/>, of their own (not a pet's): a swing, a

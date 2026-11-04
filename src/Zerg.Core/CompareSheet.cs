@@ -189,9 +189,7 @@ public sealed record RunSummary(string Started, string Length, string Party, str
 /// the result. A is the baseline throughout: every change is B − A.</para>
 ///
 /// <para><b>Unmeasured is a dash, never zero.</b> A character missing from a
-/// run has no DPS there, and a parse saved before the addon wrote heal lines
-/// has no healing figures at all, which is not the same as a run nobody was
-/// healed in. The one place a missing side counts as zero is the total of a
+/// run has no DPS there. The one place a missing side counts as zero is the total of a
 /// row that exists on the other side: against nothing, it reads "new".</para>
 /// </summary>
 public sealed class CompareSheet
@@ -290,16 +288,16 @@ public sealed class CompareSheet
             DamageTiles = TilesOfDamage(ma, mb, skillchains, isolated, isolatedTypes),
             HealTiles = TilesOfHealing(ma, mb),
             DamagePace = Compare.Pace(ma, mb),
-            HealPace = HealingPace(ma, mb),
+            HealPace = Compare.Pace(ma, mb, healing: true),
             Actors = d.Rows.Select(r => ActorOf(r, d, rates: isolated.Count == 0)).ToList(),
             Kinds = KindsOf(d, ma, mb),
-            Targets = TotalsOf(d.Targets, true, true, n => n).Select(t => KilledOf(t, ma, mb)).ToList(),
+            Targets = TotalsOf(d.Targets, n => n).Select(t => KilledOf(t, ma, mb)).ToList(),
             Party = HealerOf(null, ma, mb, Side.Of(ma, ma.Heal), Side.Of(mb, mb.Heal), HealMax(d), []),
             Healers = d.Heals.Select(r => HealerOf(r.Key, ma, mb, Side.Of(ma, r.A), Side.Of(mb, r.B), HealMax(d),
                                                    HealsOf(r, ma, mb))).ToList(),
-            HealNote = NoteOf(ma, mb, d.Heals.Count > 0),
-            HealSpells = TotalsOf(d.HealSpells, ma.HasHeals, mb.HasHeals, n => n),
-            HealTargets = TotalsOf(d.HealTargets, ma.HasHeals, mb.HasHeals, names.Draw),
+            HealNote = NoteOf(d.Heals.Count > 0),
+            HealSpells = TotalsOf(d.HealSpells, n => n),
+            HealTargets = TotalsOf(d.HealTargets, names.Draw),
             Ids = names.Ids,
         };
     }
@@ -339,9 +337,9 @@ public sealed class CompareSheet
         Tile("Deaths", Died(ma), Died(mb), Format.Int, ChangeKind.Count, -1, "How many times one of the party died"),
     ];
 
-    static double? KillRate(Measurement m) => m.HasKills ? Kills.PerHour(m.Killed.Count, m.Duration) : null;
-    static double? AvgKill(Measurement m) => m.HasKills ? KillTotals.AverageLength(m.Killed) / 1000 : null;
-    static double? Died(Measurement m) => m.HasKills ? m.Kills.Deaths.Count : null;
+    static double? KillRate(Measurement m) => Kills.PerHour(m.Killed.Count, m.Duration);
+    static double? AvgKill(Measurement m) => KillTotals.AverageLength(m.Killed) / 1000;
+    static double? Died(Measurement m) => m.Kills.Deaths.Count;
 
     /// <summary>A target's line with each run's kills of that name in it,
     /// "Tiger (9 · 10)", and its average kill time in each.</summary>
@@ -349,20 +347,19 @@ public sealed class CompareSheet
     {
         if (t.Key.Length == 0) return t;
         int a = ma.Kills.KillsOf(t.Key), b = mb.Kills.KillsOf(t.Key);
-        string Count(Measurement m, int n) => m.HasKills ? Format.Int(n) : Dash;
         string Time(Measurement m) =>
             KillTotals.AverageLength(m.Kills.Fights.Where(f => f.Target == t.Key)) is double ms ? Format.Elapsed(ms) : Dash;
         return t with
         {
-            Name = a + b > 0 ? t.Name + " (" + Count(ma, a) + Dot + Count(mb, b) + ")" : t.Name,
+            Name = a + b > 0 ? t.Name + " (" + Format.Int(a) + Dot + Format.Int(b) + ")" : t.Name,
             KillTime = new AB(Time(ma), Time(mb)),
         };
     }
 
     static List<CompareTile> TilesOfHealing(Measurement ma, Measurement mb)
     {
-        static double? Hps(Measurement m) => m.HasHeals && m.Duration > 0 ? m.Heal.Total / m.Duration : null;
-        static double? Of(Measurement m, Func<HealTotals, double?> pick) => m.HasHeals ? pick(m.Heal) : null;
+        static double? Hps(Measurement m) => Counting.PerSecond(m.Heal.Total, m.Duration);
+        static double? Of(Measurement m, Func<HealTotals, double?> pick) => pick(m.Heal);
         return
         [
             Tile("Total healing", Of(ma, h => h.Total), Of(mb, h => h.Total), Format.Int, ChangeKind.Percent, 1,
@@ -379,15 +376,6 @@ public sealed class CompareSheet
     }
 
     // ------------------------------------------------------------- the chart
-
-    /// <summary>A run with no heal lines draws no line, not one flat at zero.</summary>
-    static Pace HealingPace(Measurement ma, Measurement mb)
-    {
-        var p = Compare.Pace(ma, mb, healing: true);
-        if (!ma.HasHeals) Array.Fill(p.A, double.NaN);
-        if (!mb.HasHeals) Array.Fill(p.B, double.NaN);
-        return p;
-    }
 
     /// <summary>The chart as a table: about sixteen of its times, and the last.</summary>
     public static List<PaceLine> Table(Pace p)
@@ -517,8 +505,7 @@ public sealed class CompareSheet
     /// cast healed, over everyone it reached. Worked out when asked for, as
     /// <see cref="Spread"/> is.
     ///
-    /// <para>A parse with no heal lines is dashes throughout. In one that has
-    /// them, a heal nobody cast was cast 0 times, as the table over it says.</para>
+    /// <para>A heal nobody cast was cast 0 times, as the table over it says.</para>
     /// </summary>
     public ActionSpread HealSpread(string key, string action) => HealSpread(key, action, key, action);
 
@@ -526,8 +513,7 @@ public sealed class CompareSheet
     public ActionSpread HealSpread(string keyA, string actionA, string keyB, string actionB)
     {
         var s = Compare.HealSpread(A, B, keyA, actionA, keyB, actionB);
-        static double? Casts(Measurement m, Distribution? d) => m.HasHeals ? d?.Count ?? 0 : null;
-        double? x = Casts(A, s.A), y = Casts(B, s.B);
+        double? x = s.A?.Count ?? 0, y = s.B?.Count ?? 0;
         // Neutral: more casts is not better healing.
         return Worded(s, [new SpreadLine("Casts", "One per cast, however many people it reached", Whole(x), Whole(y),
                                          Change.Of(x, y, ChangeKind.Percent, Format.Int, 0))],
@@ -587,13 +573,13 @@ public sealed class CompareSheet
     }
 
     /// <param name="hasA">Whether run A could have this figure at all; without, its side is a dash.</param>
-    static List<TotalLine> TotalsOf(List<PairTotal> rows, bool hasA, bool hasB, Func<string, string> draw)
+    static List<TotalLine> TotalsOf(List<PairTotal> rows, Func<string, string> draw)
     {
         double max = 0;
         foreach (var k in rows) max = Math.Max(max, Math.Max(k.A, k.B));
         return rows.Select(k =>
         {
-            double? a = hasA ? k.A : null, b = hasB ? k.B : null;
+            double? a = k.A, b = k.B;
             var name = draw(k.Key);
             return new TotalLine(name.Length > 0 ? name : Dash, Bars(a, b, max),
                                  Change.Of(a, b, ChangeKind.Percent, Format.Int, 1)) { Key = k.Key };
@@ -602,18 +588,14 @@ public sealed class CompareSheet
 
     // --------------------------------------------------------------- healing
 
-    /// <summary>One run's side of a healing row. Every figure is null when
-    /// the run has no heal lines; in a run that has, a healer who is not
-    /// there healed 0, though their average is still nothing.</summary>
+    /// <summary>One run's side of a healing row. A healer who is not there
+    /// healed 0, though their average is still nothing.</summary>
     sealed record Side(double? Total, double? Casts, double? Avg, double? Max, double? Pet)
     {
-        public static Side Of(Measurement m, HealTotals h) =>
-            m.HasHeals ? new(h.Total, h.Casts, h.Avg, h.Max, h.PetTotal) : new(null, null, null, null, null);
+        public static Side Of(Measurement m, HealTotals h) => new(h.Total, h.Casts, h.Avg, h.Max, h.PetTotal);
 
         public static Side Of(Measurement m, HealerTotals? h) =>
-            !m.HasHeals ? new(null, null, null, null, null)
-            : h == null ? new(0, 0, null, 0, 0)
-            : new(h.Total, h.Casts, h.Avg, h.Max, h.PetTotal);
+            h == null ? new(0, 0, null, 0, 0) : new(h.Total, h.Casts, h.Avg, h.Max, h.PetTotal);
     }
 
     static double HealMax(CompareRows d)
@@ -639,9 +621,8 @@ public sealed class CompareSheet
 
     static HealLine HealOf(Pair<HealAction> x, Measurement ma, Measurement mb)
     {
-        static double? Of(Measurement m, HealAction? x, Func<HealAction, double> pick) =>
-            !m.HasHeals ? null : x != null ? pick(x) : 0;
-        static double? Avg(Measurement m, HealAction? x) => x != null && m.HasHeals ? x.Avg : null;
+        static double? Of(Measurement m, HealAction? x, Func<HealAction, double> pick) => x != null ? pick(x) : 0;
+        static double? Avg(Measurement m, HealAction? x) => x?.Avg;
         return new HealLine(x.Key,
             new AB(Whole(Of(ma, x.A, h => h.Casts)), Whole(Of(mb, x.B, h => h.Casts))),
             new AB(Whole(Of(ma, x.A, h => h.Total)), Whole(Of(mb, x.B, h => h.Total))),
@@ -651,18 +632,7 @@ public sealed class CompareSheet
             new AB(Whole(Of(ma, x.A, h => h.Max)), Whole(Of(mb, x.B, h => h.Max))));
     }
 
-    static string NoteOf(Measurement ma, Measurement mb, bool anyRows)
-    {
-        const string since = " healing lines — healing is recorded by the VibeXI addon 0.3.0 and later";
-        var note = (ma.HasHeals, mb.HasHeals) switch
-        {
-            (false, false) => "Neither parse has" + since + ".",
-            (false, true) => "Parse A has no" + since + ", so its side reads as a dash.",
-            (true, false) => "Parse B has no" + since + ", so its side reads as a dash.",
-            _ => "",
-        };
-        return note.Length > 0 || anyRows ? note : "No healing in either run.";
-    }
+    static string NoteOf(bool anyRows) => anyRows ? "" : "No healing in either run.";
 
     // --------------------------------------------------------------- naming
 

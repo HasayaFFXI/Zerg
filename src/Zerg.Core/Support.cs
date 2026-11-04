@@ -50,8 +50,8 @@ public static class Support
 {
     /// <summary>
     /// The support rows that count: <see cref="Counting.Filter"/>'s
-    /// scoping, as heals have it (the session window, monsters,
-    /// exclusions), a pet's credited to its owner with its own name kept
+    /// scoping, as heals have it (the session window, monsters, the
+    /// characters isolated), a pet's credited to its owner with its own name kept
     /// ("Titan: Earthen Ward").
     /// </summary>
     public static List<CombatEvent> Filter(IReadOnlyList<CombatEvent>? rows, FilterOptions? opts = null) =>

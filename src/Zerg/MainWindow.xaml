@@ -193,12 +193,6 @@
       <Setter Property="Margin" Value="0"/>
     </Style>
 
-    <!-- All and None on the characters' line: words to press. -->
-    <Style x:Key="BandLink" TargetType="Button" BasedOn="{StaticResource LinkButton}">
-      <Setter Property="FontSize" Value="11.5"/>
-      <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
-    </Style>
-
     <Style x:Key="StatusDot" TargetType="Ellipse">
       <Setter Property="Width" Value="8"/>
       <Setter Property="Height" Value="8"/>
@@ -523,11 +517,15 @@
             <ToggleButton Style="{StaticResource SmallToggle}" Content="Include Skillchains" IsChecked="{Binding Skillchains}"
                           ToolTip="{Binding SkillchainsTip}" Margin="0,0,6,0"
                           Visibility="{Binding IsDamage, Converter={StaticResource Visible}}"/>
-            <!-- Which targets the damage is isolated to, and which damage
-                 types, and the way to pick them: filters on what damage is
-                 counted, as the switch before them is, and like it not
-                 offered over healing. In Compare the two are on the
-                 Compare card too. -->
+            <!-- Which characters the damage is isolated to, which targets
+                 and which damage types, and the way to pick them: filters on
+                 what damage is counted, as the switch before them is, and
+                 like it not offered over healing (whose table isolates its
+                 own healers). In Compare the last two are on the Compare
+                 card too. -->
+            <Grid Margin="0,0,6,0" Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
+              <v:PickButton DataContext="{Binding CharacterFilter}"/>
+            </Grid>
             <Grid Margin="0,0,6,0" Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
               <v:PickButton DataContext="{Binding TargetFilter}"/>
             </Grid>
@@ -730,7 +728,8 @@
               <ColumnDefinition/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <v:Caps Text="Total healing" Style="{StaticResource BandLabel}"/>
+            <!-- With a healer isolated, "Healing by Sylviane". -->
+            <v:Caps Text="{Binding HealTotalLabel}" Style="{StaticResource BandLabel}" ToolTip="{Binding HealTotalTip}"/>
             <TextBlock Text="{Binding HealTotalText}" Style="{StaticResource BandFigure}"/>
             <Grid Style="{StaticResource HealBandMark}"
                   ToolTip="The party's healing in each stretch of the session, first to last. The last bar is still filling">
@@ -788,83 +787,6 @@
         <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
       </Grid>
 
-      <!-- The characters, on a line of their own: who is counted, and the
-           way to leave one out. Not over Compare: they filter one parse,
-           and it has two. Over the View section they are the characters of
-           the parse open there. v:ChipLine lays the line out; the chips
-           that do not fit on it are behind the chip that says how many,
-           which opens the line onto all of them and folds it again. -->
-      <Grid Background="{DynamicResource Bg1Brush}" ClipToBounds="True"
-            Visibility="{Binding ShowsParse, Converter={StaticResource Visible}}">
-        <v:ChipLine MinHeight="{StaticResource CharactersBandHeight}">
-          <v:Caps v:ChipLine.Part="Label" Text="{Binding CharactersLabel}" Style="{StaticResource Caps}"/>
-
-          <ItemsControl v:ChipLine.Part="Chips" ItemsSource="{Binding Chips}" Focusable="False">
-            <ItemsControl.Template>
-              <ControlTemplate TargetType="ItemsControl">
-                <!-- Opened onto every chip, the list is capped at four
-                     lines (four chips and three gaps) and scrolls past
-                     that, so a narrow window's alliance cannot push the
-                     cards off the screen. The scroll bar is drawn over the
-                     list; v:ChipFit keeps the chips out from under it. -->
-                <ScrollViewer MaxHeight="92" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              v:WheelChain.On="True" Focusable="False">
-                  <ItemsPresenter/>
-                </ScrollViewer>
-              </ControlTemplate>
-            </ItemsControl.Template>
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <v:ChipFit Wrap="{Binding CharactersOpen}"/>
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <!-- A chip: the character's colour and name. Their job is in
-                   the tooltip. Left out, the swatch is hollow and the name
-                   is struck through. -->
-              <DataTemplate>
-                <ToggleButton Style="{StaticResource Chip}" IsChecked="{Binding Included}" ToolTip="{Binding Tip}"
-                              AutomationProperties.Name="{Binding Name}">
-                  <StackPanel Orientation="Horizontal">
-                    <Rectangle x:Name="Colour" Style="{StaticResource Swatch}" Fill="{Binding Swatch}" Margin="0,0,6,0"
-                               StrokeThickness="1"/>
-                    <TextBlock x:Name="Who" Text="{Binding Name}" VerticalAlignment="Center"/>
-                  </StackPanel>
-                </ToggleButton>
-                <DataTemplate.Triggers>
-                  <DataTrigger Binding="{Binding Included}" Value="False">
-                    <Setter TargetName="Colour" Property="Fill" Value="Transparent"/>
-                    <Setter TargetName="Colour" Property="Stroke" Value="{DynamicResource Text4Brush}"/>
-                    <Setter TargetName="Who" Property="TextDecorations" Value="Strikethrough"/>
-                  </DataTrigger>
-                </DataTemplate.Triggers>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-
-          <!-- "+5" while the line holds all but five; a chevron once it is
-               opened onto every chip, to fold it again. A toggle: it acts
-               on being checked, not on the press. -->
-          <ToggleButton v:ChipLine.Part="More" Style="{StaticResource ChipMore}" IsChecked="{Binding CharactersOpen}"
-                        Content="{Binding MoreText, RelativeSource={RelativeSource AncestorType=v:ChipLine}}"
-                        Visibility="{Binding CanFold, RelativeSource={RelativeSource AncestorType=v:ChipLine}, Converter={StaticResource Visible}}"
-                        AutomationProperties.Name="Show or hide the character list"/>
-
-          <StackPanel v:ChipLine.Part="Tail" Orientation="Horizontal">
-            <Border Style="{StaticResource GroupRule}" Height="14"/>
-            <Button Style="{StaticResource BandLink}" Content="All" Command="{Binding IncludeAllCommand}"
-                    ToolTip="Include every character listed" Margin="9,0,0,0" AutomationProperties.Name="Include all"/>
-            <Button Style="{StaticResource BandLink}" Content="None" Command="{Binding IncludeNoneCommand}"
-                    ToolTip="Exclude every character listed" Margin="10,0,0,0" AutomationProperties.Name="Include none"/>
-          </StackPanel>
-
-          <!-- Says who is out, also while their chip is not on the line. -->
-          <TextBlock v:ChipLine.Part="Hint" Text="{Binding CharactersHint}" Style="{StaticResource Label}"
-                     TextTrimming="CharacterEllipsis" ToolTip="{Binding CharactersHint}"/>
-        </v:ChipLine>
-        <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
-      </Grid>
-
       <!-- The Compare section's own bands, in the place of the two above:
            what to compare, the two slots, six figures. -->
       <v:CompareSection DataContext="{Binding Compare}"
@@ -891,7 +813,7 @@
       <v:SplitPanel Tree="{Binding DamageLayout}" Section="Damage" Style="{StaticResource Panes}"
                     Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
 
-        <Grid v:SplitPanel.Key="bars" v:SplitPanel.Title="Damage by character">
+        <Grid v:SplitPanel.Key="bars" v:SplitPanel.Title="Overview">
           <Grid.Style>
             <Style TargetType="Grid">
               <Style.Triggers>

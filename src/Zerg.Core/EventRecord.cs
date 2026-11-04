@@ -22,14 +22,29 @@ public sealed class EventRecord
     static readonly JsonDocumentOptions LineOptions = new() { MaxDepth = 8 };
 
     /// <summary>
-    /// The latest a record's time may be, in seconds: the last second a
-    /// <see cref="DateTimeOffset"/> can hold, so whatever is drawn from it can
-    /// be shown as a time of day. Before 1970 is no time either.
+    /// The latest a record's time may be, in Unix milliseconds: the last
+    /// millisecond a <see cref="DateTimeOffset"/> can hold, so whatever is
+    /// drawn from it can be shown as a time of day. Before 1970 is no time
+    /// either.
     /// </summary>
-    public const double LatestTime = 253_402_300_799;
+    public const double LatestTime = 253_402_300_799_999;
+
+    /// <summary>
+    /// Where the old format's times lie, as milliseconds: from
+    /// <see cref="SecondsFrom"/> up to <see cref="MillisecondsFrom"/>. Before
+    /// addon 2.0.0 <c>t</c> was whole seconds, and a time in seconds from
+    /// 2001 on (10⁹ and up) read as milliseconds is a day between January
+    /// 1970 and September 2001, which every count would take at its word. No
+    /// addon wrote then, and none writes milliseconds that small, so a time
+    /// there is the old format and the record is refused, not dated.
+    /// </summary>
+    public const double SecondsFrom = 1_000_000_000, MillisecondsFrom = 1_000_000_000_000;
+
+    /// <summary>A time in the old format's whole seconds (<see cref="SecondsFrom"/>).</summary>
+    public static bool InSeconds(double t) => t >= SecondsFrom && t < MillisecondsFrom;
 
     public string Kind { get; private set; } = "";
-    /// <summary>Seconds, as the wire has it; null when the record has none.</summary>
+    /// <summary>Unix milliseconds, as the wire has it; null when the record has none.</summary>
     public double? T { get; private set; }
     public double Seq { get; private set; }
     public double? Use { get; private set; }
@@ -60,7 +75,8 @@ public sealed class EventRecord
     /// <summary>
     /// Not a record the contract allows: not JSON, not an object, or a known
     /// field of the wrong type (a string where a number goes, a number that
-    /// is not finite, a time outside <see cref="LatestTime"/>). What it would
+    /// is not finite, a time outside <see cref="LatestTime"/> or in the old
+    /// format's seconds, <see cref="InSeconds"/>). What it would
     /// have said is not to be trusted, so none of it is.
     /// </summary>
     public bool Malformed { get; private set; }
@@ -124,7 +140,7 @@ public sealed class EventRecord
                 case "subLvl": r.SubLevel = Num(v, ref bad); break;
             }
         }
-        if (r.T is double t && t is < 0 or > LatestTime) bad = true;
+        if (r.T is double t && (t is < 0 or > LatestTime || InSeconds(t))) bad = true;
         r.Malformed = bad;
         return r;
     }

@@ -15,7 +15,7 @@ public class ReadingTests
     static readonly HashSet<string> Nobody = [];
 
     static string Melee(string dmg) =>
-        "{\"t\":10,\"seq\":1,\"use\":1,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\"," +
+        "{\"t\":10000,\"seq\":1,\"use\":1,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\"," +
         "\"action\":\"Attack\",\"actionId\":1,\"target\":\"Goblin\",\"targetKind\":\"mob\",\"dmg\":" + dmg +
         ",\"hit\":true,\"crit\":false,\"burst\":false,\"msg\":1}";
 
@@ -49,14 +49,17 @@ public class ReadingTests
     }
 
     [Theory]
-    [InlineData("{\"t\":10,\"kind\":7,\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
-    [InlineData("{\"t\":10,\"kind\":\"melee\",\"actor\":[\"Hasaya\"],\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
-    [InlineData("{\"t\":10,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":1}")]
+    [InlineData("{\"t\":10000,\"kind\":7,\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
+    [InlineData("{\"t\":10000,\"kind\":\"melee\",\"actor\":[\"Hasaya\"],\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
+    [InlineData("{\"t\":10000,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":1}")]
     [InlineData("{\"t\":\"10\",\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
     [InlineData("{\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
     [InlineData("{\"t\":-1,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
-    [InlineData("{\"t\":3e11,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
-    [InlineData("{\"kind\":\"heal\",\"actor\":\"Mage\",\"actorKind\":\"player\",\"hp\":\"80\",\"t\":10}")]
+    [InlineData("{\"t\":3e14,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
+    // The old format's whole seconds (addon before 2.0.0): January 1970 as milliseconds.
+    [InlineData("{\"t\":1785000000,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
+    [InlineData("{\"t\":999999999999,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"dmg\":5,\"hit\":true}")]
+    [InlineData("{\"kind\":\"heal\",\"actor\":\"Mage\",\"actorKind\":\"player\",\"hp\":\"80\",\"t\":10000}")]
     [InlineData("not json at all")]
     [InlineData("[1,2,3]")]
     public void A_line_the_contract_does_not_allow_is_skipped_and_counted(string line)
@@ -77,25 +80,23 @@ public class ReadingTests
     }
 
     [Fact]
-    public void Blank_lines_and_an_older_addons_notices_are_not_unreadable()
+    public void Blank_lines_and_the_meta_line_are_not_unreadable()
     {
         var r = new EventReader();
         r.Feed("");
         r.Feed("   ");
-        // The startup probe and unknown-message notice an older addon wrote,
-        // as it wrote them: no actor, so no row, and nothing to count against it.
-        Assert.Null(r.Feed("{\"kind\":\"meta\",\"v\":\"0.3.0\",\"t\":1785434520,\"chunkData\":\"string\"," +
-                           "\"injected\":\"boolean\",\"dataLen\":104,\"selfName\":\"Hasaya\",\"path\":\"C:\\\\x.jsonl\"}"));
-        Assert.Null(r.Feed("{\"kind\":\"meta\",\"unknownMsg\":431,\"category\":4,\"actionId\":245}"));
+        // The file's first line, as the addon writes it: no actor, so no row,
+        // and nothing to count against it.
+        Assert.Null(r.Feed("{\"kind\":\"meta\",\"t\":1760570990482,\"version\":\"2.0.0\"}"));
         Assert.Equal(0, r.Unreadable);
-        Assert.Equal(4, r.LineNo);
+        Assert.Equal(3, r.LineNo);
     }
 
     [Fact]
     public void A_field_that_is_null_is_a_field_that_is_missing()
     {
         var r = new EventReader();
-        var e = r.Feed("{\"t\":10,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"use\":null," +
+        var e = r.Feed("{\"t\":10000,\"kind\":\"melee\",\"actor\":\"Hasaya\",\"actorKind\":\"player\",\"use\":null," +
                        "\"dmg\":null,\"hit\":null,\"owner\":null,\"action\":null}")!;
         Assert.Null(e.Use);
         Assert.Equal(0, e.Dmg);
@@ -173,8 +174,36 @@ public class ReadingTests
         var doc = Doc();
         doc["version"] = "1";
         Assert.Equal(ImportError.NotAParse, Refused(doc));
-        doc["version"] = 2;
+        doc["version"] = 3;
         Assert.Equal(ImportError.TooNew, Refused(doc));
+    }
+
+    [Fact]
+    public void A_parse_with_times_in_seconds_is_refused()
+    {
+        // Version 1 wrote the records' times in seconds: read as milliseconds
+        // they would be January 1970, so it is refused, never misread.
+        var doc = Doc();
+        doc["version"] = 1;
+        Assert.Equal(ImportError.TooOld, Refused(doc));
+    }
+
+    [Theory]
+    [InlineData("armedAt"), InlineData("startedAt"), InlineData("pausedAt"), InlineData("spans")]
+    public void A_parse_missing_part_of_its_session_is_refused(string field)
+    {
+        var doc = Doc();
+        doc["session"]!.AsObject().Remove(field);
+        Assert.Equal(ImportError.NoSession, Refused(doc));
+    }
+
+    [Theory]
+    [InlineData("kinds"), InlineData("jobs")]
+    public void A_parse_missing_its_kinds_or_jobs_is_not_a_parse(string field)
+    {
+        var doc = Doc();
+        Assert.True(doc.Remove(field));
+        Assert.Equal(ImportError.NotAParse, Refused(doc));
     }
 
     [Fact]
@@ -216,7 +245,7 @@ public class ReadingTests
     ];
 
     static (double Total, string Listed, double Heal, double Elapsed) Counted(Snapshot c) =>
-        (c.Totals.Total, string.Join(", ", c.Listed), c.Healing.Total, c.Elapsed);
+        (c.Totals.Total, string.Join(", ", c.Characters.Select(a => a.Name + " " + a.Total)), c.Healing.Total, c.Elapsed);
 
     [Fact]
     public void A_session_counted_as_it_grows_counts_as_one_counted_once()
@@ -243,9 +272,9 @@ public class ReadingTests
         once.Feed(lines[7..]);
 
         foreach (var skillchains in new[] { true, false })
-            foreach (var excluded in new[] { Nobody, new HashSet<string> { "Beast" } })
-                Assert.Equal(Counted(once.Count(excluded, skillchains, 40_000)),
-                             Counted(step.Count(excluded, skillchains, 40_000)));
+            foreach (var isolated in new[] { Nobody, new HashSet<string> { "Beast" } })
+                Assert.Equal(Counted(once.Count(isolated, skillchains, 40_000)),
+                             Counted(step.Count(isolated, skillchains, 40_000)));
     }
 
     [Fact]
@@ -262,7 +291,7 @@ public class ReadingTests
     }
 
     [Fact]
-    public void The_chips_are_in_the_order_the_table_is()
+    public void The_character_list_is_in_the_order_the_table_is()
     {
         var c = new Tracker();
         c.Follow("Hasaya_2026.07.30.jsonl");
@@ -271,16 +300,18 @@ public class ReadingTests
         // in the order of first action.
         c.Feed([
             Lines.Hit(10, "Tank", 0, hit: false), Lines.Hit(10, "Mage", 50), Lines.Hit(11, "Hasaya", 50),
-            "{\"t\":12,\"seq\":1,\"use\":900,\"kind\":\"ws\",\"actor\":\"Tank\",\"actorKind\":\"player\",\"action\":\"Spin\"," +
+            "{\"t\":12000,\"seq\":1,\"use\":900,\"kind\":\"ws\",\"actor\":\"Tank\",\"actorKind\":\"player\",\"action\":\"Spin\"," +
             "\"target\":\"A\",\"targetKind\":\"mob\",\"dmg\":0,\"hit\":false}",
-            "{\"t\":12,\"seq\":2,\"use\":900,\"kind\":\"ws\",\"actor\":\"Tank\",\"actorKind\":\"player\",\"action\":\"Spin\"," +
+            "{\"t\":12000,\"seq\":2,\"use\":900,\"kind\":\"ws\",\"actor\":\"Tank\",\"actorKind\":\"player\",\"action\":\"Spin\"," +
             "\"target\":\"B\",\"targetKind\":\"mob\",\"dmg\":60,\"hit\":true}",
         ]);
         var all = c.Count(Nobody, true, 20_000);
         Assert.Equal(all.Totals.Actors.Select(a => a.Name), Counting.Ranked(all.Events));
-        Assert.Equal(["Tank", "Mage", "Hasaya"], all.Listed);
-        // With someone excluded the chips still list everyone, in that order.
-        Assert.Equal(["Tank", "Mage", "Hasaya"], c.Count(new HashSet<string> { "Tank" }, true, 20_000).Listed);
+        Assert.Equal(["Tank", "Mage", "Hasaya"], all.Characters.Select(a => a.Name));
+        // With someone isolated the list still names everyone, in that order.
+        var tank = c.Count(new HashSet<string> { "Tank" }, true, 20_000);
+        Assert.Equal(["Tank", "Mage", "Hasaya"], tank.Characters.Select(a => a.Name));
+        Assert.Equal(["Tank"], tank.Totals.Actors.Select(a => a.Name));
     }
 
     [Fact]

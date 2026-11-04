@@ -128,6 +128,15 @@ public static class Columns
         return sum;
     }
 
+    /// <summary>The columns written as <paramref name="text"/>, written again
+    /// without those at the places <paramref name="drop"/> names (from 0).</summary>
+    public static string Without(string? text, IEnumerable<int> drop)
+    {
+        var gone = drop.ToHashSet();
+        var parts = (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return string.Join(",", parts.Where((_, i) => !gone.Contains(i)));
+    }
+
     /// <summary>The narrowest a row written as <paramref name="text"/> can be.</summary>
     public static double Least(string? text) => Least(Parse(text));
 

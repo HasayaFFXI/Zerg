@@ -7,8 +7,8 @@ namespace Zerg.Core;
 /// the roster.
 ///
 /// The addon reads the game's own action packets and writes one JSON object
-/// per line, so there is nothing to infer here: a line is validated, its clock
-/// scaled from seconds to milliseconds, and it is filed. What the packet
+/// per line, so there is nothing to infer here: a line is validated and
+/// filed. What the packet
 /// states outright:
 /// <list type="bullet">
 /// <item><c>use</c>: one action is one use however many targets it reached;
@@ -21,9 +21,9 @@ namespace Zerg.Core;
 /// <item>job lines: a party member's main and sub job.</item>
 /// </list>
 ///
-/// The wire clock is whole seconds (the addon has no finer clock), with
-/// <c>seq</c> ordering rows inside one second. Everything after this class is
-/// in milliseconds; <c>t</c> is scaled here and never again.
+/// The wire clock is Unix milliseconds, as everything after this class is,
+/// with <c>seq</c> ordering the lines that share one (every line of one
+/// packet does).
 /// </summary>
 public sealed class EventReader
 {
@@ -129,7 +129,7 @@ public sealed class EventReader
             if (raw.Actor.Length > 0) Roster.Note(raw.Actor, raw.ActorKind);
             Deaths.Add(new DeathEvent
             {
-                T = at * 1000,
+                T = at,
                 Seq = raw.Seq,
                 Target = raw.Target,
                 TargetKind = raw.TargetKind,
@@ -145,8 +145,8 @@ public sealed class EventReader
         }
 
         // Everything after this is on the clock, and a row with no time
-        // cannot be put on it. A line with no actor is no row: the notices an
-        // older addon wrote (kind "meta") are passed over here.
+        // cannot be put on it. A line with no actor is no row: the meta line
+        // (the addon's version and when it loaded) is passed over here.
         if (raw.Kind.Length == 0 || raw.Actor.Length == 0) return null;
         if (raw.T is not double t)
         {
@@ -164,7 +164,7 @@ public sealed class EventReader
             Roster.Note(raw.Target, raw.TargetKind);
             Heals.Add(new HealEvent
             {
-                T = t * 1000,
+                T = t,
                 Seq = raw.Seq,
                 Use = raw.Use,
                 Via = raw.Via,
@@ -193,7 +193,7 @@ public sealed class EventReader
         {
             Enfeebles.Add(new CombatEvent
             {
-                T = t * 1000,
+                T = t,
                 Seq = raw.Seq,
                 Use = raw.Use,
                 Kind = raw.Via,
@@ -215,7 +215,7 @@ public sealed class EventReader
 
         var e = new CombatEvent
         {
-            T = t * 1000,
+            T = t,
             Seq = raw.Seq,
             Use = raw.Use,
             Kind = raw.Kind,
@@ -248,9 +248,8 @@ public sealed class EventReader
     /// <summary>
     /// A row one of ours aimed at one of ours is support, not damage: a
     /// Protect, a Haste, an Erase, an avatar's ward. Among the damage rows
-    /// it would be a magic miss, start the clock and hold it open, and an
-    /// older addon wrote some with the buff's own figure as damage
-    /// (Protect "dealt" 40). Asked of the row's own kinds, which the addon
+    /// it would be a miss or a hit, start the clock and hold it open. Asked
+    /// of the row's own kinds, which the addon
     /// read from the spawn flags, not of the roster: a row is filed once,
     /// as it arrives.
     /// </summary>

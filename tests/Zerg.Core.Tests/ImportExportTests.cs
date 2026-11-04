@@ -62,8 +62,8 @@ public class ImportExportTests
         // Not the row before the zero, nor the one that landed in the pause.
         Assert.Equal([100d, 300d, 50d], parse.Source.Events.Select(e => e.Dmg));
         Assert.Single(parse.Source.Heals);
-        // Paused where the last swing's second ended, not at the press 7 s later.
-        Assert.Equal((10_000d, 33_000d), (parse.Session.StartedAt, parse.Session.PausedAt));
+        // Paused at the last swing, not at the press 8 s later.
+        Assert.Equal((10_000d, 32_000d), (parse.Session.StartedAt, parse.Session.PausedAt));
         Assert.Equal([new PauseSpan(20_000, 30_000)], parse.Session.Spans);
         Assert.Equal("Hasaya_2026.07.30.jsonl", parse.File);
         // The jobs travel in the roster: one of them was written before Start.
@@ -106,12 +106,12 @@ public class ImportExportTests
         var b = shown.Count(Nobody, true, 9_999_999);
 
         Assert.True(shown.Imported);
-        Assert.Equal(13_000, b.Elapsed);
+        Assert.Equal(12_000, b.Elapsed);
         Assert.Equal((a.Totals.Total, a.Elapsed, a.Healing.Total), (b.Totals.Total, b.Elapsed, b.Healing.Total));
         Assert.Equal(a.Totals.Actors.Select(x => (x.Name, x.Total, x.Dps)), b.Totals.Actors.Select(x => (x.Name, x.Total, x.Dps)));
         Assert.Equal(a.Events.Select(e => (e.T, e.Actor, e.Dmg)), b.Events.Select(e => (e.T, e.Actor, e.Dmg)));
         // The viewer's own filters apply to it.
-        Assert.Equal(100, shown.Count(new HashSet<string> { "Hasaya" }, true).Totals.Total);
+        Assert.Equal(350, shown.Count(new HashSet<string> { "Hasaya" }, true).Totals.Total);
         Assert.Equal(450, shown.Count(Nobody, true).Totals.Total);
     }
 
@@ -142,7 +142,7 @@ public class ImportExportTests
 
         var after = shown.Count(Nobody, true, 99_000);
         Assert.Equal((before.Totals.Total, before.Elapsed), (after.Totals.Total, after.Elapsed));
-        Assert.Equal(33_000, shown.Session.PausedAt);
+        Assert.Equal(32_000, shown.Session.PausedAt);
         Assert.Equal("Hasaya_2026.07.30.jsonl", shown.File);
         Assert.Equal(0, shown.Lines);
     }
@@ -172,7 +172,8 @@ public class ImportExportTests
 
         var e = Assert.Throws<ParseImportException>(() => ParseFile.Import(doc.ToJsonString()));
         Assert.Equal(ImportError.NoEvents, e.Reason);
-        Assert.Equal("That parse has no heal list.", e.Message);
+        // Whatever the reason, the player is told the one thing.
+        Assert.Equal("Unable to load parse: invalid format, check VibeXI version.", e.Message);
     }
 
     [Fact]

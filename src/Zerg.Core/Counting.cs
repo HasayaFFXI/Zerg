@@ -9,9 +9,9 @@ public sealed class FilterOptions
     public Session? Session { get; init; }
     /// <summary>Drops every row whose actor is a monster. Null: no such drop.</summary>
     public Roster? Roster { get; init; }
-    /// <summary>Per-character switches, keyed by name: <c>false</c> excludes.
-    /// A name that is absent is included.</summary>
-    public IReadOnlyDictionary<string, bool>? Actors { get; init; }
+    /// <summary>Only rows of one of these characters, by the credited name
+    /// (<see cref="Counting.Counts"/>). Null or empty: every character.</summary>
+    public IReadOnlySet<string>? Characters { get; init; }
     /// <summary>False drops skillchain rows entirely.</summary>
     public bool Skillchains { get; init; } = true;
     /// <summary>Only rows at one of these targets, by name
@@ -91,8 +91,11 @@ public static class Counting
     /// counted. Asked of the row as the file has it, as a target is. With
     /// targets isolated too, a row of either counts: the fight is one more
     /// thing isolated beside them, as one more name would be.</param>
+    /// <param name="characters">Isolated characters: a row of anyone else's
+    /// is not counted. Asked of the credited name, so isolating an owner
+    /// takes their pet too. No clock is asked with this either.</param>
     public static CombatEvent? Counted(CombatEvent e, Roster? roster,
-                                       IReadOnlyDictionary<string, bool>? actors, bool skillchains,
+                                       IReadOnlySet<string>? characters, bool skillchains,
                                        IReadOnlySet<string>? targets = null, IReadOnlySet<string>? types = null,
                                        Fight? fight = null)
     {
@@ -105,10 +108,14 @@ public static class Counting
         // Asked of the row's own actor, so a pet is judged as the pet it is.
         if (roster != null && roster.IsMob(e.Actor)) return null;
         e = Credit(e);
-        // Keyed on the credited name, so excluding an owner takes their pet too.
-        if (actors != null && actors.TryGetValue(e.Actor, out var on) && !on) return null;
+        if (!Counts(characters, e.Actor)) return null;
         return e;
     }
+
+    /// <summary>The character counts with these isolated: any of them, or
+    /// anyone while none is. Damage, heals, support and deaths ask it alike.</summary>
+    public static bool Counts(IReadOnlySet<string>? characters, string name) =>
+        characters is not { Count: > 0 } || characters.Contains(name);
 
     /// <summary>
     /// The rows that count, credited, and (with a session) on its clock.
@@ -134,7 +141,7 @@ public static class Counting
                 el = sn.At(row.T);
                 if (el == null) continue;   // before the zero, or in a pause
             }
-            var e = Counted(row, opts.Roster, opts.Actors, opts.Skillchains, opts.Targets, opts.Types, opts.Fight);
+            var e = Counted(row, opts.Roster, opts.Characters, opts.Skillchains, opts.Targets, opts.Types, opts.Fight);
             if (e == null) continue;
             if (el is double t) e = e with { T = t };
             output.Add(e);
@@ -148,10 +155,9 @@ public static class Counting
     ///
     /// <para>"Would be counted" is the whole rule, the same test
     /// <see cref="Filter"/> applies: a monster's swing does not start the clock,
-    /// nor does a skillchain with skillchains off, nor an excluded character's
-    /// attack. With everyone excluded nothing qualifies and the clock never
-    /// starts, which is consistent (nothing would be drawn) but is the one way
-    /// arming can look stuck.</para>
+    /// nor does a skillchain with skillchains off. Asked without the
+    /// characters, targets and types isolated: a clock belongs to the
+    /// session, not to what the viewer is looking at in it.</para>
     ///
     /// <para>A miss starts the clock like any other swing. Waiting for damage to
     /// land would put every miss before it outside the session and drop them
@@ -164,10 +170,19 @@ public static class Counting
         foreach (var e in events)
         {
             if (e.T < armed) continue;
-            if (Counted(e, opts.Roster, opts.Actors, opts.Skillchains) != null) return e.T;
+            if (Counted(e, opts.Roster, null, opts.Skillchains) != null) return e.T;
         }
         return null;
     }
+
+    /// <summary>
+    /// An amount per second of <paramref name="seconds"/>; null for an amount
+    /// over no time at all, which has no rate. A session runs from its first
+    /// row to its last, so a pull of one swing is no time (Session.Snap).
+    /// Nothing over no time is a rate of nothing.
+    /// </summary>
+    public static double? PerSecond(double total, double seconds) =>
+        seconds > 0 ? total / seconds : total == 0 ? 0 : null;
 
     /// <summary>
     /// What a paused session's clock is snapped back to
@@ -178,7 +193,7 @@ public static class Counting
     /// swing does not hold the clock open, and a miss does. A heal does not
     /// either, as it does not start one. Asked without the viewer's switches,
     /// though: the zero is latched once and stays, but an end worked out from
-    /// the exclusions would move with every chip, and the file an export
+    /// the skillchain switch would move with it, and the file an export
     /// writes carries no filters to work it out from again.</para>
     /// </summary>
     public static double? LastCounted(IReadOnlyList<CombatEvent> events, Session sn, FilterOptions? opts = null)
@@ -189,7 +204,7 @@ public static class Counting
         {
             if (last is double t && e.T <= t) continue;
             if (sn.At(e.T) == null) continue;
-            if (Counted(e, opts.Roster, opts.Actors, opts.Skillchains) != null) last = e.T;
+            if (Counted(e, opts.Roster, null, opts.Skillchains) != null) last = e.T;
         }
         return last;
     }

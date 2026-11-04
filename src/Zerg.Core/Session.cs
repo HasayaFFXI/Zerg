@@ -31,7 +31,7 @@ public sealed record PauseSpan(double From, double To);
 /// </summary>
 public sealed class Session
 {
-    /// <summary>When Start was pressed, floored to the second; null when idle.</summary>
+    /// <summary>When Start was pressed; null when idle.</summary>
     public double? ArmedAt { get; set; }
     /// <summary>The zero: the time of the first counted event. Set once, never moved.</summary>
     public double? StartedAt { get; set; }
@@ -39,28 +39,25 @@ public sealed class Session
     public List<PauseSpan> Spans { get; set; } = [];
     /// <summary>When Pause was pressed, while paused.</summary>
     public double? PausedAt { get; set; }
-    /// <summary>Where a paused clock is read: the end of the second its last
-    /// counted row landed in (<see cref="Snap"/>). Null while running, and for
-    /// a pause nobody has snapped, which is read at <see cref="PausedAt"/>.</summary>
+    /// <summary>Where a paused clock is read: the time of its last counted
+    /// row (<see cref="Snap"/>). Null while running, and for a pause nobody
+    /// has snapped, which is read at <see cref="PausedAt"/>.</summary>
     public double? EndedAt { get; set; }
 
-    /// <summary>The wire clock is whole seconds: a row stamped <c>t</c> landed
-    /// somewhere in the second that begins there.</summary>
+    /// <summary>A second, in the clock's milliseconds: the step a replay's
+    /// handles move by.</summary>
     public const double Second = 1000;
 
     public static double Now() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     /// <summary>
-    /// A session armed at <paramref name="now"/>, floored to the second on
-    /// purpose. The wire clock is whole seconds, so a swing 300 ms before the
-    /// press and one 300 ms after carry the same time and cannot be told apart.
-    /// Rounding down counts that second rather than discarding it: catching the
-    /// pull's first swing matters more than excluding one that beat the button
-    /// by a moment, and dropping it would drop it from accuracy too.
+    /// A session armed at <paramref name="now"/>, exactly. The wire clock is
+    /// the PC's own, to the millisecond, so a swing stamped before the press
+    /// came before it, and is not counted.
     /// </summary>
     public static Session Arm(double? now = null) => new()
     {
-        ArmedAt = Math.Floor((now ?? Now()) / 1000) * 1000,
+        ArmedAt = now ?? Now(),
     };
 
     public static Session Idle() => new();
@@ -89,13 +86,18 @@ public sealed class Session
     }
 
     /// <summary>Is <paramref name="t"/> inside a pause? Those events are dropped, not shifted.
-    /// A snapped pause begins where its clock is read, not at the press.</summary>
+    /// A snapped pause begins where its clock is read, not at the press.
+    ///
+    /// <para>A pause is what lies strictly between its ends: a row in the very
+    /// millisecond the clock stops is counted, so a snapped clock, read at its
+    /// last row, still counts that row and every other of its millisecond
+    /// (an area attack's targets all share one).</para></summary>
     public bool InPause(double t)
     {
-        if (EndedAt is double end && t >= end) return true;
+        if (EndedAt is double end && t > end) return true;
         foreach (var s in Spans)
-            if (t >= s.From && t < s.To) return true;
-        return PausedAt is double p && t >= p;
+            if (t > s.From && t < s.To) return true;
+        return PausedAt is double p && t > p;
     }
 
     /// <summary>
@@ -157,16 +159,14 @@ public sealed class Session
     /// <summary>
     /// Snaps a paused clock back to the last thing it measured.
     /// <paramref name="last"/> is the time of the last counted row the session
-    /// covers; the clock is then read at the end of that row's second, and
-    /// whatever came after it (the wait before somebody pressed Pause, an
-    /// earlier pause and resume with nothing counted since) is time nobody
-    /// was fighting, and no DPS is divided by it.
+    /// covers; the clock is then read at that row's own time, and whatever
+    /// came after it (the wait before somebody pressed Pause, an earlier
+    /// pause and resume with nothing counted since) is time nobody was
+    /// fighting, and no DPS is divided by it.
     ///
-    /// <para>The end of the second, not its start: the row landed somewhere
-    /// inside it, which is why arming rounds down to count the first one. A
-    /// pull of one swing is a second long, not nothing. Never later than the
-    /// clock really stopped: the press, or an earlier pause that began inside
-    /// that second.</para>
+    /// <para>So the session runs from its first row to its last, exactly. A
+    /// pull of one swing has no length, and no rate. Never later than the
+    /// clock really stopped: the press.</para>
     ///
     /// <para>The press and the pauses are left as they happened, so Resume
     /// undoes it. Nothing to snap to, or not paused: read at the press.</para>
@@ -175,10 +175,7 @@ public sealed class Session
     {
         EndedAt = null;
         if (PausedAt is not double p || last is not double t) return this;
-        double end = Math.Min(t + Second, p);
-        foreach (var s in Spans)
-            if (s.From > t) { end = Math.Min(end, s.From); break; }
-        EndedAt = end;
+        EndedAt = Math.Min(t, p);
         return this;
     }
 

@@ -66,8 +66,8 @@ public class DamageTypesTests
         var c = Session().Count(Nobody, true, 30_000, types: Only("pet"));
         var beast = c.Totals.Actors.Single();
         Assert.Equal(("Beast", 130d), (beast.Name, beast.Total));
-        // Whoever acted keeps their chip.
-        Assert.Equal(3, c.Listed.Count);
+        // The character list is of what the type isolated leaves.
+        Assert.Equal(["Beast"], c.Characters.Select(a => a.Name));
     }
 
     [Fact]
@@ -302,6 +302,28 @@ public class DamageTypesTests
         Assert.Null(DamageTypes.Told([], []));
         Assert.Equal("Only the damage dealt to Genbu, Kirin", DamageTypes.Told([], ["Kirin", "Genbu"]));
         Assert.Equal("Only Melee, Weaponskills damage dealt to Kirin", DamageTypes.Told(["ws", "melee"], ["Kirin"]));
+    }
+
+    [Fact]
+    public void A_total_says_which_characters_it_is_of()
+    {
+        Assert.Equal("Damage by Hasaya", DamageTypes.Heading([], [], by: ["Hasaya"]));
+        Assert.Equal("Damage by 2 characters to Kirin", DamageTypes.Heading([], ["Kirin"], by: ["Hasaya", "Tank"]));
+        Assert.Equal("Melee damage by Hasaya to 2 targets", DamageTypes.Heading(["melee"], ["Kirin", "Genbu"], by: ["Hasaya"]));
+
+        Assert.Equal("Only the damage dealt by Hasaya, Tank", DamageTypes.Told([], [], ["Hasaya", "Tank"]));
+        Assert.Equal("Only Melee damage dealt by Hasaya to Kirin", DamageTypes.Told(["melee"], ["Kirin"], ["Hasaya"]));
+    }
+
+    [Fact]
+    public void A_healing_total_says_which_healers_it_is_of()
+    {
+        Assert.Equal("Total healing", Healing.Heading([]));
+        Assert.Equal("Healing by Sylviane", Healing.Heading(["Sylviane"]));
+        Assert.Equal("Healing by 2 characters", Healing.Heading(["Sylviane", "Rhyllis"]));
+
+        Assert.Null(Healing.Told([]));
+        Assert.Equal("Only the healing done by Sylviane, Rhyllis", Healing.Told(["Sylviane", "Rhyllis"]));
     }
 
     [Fact]

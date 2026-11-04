@@ -3,32 +3,52 @@ namespace Zerg.Core;
 /// <summary>
 /// One count of the session as it stands: what every card is drawn from, the
 /// Damage section's and the Healing section's alike. Both are measured in the
-/// one count, over the same window and the same exclusions, so a figure in
+/// one count, over the same window, so a figure in
 /// one section and a figure in the other are never from two different moments.
 /// </summary>
 /// <param name="Events">The rows that count, credited and on the session clock.</param>
-/// <param name="Totals">The party, over those rows.</param>
-/// <param name="Listed">Every character who acted in the session, by name,
-/// largest first, whether or not they are excluded: the ones a filter chip is
-/// shown for.</param>
+/// <param name="Totals">The party, over those rows: the characters isolated, or everyone.</param>
 /// <param name="Elapsed">The session clock when this was counted, in milliseconds.</param>
 /// <param name="Latched">An armed session found its zero during this count.</param>
-public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Totals, IReadOnlyList<string> Listed,
-                           double Elapsed, bool Latched)
+public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Totals, double Elapsed, bool Latched)
 {
-    /// <summary>The heals that count: in the session, the party's, nobody
-    /// excluded, on the session clock, a pet's credited to its owner.</summary>
+    /// <summary>Every character who acted in the session, isolated or not,
+    /// largest first, each with their own figures and their share of them
+    /// all: what the Overview table and the Character button
+    /// list. Of what the target, type and fight isolated leave, as each of
+    /// those lists is of what the others leave.</summary>
+    public IReadOnlyList<ActorTotals> Characters { get; init; } = [];
+
+    /// <summary>The characters damage is isolated to, by name, in the order
+    /// they are picked from; none while everyone counts.</summary>
+    public IReadOnlyList<string> IsolatedCharacters { get; init; } = [];
+
+    /// <summary>Every character's deaths, isolated or not, as
+    /// <see cref="Characters"/> lists everyone: <see cref="Kills"/> has
+    /// only those of the characters isolated.</summary>
+    public IReadOnlyList<PartyDeath> Died { get; init; } = [];
+
+    /// <summary>How many times this character died, isolated or not.</summary>
+    public int DiedOf(string name) => Died.Count(d => d.Name == name);
+
+    /// <summary>The characters healing is isolated to, by name; none while
+    /// everyone counts. The Healing section's own: it cuts the heals and
+    /// the support, and no damage.</summary>
+    public IReadOnlyList<string> IsolatedHealers { get; init; } = [];
+
+    /// <summary>The heals that count: in the session, the party's, of the
+    /// healers isolated, on the session clock, a pet's credited to its owner.</summary>
     public IReadOnlyList<HealEvent> Heals { get; init; } = [];
 
     /// <summary>The party's healing, over those heals.</summary>
     public HealTotals Healing { get; init; } = new();
 
     /// <summary>How often each buff, removal and ward was cast, over the
-    /// same window and exclusions as the heals (<see cref="Zerg.Core.Support"/>).</summary>
+    /// same window and healers isolated as the heals (<see cref="Zerg.Core.Support"/>).</summary>
     public SupportTotals Support { get; init; } = SupportTotals.None;
 
     /// <summary>How often each enfeeble was cast and on how many of the
-    /// monsters it reached it took, over the same window and exclusions: the
+    /// monsters it reached it took, over the same window and healers: the
     /// same figures as <see cref="Support"/>'s, of what the party aimed at
     /// its enemies.</summary>
     public SupportTotals Enfeebles { get; init; } = SupportTotals.None;
@@ -38,7 +58,7 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     /// healed.</summary>
     public IReadOnlyList<string> Isolated { get; init; } = [];
 
-    /// <summary>What each target took from the characters who count, every
+    /// <summary>What each target took from the characters isolated, every
     /// target, isolated or not, in the order they are picked from
     /// (<see cref="Zerg.Core.Targets.Sorted"/>). Of the damage types
     /// isolated, where any are: each list is of what the other filter leaves.</summary>
@@ -51,6 +71,16 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     /// <see cref="Targets"/>, every target, isolated or not.</summary>
     public IReadOnlyDictionary<string, SplitFigures> TargetFigures { get; init; } =
         new Dictionary<string, SplitFigures>(StringComparer.Ordinal);
+
+    Lazy<IReadOnlyList<TargetGroup>>? grouped;
+    /// <summary>The damage grouped by target (<see cref="Zerg.Core.TargetGroups"/>):
+    /// of the same rows as <see cref="Targets"/>, every character's. Worked
+    /// out the first time it is asked for, and only then: only the Overview
+    /// pane's By target tab asks.</summary>
+    public IReadOnlyList<TargetGroup> TargetGroups => grouped?.Value ?? [];
+    /// <summary>How <see cref="TargetGroups"/> is worked out, when asked:
+    /// over rows of its own, never the list kept between counts.</summary>
+    public Func<IReadOnlyList<TargetGroup>> Grouping { init => grouped = new(value); }
 
     /// <summary>The damage types isolated, by key, in the order they are
     /// picked from; none while every type counts.</summary>
@@ -72,10 +102,11 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     /// targets are isolated: there is no rate to give then. The clock is the
     /// session's. It ran while the party fought everything else, so damage
     /// to one target over it is no DPS anybody dealt, and the event file
-    /// does not say how long a target was fought.
+    /// does not say how long a target was fought. Null too for damage over
+    /// a clock that never ran (<see cref="Counting.PerSecond"/>).
     /// </summary>
     public double? Rate(double total, double seconds) =>
-        Isolated.Count > 0 || IsolatedFight != null ? null : seconds > 0 ? total / seconds : 0;
+        Isolated.Count > 0 || IsolatedFight != null ? null : Counting.PerSecond(total, seconds);
 
     /// <summary>The one fight damage is isolated to, or null; beside the
     /// targets isolated, if any. Its rate is no more a DPS anybody dealt
@@ -116,7 +147,8 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
         IsolatedFight != null && Isolated.Count == 0 ? null : Zerg.Core.Kills.PerHour(Killed.Count, seconds);
 
     /// <summary>Every character who healed in the session, largest first,
-    /// excluded or not: who a chip is shown for in the Healing section.</summary>
+    /// isolated or not, each with their share of them all: what the
+    /// Healing by character table lists.</summary>
     public IReadOnlyList<HealerTotals> Healers { get; init; } = [];
 
     /// <summary>The biggest hit of any action; the first found wins a tie.</summary>
@@ -397,8 +429,7 @@ public sealed class Tracker
     }
 
     /// <summary>
-    /// Ends a paused session at the end of the second its last party damage
-    /// row landed in. Whose row is not asked, nor whether it was a
+    /// Ends a paused session at its last party damage row. Whose row is not asked, nor whether it was a
     /// skillchain: the end belongs to the session, as its zero does, so the
     /// screen, the exported file and a compared run all divide by one clock
     /// whatever filters each is seen through.
@@ -424,7 +455,7 @@ public sealed class Tracker
     /// the zero and outside every pause. An import cannot be resumed, so
     /// nothing else could be seen under any filter its reader sets, and the
     /// file is the parse, not whatever happened to have been read. The
-    /// filters are not in it: exclusions, skillchains and hidden names are
+    /// filters are not in it: what is isolated, skillchains and hidden names are
     /// the viewer's, and the reader's own apply.
     ///
     /// <para>The file ends where the parse does: at its last party damage
@@ -448,11 +479,12 @@ public sealed class Tracker
     /// <para>An armed session is given its zero here, first, if a row has
     /// qualified: the same pass must draw the row that started the clock. A
     /// filter change comes through here too, on purpose. Switching skillchains
-    /// back on, or re-including a character, can make a row already read the
-    /// first that counts, and it is then the right zero. The zero is set once
-    /// and never moved.</para>
+    /// back on can make a row already read the first that counts, and it is
+    /// then the right zero. The zero is set once and never moved.</para>
     /// </summary>
-    /// <param name="excluded">Characters switched off, by name.</param>
+    /// <param name="characters">Characters to isolate, by name: only damage
+    /// they dealt is counted, and only their deaths. Empty: everyone. It moves
+    /// no clock, no rate and no healing figure.</param>
     /// <param name="targets">Targets to isolate, by name: only damage dealt
     /// to these is counted. Null or empty: every target. It moves no clock
     /// (the zero and the end are asked without it) and no healing figure.</param>
@@ -461,20 +493,20 @@ public sealed class Tracker
     /// either, and unlike a target takes no rate away.</param>
     /// <param name="fight">One fight to isolate (a line of the Battle Log):
     /// only damage of its rows is counted. As a target is, and with it.</param>
-    public Snapshot Count(IReadOnlySet<string> excluded, bool skillchains, double? now = null,
+    /// <param name="healers">Characters to isolate healing to, by name: only
+    /// their heals and support are counted. The Healing section's own; it
+    /// moves no damage figure. Null or empty: everyone.</param>
+    public Snapshot Count(IReadOnlySet<string>? characters, bool skillchains, double? now = null,
                           IReadOnlySet<string>? targets = null, IReadOnlySet<string>? types = null,
-                          Fight? fight = null)
+                          Fight? fight = null, IReadOnlySet<string>? healers = null)
     {
         var all = Reader.Events;
         var roster = Reader.Roster;
         Cast.Assign(all, roster);
 
-        var actors = new Dictionary<string, bool>(StringComparer.Ordinal);
-        foreach (var n in excluded) actors[n] = false;
-
         bool latched = false;
         if (Session.Armed &&
-            Counting.FirstCounted(all, Session, new FilterOptions { Roster = roster, Actors = actors, Skillchains = skillchains })
+            Counting.FirstCounted(all, Session, new FilterOptions { Roster = roster, Skillchains = skillchains })
                 is double zero)
         {
             Session.Start(zero);
@@ -484,58 +516,69 @@ public sealed class Tracker
         // The one call that knows the time of day: it drops what the session
         // does not cover and puts the rest on its clock.
         var scoped = Scoped(skillchains);
-        // No session here: these rows are on its clock already. Always a new
-        // list: the one kept between counts grows, and a snapshot must not.
-        var shown = Counting.Filter(scoped, new FilterOptions { Actors = actors });
 
-        // What each target took and what each type came to, each before
-        // its own filter and after the other's: a list goes on naming
-        // everything it is picked from, of what the other filter leaves.
+        // What each character dealt, each target took and each type came
+        // to, each before its own filter and after the others': a list goes
+        // on naming everything it is picked from, of what the others leave.
         double whole = 0;
-        foreach (var e in shown)
+        foreach (var e in scoped)
             if (e.Hit && !double.IsNaN(e.Dmg)) whole += e.Dmg;
+        var who = Targets.Only(characters);
         var only = Targets.Only(targets);
         var onlyTypes = Targets.Only(types);
-        var ofTypes = onlyTypes != null ? Counting.Filter(shown, new FilterOptions { Types = onlyTypes }) : shown;
+        var theirs = who != null ? Counting.Filter(scoped, new FilterOptions { Characters = who }) : scoped;
+        var ofTypes = onlyTypes != null ? Counting.Filter(theirs, new FilterOptions { Types = onlyTypes }) : theirs;
         var byTarget = Targets.Totals(ofTypes);
         var byType = DamageTypes.Totals(only != null || fight != null
-            ? Counting.Filter(shown, new FilterOptions { Targets = only, Fight = fight }) : shown);
-        if (only != null || onlyTypes != null || fight != null)
-            shown = Counting.Filter(shown, new FilterOptions { Targets = only, Types = onlyTypes, Fight = fight });
+            ? Counting.Filter(theirs, new FilterOptions { Targets = only, Fight = fight }) : theirs);
+        // No session here: these rows are on its clock already. Always a new
+        // list: the one kept between counts grows, and a snapshot must not.
+        var everyone = Counting.Filter(scoped, new FilterOptions { Targets = only, Types = onlyTypes, Fight = fight });
+        var shown = who != null ? Counting.Filter(everyone, new FilterOptions { Characters = who }) : everyone;
+        // Every character's rows of the types isolated, for the damage
+        // grouped by target, which is worked out later if at all: a list of
+        // its own, as the kept one grows. With no target or fight isolated
+        // that is everyone's.
+        var typed = only == null && fight == null ? everyone
+            : Counting.Filter(scoped, new FilterOptions { Types = onlyTypes });
 
         // The session clock is what every DPS is divided by, read once so the
         // party's figure and each character's cannot differ by a moment.
         var elapsed = Session.Elapsed(now);
         var totals = Counting.Aggregate(shown, elapsed / 1000);
-        // Whoever acted has a chip, whatever they acted on. A chip needs
-        // only the name and the order.
-        var listed = shown.Count == scoped.Count ? totals.Actors.Select(a => a.Name).ToList() : Counting.Ranked(scoped);
+        var byCharacter = who != null ? Counting.Aggregate(everyone, elapsed / 1000) : totals;
 
-        // Healing, over the same window and the same exclusions. Heals are
+        // Healing, over the same window, of the healers isolated. Heals are
         // kept apart from the damage rows, so nothing above can see one, and
         // none of them can start the clock: only a counted hit does that, and
         // a cure cast before the first swing falls before the zero.
+        var healWho = Targets.Only(healers);
         var healScoped = HealScoped();
-        var healShown = Healing.Filter(healScoped, new FilterOptions { Actors = actors });
+        var healShown = Healing.Filter(healScoped, new FilterOptions { Characters = healWho });
         var healing = Healing.Totals(healShown);
-        var healers = healShown.Count == healScoped.Count ? healing : Healing.Totals(healScoped);
+        var byHealer = healWho != null ? Healing.Totals(healScoped) : healing;
         // Support likewise: kept apart from the damage rows, so a Protect
         // before the pull neither starts the clock nor is counted, since it
         // falls before the zero.
-        var support = Zerg.Core.Support.Totals(Zerg.Core.Support.Filter(SupportScoped(supportKept), new FilterOptions { Actors = actors }));
+        var support = Zerg.Core.Support.Totals(
+            Zerg.Core.Support.Filter(SupportScoped(supportKept), new FilterOptions { Characters = healWho }));
         // And enfeebles: a Sleepga before the pull is as far outside the
         // session as that Protect.
         var enfeebles = Zerg.Core.Support.Totals(
-            Zerg.Core.Support.Filter(SupportScoped(enfeeblesKept), new FilterOptions { Actors = actors }));
+            Zerg.Core.Support.Filter(SupportScoped(enfeeblesKept), new FilterOptions { Characters = healWho }));
 
-        var kills = KillsNow(actors, skillchains);
-        return new Snapshot(shown, totals, listed, elapsed, latched)
+        var (kills, everyonesKills) = KillsNow(who, skillchains);
+        return new Snapshot(shown, totals, elapsed, latched)
         {
-            Heals = healShown, Healing = healing, Healers = healers.Actors, Support = support, Enfeebles = enfeebles,
+            Characters = byCharacter.Actors,
+            IsolatedCharacters = who != null ? Targets.Sorted(who) : [],
+            IsolatedHealers = healWho != null ? Targets.Sorted(healWho) : [],
+            Heals = healShown, Healing = healing, Healers = byHealer.Actors, Support = support, Enfeebles = enfeebles,
             Isolated = only != null ? Targets.Sorted(only) : [],
             Targets = Targets.Pickable(byTarget.Keys).Select(n => new TargetTotal(n, byTarget[n])).ToList(),
             AllTargets = byTarget.Values.Sum(),
             TargetFigures = Counting.ByTarget(ofTypes),
+            Grouping = () => Zerg.Core.TargetGroups.Of(typed, who),
             IsolatedTypes = onlyTypes != null ? DamageTypes.Sorted(onlyTypes) : [],
             Types = DamageTypes.Sorted(byType.Keys).Select(k => new TargetTotal(k, byType[k])).ToList(),
             AllTypes = byType.Values.Sum(),
@@ -543,28 +586,31 @@ public sealed class Tracker
             // The fight as this count has it: its damage follows who counts.
             IsolatedFight = fight is null ? null : kills.Fights.FirstOrDefault(f => f.Through == fight.Through) ?? fight,
             Kills = kills,
+            Died = everyonesKills.Deaths,
         };
     }
 
     // ------------------------------------------------------- kills, kept
 
-    (Scope Scope, int Rows, int Deaths, int Heals, int Support, int Enfeebles, string Off)? killsAt;
-    KillTotals killsKept = KillTotals.None;
+    (Scope Scope, int Rows, int Deaths, int Heals, int Support, int Enfeebles, string Who)? killsAt;
+    KillTotals killsKept = KillTotals.None, everyoneKept = KillTotals.None;
 
-    /// <summary>The kills and deaths (<see cref="Kills.Count"/>), worked out
-    /// again only when something they depend on has moved: new lines, the
-    /// session, a name's kind, the exclusions or the skillchain switch.</summary>
-    KillTotals KillsNow(IReadOnlyDictionary<string, bool> actors, bool skillchains)
+    /// <summary>The kills and deaths (<see cref="Kills.Count"/>) of the
+    /// characters isolated, and of everyone, worked out again only when
+    /// something they depend on has moved: new lines, the session, a name's
+    /// kind, the characters isolated or the skillchain switch.</summary>
+    (KillTotals Theirs, KillTotals Everyone) KillsNow(IReadOnlySet<string>? characters, bool skillchains)
     {
         var r = Reader;
         var at = (Now(skillchains), r.Events.Count, r.Deaths.Count, r.Heals.Count, r.Support.Count, r.Enfeebles.Count,
-                  string.Join('\n', actors.Keys.Order(StringComparer.Ordinal)));
+                  characters is null ? "" : string.Join('\n', characters.Order(StringComparer.Ordinal)));
         if (killsAt != at)
         {
             killsAt = at;
-            killsKept = Kills.Count(r, Session, actors, skillchains);
+            everyoneKept = Kills.Count(r, Session, null, skillchains);
+            killsKept = characters is null ? everyoneKept : Kills.Count(r, Session, characters, skillchains);
         }
-        return killsKept;
+        return (killsKept, everyoneKept);
     }
 
     // ------------------------------------------------- kept between counts

@@ -182,7 +182,7 @@ public sealed partial class MainViewModel
         catch (ParseImportException e)
         {
             ViewError = file.Name + ": " + e.Message;
-            Log.Write($"not opened {file.Name}: {e.Message}");
+            Log.Write($"not opened {file.Name}: {e.Reason}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

@@ -76,19 +76,21 @@ public partial class PanelWindow : Window
         Title = info.Title + " · " + AppInfo.Name;
 
         // The bar shows the card's heading, since the card's own is not drawn
-        // here; and after it, on a damage card, the targets and the damage
-        // types its figures are isolated to (" · Kirin", " · Melee"), in the
+        // here; and after it, on a damage card, the characters, the targets
+        // and the damage types its figures are isolated to (" · Hasaya",
+        // " · Kirin", " · Melee"), and on a healing card the healers, in the
         // accent: a panel is read over the game, where the main window's
-        // Target and Type buttons cannot be seen.
+        // buttons and tables cannot be seen.
         BarTitle.Inlines.Add(new Run(info.Title));
-        if (!PanelSet.IsHealing(info.Key))
-            foreach (var filter in new[] { nameof(MainViewModel.TargetFilter), nameof(MainViewModel.TypeFilter) })
-            {
-                var scope = new Run();
-                scope.SetBinding(Run.TextProperty, new Binding(filter + "." + nameof(PickFilter.Scope)) { Mode = BindingMode.OneWay });
-                scope.SetResourceReference(TextElement.ForegroundProperty, "AccentBrush");
-                BarTitle.Inlines.Add(scope);
-            }
+        string[] filters = PanelSet.IsHealing(info.Key) ? [nameof(MainViewModel.HealerFilter)]
+            : [nameof(MainViewModel.CharacterFilter), nameof(MainViewModel.TargetFilter), nameof(MainViewModel.TypeFilter)];
+        foreach (var filter in filters)
+        {
+            var scope = new Run();
+            scope.SetBinding(Run.TextProperty, new Binding(filter + "." + nameof(PickFilter.Scope)) { Mode = BindingMode.OneWay });
+            scope.SetResourceReference(TextElement.ForegroundProperty, "AccentBrush");
+            BarTitle.Inlines.Add(scope);
+        }
 
         // The cumulative chart and the actions list take whatever height the
         // panel has; the strip is as tall as it is, and scrolls when the

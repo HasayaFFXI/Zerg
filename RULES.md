@@ -42,7 +42,7 @@ Reading the file (`EventFiles`, `EventTail`):
 One line is one `(action, target, result)` row. A field of the wrong JSON type (a string where a number goes, a number that is not finite, a time no clock can show) makes the line unreadable: it is skipped and counted, never coerced. A missing or null field is its type's empty value:
 
 ```json
-{"t":1785000000,"seq":3,"use":41207,"kind":"ws","actor":"Player","actorKind":"player",
+{"t":1785000000000,"seq":3,"use":41207,"kind":"ws","actor":"Player","actorKind":"player",
  "action":"Tachi: Jinpu","actionId":32,"target":"Goblin Pathfinder","targetKind":"mob",
  "dmg":723,"hit":true,"crit":false,"burst":false,"msg":185}
 ```
@@ -52,11 +52,21 @@ One line is one `(action, target, result)` row. A field of the wrong JSON type (
   can be read later without changing the format. `owner` and `pet` appear only
   on a pet's own rows.
 - `targetId` is on a row aimed at a monster, from the addon that writes it:
-  the monster's id, a spawn point (see "Kills and deaths"). A file from
-  before has none, and is read by name.
-- **`t` is whole seconds**, with `seq` ordering rows inside one second (the
-  addon has no finer clock). `EventReader` scales it to milliseconds exactly
-  once; everything after it is in milliseconds.
+  the monster's id, a spawn point (see "Kills and deaths").
+- **`t` is Unix milliseconds**, the PC's clock when the packet arrived, with
+  `seq` ordering the lines that share one (every line of one packet does).
+  Everything in Zerg is in milliseconds, so it is read as it is. An addon
+  before 2.0.0 wrote whole seconds: a hard cutover, not two formats (the
+  addon's fallback, a clock that can only give whole seconds, still writes
+  milliseconds, ending `000`).
+- **A time in the old format's seconds makes its line unreadable**
+  (`EventRecord.InSeconds`): 10⁹ up to 10¹², which as seconds is 2001 on
+  and as milliseconds January 1970 to September 2001, when no addon wrote.
+  Read as milliseconds such a file would be counted, dated 1970; refused,
+  its lines are counted as unreadable on the status line, a replay of it
+  says "invalid format, check VibeXI version", and the Replay menu gives
+  it no times. Smaller times are left alone: no addon writes them either,
+  but neither are they a misread format.
 - The generator `tools/gen-test-events.py` must stay field for field what
   `addons/VibeXI/vx_emit.lua` writes. Diff against `vx_emit.encode` when
   either changes.
@@ -67,7 +77,7 @@ Three kinds of line are not rows, and `EventReader` files each elsewhere:
   the rows: a zero-damage row would land in every count.
 
   ```json
-  {"kind":"job","t":1785000000,"actor":"Player","main":"SAM","mainId":12,"mainLvl":75,
+  {"kind":"job","t":1785000000000,"actor":"Player","main":"SAM","mainId":12,"mainLvl":75,
    "sub":"WAR","subId":1,"subLvl":37}
   ```
 
@@ -82,7 +92,7 @@ Three kinds of line are not rows, and `EventReader` files each elsewhere:
   `hit`, so a heal mistaken for a row would still add nothing.
 
   ```json
-  {"kind":"heal","t":1785000000,"seq":2,"use":7,"via":"magic","actor":"Catpirate",
+  {"kind":"heal","t":1785000000000,"seq":2,"use":7,"via":"magic","actor":"Catpirate",
    "actorKind":"player","action":"Curaga II","actionId":8,"target":"Player",
    "targetKind":"player","hp":190,"msg":367}
   ```
@@ -93,7 +103,7 @@ Three kinds of line are not rows, and `EventReader` files each elsewhere:
   and never `dmg`, `crit` or `burst`.
 
   ```json
-  {"kind":"enfeeble","t":1785000000,"seq":4,"use":7,"via":"magic","actor":"Mage",
+  {"kind":"enfeeble","t":1785000000000,"seq":4,"use":7,"via":"magic","actor":"Mage",
    "actorKind":"player","action":"Sleepga","actionId":273,"target":"Goblin Smithy",
    "targetKind":"mob","hit":true,"msg":236}
   ```
@@ -113,9 +123,9 @@ Three kinds of line are not rows, and `EventReader` files each elsewhere:
   died (`EventReader.Deaths`). No `dmg`, `hit` or `use`.
 
   ```json
-  {"kind":"death","t":1785000000,"seq":1,"actor":"Player","actorKind":"player",
+  {"kind":"death","t":1785000000000,"seq":1,"actor":"Player","actorKind":"player",
    "target":"Tiger","targetKind":"mob","targetId":17195010,"msg":6}
-  {"kind":"death","t":1785000020,"seq":1,"target":"Player","targetKind":"player","msg":97}
+  {"kind":"death","t":1785000020000,"seq":1,"target":"Player","targetKind":"player","msg":97}
   ```
 
   A monster's names the party member who killed it (none with `msg` 20),
@@ -130,19 +140,16 @@ One kind of row is not damage either, and `EventReader` files it apart:
   both `actorKind` and `targetKind` are `player` or `pet`), and not a heal.
   Protect, Haste, Erase, Utsusemi on oneself, an avatar's ward. The addon
   writes them as ordinary rows with `dmg:0`: `hit:false` when the cast had
-  no effect (`msg` 75, 323), and, from the addon's `E.Support` table on,
-  `hit:true` when it took effect (230 gains the effect, 83 and 341 a status
-  removed, ...). Before that table only the casts with no effect were
-  written. Among the damage rows each was a magic miss that started the
-  clock, and an older addon wrote Protect and Shell with the buff's own
-  figure as damage (`"dmg":40,"hit":true`). Asked of the row's own kinds,
-  as it arrives, not of the roster. See "Support" below.
+  no effect (`msg` 75, 323), and `hit:true` when it took effect (230 gains
+  the effect, 83 and 341 a status removed, ...). Among the damage rows each
+  would be a magic miss that started the clock. Asked of the row's own
+  kinds, as it arrives, not of the roster. See "Support" below.
 
 Any other line with no `actor` is no row: it is passed over and not counted
-as unreadable. Files from an older addon begin with a `kind:"meta"` startup
-probe and carry `kind:"meta"` notices of message ids it did not recognise;
-they are read that way. The addon no longer writes them, and nothing in Zerg
-needs one.
+as unreadable. A file begins with a `kind:"meta"` line, the addon's version
+and when it loaded (`{"kind":"meta","t":1785000000000,"version":"2.0.0"}`),
+which is read that way, and its time is not a record's (`EventFiles.Times`
+passes over it). Nothing in Zerg needs one.
 
 ## `use` is per swing, not per action
 
@@ -182,7 +189,7 @@ it. Two copies would let the clock start on a row that is then not drawn.
   the addon could not resolve is left out rather than added. Under-counting a
   stranger beats crediting one. Monsters still appear as targets.
 - **Pets are ours, credited to the owner** (`Counting.Credit`). A pet has no
-  row, chip or colour of its own. The action keeps the pet's name as a prefix
+  row or colour of its own. The action keeps the pet's name as a prefix
   (`Fluffikins: Big Scissors`), since pet and master both swing an "Attack"
   and one average over both would describe neither. It copies, so the list
   stays true to the file.
@@ -190,8 +197,8 @@ it. Two copies would let the clock start on a row that is then not drawn.
   spikes proc and a Retaliation ride on a packet the monster is the actor of.
   The addon writes them with the reacting character as the actor, as
   `kind:"reaction"`.
-- The addon no longer records a monster's own swings. Older files that have
-  them still read correctly, because the drop is here.
+- The addon does not record a monster's own swings; a row with a monster
+  as its actor is still dropped here, whoever wrote it.
 
 ## The per-character table
 
@@ -239,8 +246,9 @@ its way, with percentages to one decimal. Every figure is rounded on its value, 
 - **Null means "nothing to measure" and prints as a dash.** A mage with no
   weaponskills has no WS Acc; 0% would say they missed every one.
 - **Nobody at zero** in the table, the strip or the cumulative lines.
-  Reaching the totals takes an action, not damage. The chips still list
-  them, so they can be excluded, and the Actions table shows what they did.
+  Reaching the totals takes an action, not damage, and the Actions table
+  shows what they did. One isolated stays listed though they dealt nothing,
+  so the filter can be seen and let go.
 - **The Party line is counted from the party's swings, not from the rows'
   percentages.** The line that closes the table prints the party's own
   Accuracy, weaponskill, skillchain and pet figures, worked out from every
@@ -270,16 +278,15 @@ Every number is measured from the session's zero, and there is no other clock
   divided by that error.
 - **Idle and armed both count nothing.** There is no zero to measure from.
 - **What starts the clock is exactly what would be counted**: not a monster's
-  swing, not a skillchain with the switch off, not an excluded character's
-  attack. With everyone excluded the clock never starts, which is why the
-  armed state is shown loudly.
+  swing, not a skillchain with the switch off. Whoever is isolated, any
+  party member's swing starts it (see "Isolating characters").
 - **A miss starts the clock.** Waiting for damage would put the misses before
   it outside the session and out of accuracy.
 - **A heal does not, nor does support.** Only a counted damage row latches; a
   second definition of "counted" would be needed otherwise. A Protect cast
   before the pull is before the zero, and is not counted.
-- **The arming time is floored to the second**, since the wire clock is whole
-  seconds: a swing in the same second as the press is counted, not dropped.
+- **The arming time is the press, exactly**: the wire clock is the PC's, to
+  the millisecond, so a swing stamped before the press came before it.
 - **The latch is sticky.** A later filter change cannot re-date a running
   session. A filter change can latch an armed one, and that row is then the
   first thing counted, so it is the right zero.
@@ -290,27 +297,29 @@ Every number is measured from the session's zero, and there is no other clock
 - **A paused clock ends at the last party damage row**, not at the press
   (`Session.Snap`, `Counting.LastCounted`). Pause is pressed some time after
   the last swing, never on it, and that wait would be in every DPS the parse
-  is remembered by. The end is the end of the second that row landed in: the
-  wire clock is whole seconds, so the row fell somewhere inside it, which is
-  the reason arming rounds down. A pull of one swing is a second long.
+  is remembered by. The end is that row's own time, and the row is counted:
+  a pause holds what lies strictly between its ends, so a row in the very
+  millisecond a clock stops is in (`Session.InPause`). The session runs from
+  its first row to its last, exactly. A pull of one swing has no length, and
+  its rates are a dash (`Counting.PerSecond`): an amount over no time is no
+  rate, and nothing over no time is 0.
   - **What ends it is what starts it**: a miss does, a monster's swing and a
     heal do not. A heal after the last damage row is outside the session,
     and is not drawn or exported.
-  - **But without the viewer's switches.** Any party row ends it, excluded
-    character and skillchain included. The zero is latched once and stays; an
-    end worked out from the chips would move with each one, and an exported
-    file carries no filters to work it out from again.
-  - **Never later than the clock really stopped**: the press, or an earlier
-    pause that began inside that second. Paused, resumed and paused again
-    with nothing swung, the end is still the last row, before both pauses.
+  - **But without the viewer's switches.** Any party row ends it, whoever
+    is isolated and skillchain included. The zero is latched once and stays;
+    an end worked out from the filters would move with each one, and an
+    exported file carries no filters to work it out from again.
+  - **Never later than the clock really stopped**: the press. Paused,
+    resumed and paused again with nothing swung, the end is still the last
+    row, before both pauses.
   - **The press and the pauses are kept as they happened**, and the end is
     worked out from the rows' own times on each read, so a row written
     before the press and polled after it moves the end. Resume puts the
     whole wait back on the clock: the session was not over after all.
   - **Screen, file and Compare read the one end.** An export is written as a
-    session paused there, in the shape older files have. An import from
-    before this is shown with the clock it was saved with, and is snapped
-    when exported again.
+    session paused there. An import whose pause is later than its last row
+    is snapped there when read, as a live session would be.
 - **The second button is Pause or Cancel, never both.** Cancel calls off
   what has not happened yet: an arming, or a restart still being asked
   about. It never drops a measurement. A session with damage in it is ended
@@ -372,9 +381,23 @@ The Target button counts only the damage dealt to the targets picked
   dealt to that one, and one that dealt one of them nothing is a miss at
   that one. Of the types isolated, as the Damage column is; a dash where
   there is nothing to measure. By damage type has no such columns.
+- **The Overview's By target tab is the per-character table under each
+  target** (`TargetGroups`). A target's heading is its line of By target
+  (the same total, the Party line's figures with it alone isolated) and
+  is pressed to pick it, the same filter's. Under it each character's
+  row is what their By character row reads with that target alone
+  isolated, folded the same way, and is pressed to isolate them. A
+  heading's Damage % is its share of what every target took; a
+  character's is their share of what that target took, from everyone,
+  isolated or not, so the rows under a target add to 100% and the row
+  is shaded to their damage out of that target's leader's. It lists
+  every target and every character whatever is picked, as By target and
+  By character do; those not picked are dimmed. There is no DPS (a
+  target's damage over the session clock is no rate anybody dealt, as
+  below) and no deaths (a death is at no target).
 - **The list names every target whatever is picked**, each with what it took
-  from the characters who count (exclusions and the skillchain switch
-  apply; the targets picked do not). A target nothing landed on is not
+  from the characters who count (the characters isolated and the
+  skillchain switch apply; the targets picked do not). A target nothing landed on is not
   listed, and neither are rows that name no target, which cannot be picked.
   A picked name stays listed, with dashes, while nothing that counts was
   dealt to it: a filter that could not be seen could not be taken off.
@@ -405,7 +428,8 @@ The Target button counts only the damage dealt to the targets picked
 - **The total says what it is a total of**: "Damage to Kirin", "Damage to 3
   targets", with its share of the damage to every target under it.
 - **Healing is never isolated.** A heal's target is who it healed.
-- **Whoever acted keeps their chip**, whatever they acted on.
+- **The characters listed are of the targets isolated**, as the types
+  are (see "Isolating characters").
 - **What is picked is not a setting, and belongs to the parse it was
   picked in.** The session and each parse open in View keep their own
   while another is on screen, and get it back when they come on screen
@@ -434,8 +458,8 @@ who landed the killing blow is not shown.
   same code comes back each time that spawn is killed. **Every monster of a
   name is shown with its kills**: "Tiger (10)". Ids are compared whole; the
   code is only shown.
-- **A file without ids on its rows is matched by name**: two monsters of
-  one name fought at once are then one fight, ended by the first death.
+- **A row or death line without an id is no fight's**: it is matched by
+  id alone, never by name. Its damage still counts everywhere else.
 - **Kill time is the first party row at it to its death line**, of the
   wall clock. The death line comes about a second after the killing blow;
   it is the only end the file states. A fight's DPS is its damage over its
@@ -450,15 +474,16 @@ who landed the killing blow is not shown.
 - **A fight's damage is what the characters who count dealt it**, as By
   target's is.
 - **A party death is in the session when its time is**, as a heal is: one
-  after the last party damage row is after the end. An excluded
-  character's deaths are not counted.
+  after the last party damage row is after the end. While characters are
+  isolated, the band counts their deaths alone; the Deaths column is each
+  character's own, isolated or not.
 - **Nobody is shown as down.** The file says when someone died and nothing
   about when they were raised. What it does say is when they next did
   something of their own (a swing, a cast, a heal, a buff, an enfeeble;
   being healed is not acting), and the cumulative line is dashed from the
   death to there, or to the end where they have not.
 - **Deaths start and end no clock**, and are no damage and no attempt.
-- **Damage by character's Deaths column** is each character's deaths in the
+- **The Overview's Deaths column** is each character's deaths in the
   session; the Party line's, everyone's. Only a player's death line is a
   death: a pet's is not its owner's.
 - **Kills an hour** are over the session clock; see "Isolating targets".
@@ -500,10 +525,56 @@ fight, and are found where they always are.
 - **Under the total, its share is of everything**: of the damage of every
   type to every target, whatever is isolated.
 
+## Isolating characters
+
+A press on a character's row of the Overview (either tab), or a tick on the Character menu
+beside Target, counts only the damage that character dealt
+(`Counting.Counts`, one line of `Counting.Counted`): in the band, the
+cumulative chart, the Actions table, the Battle Log, By target and By damage
+type. Another press adds a character; a press on an isolated row lets it go;
+Clear empties it. None isolated is everyone. It works as a target does, for
+the same reason: "what did these two do" is a question about part of the
+fight, asked of the fight, not a change to what the party was.
+
+- **Healing has its own**, pressed on Healing by character: the heals,
+  the Heals pane, Support and the cumulative line are then the healers
+  isolated. The two never cut each other. Who healed is not a question about
+  who dealt damage, and a damage dealer isolated would leave the healing
+  section empty. It has no menu: a party has two or three healers, and the
+  table already shows every one.
+- **Everyone stays in the table, with their own figures**; those not
+  isolated are dimmed. A row that hid its figures could not be compared
+  with, and one taken out could not be pressed back in. Damage % and
+  Healing % are of everyone's, as a target's Share is of every target's.
+- **The Party line is of those isolated**: how many, their total, their
+  share of everyone's, and their Accuracy and rates over their own swings.
+- **The total says whose it is**: "Damage by Hasaya", "Melee damage by 2
+  characters to Kirin", "Healing by Sylviane", with its share of everyone's
+  under it.
+- **Each list is of what the others leave.** The characters listed are of
+  the damage dealt to the targets and of the types isolated, and in the
+  fight isolated; the targets and types listed are of the characters
+  isolated. No list is cut by its own filter, or there would be nothing left
+  on it to pick.
+- **The clock does not move**, as with targets: the zero and the end are
+  asked without the characters (`Counting.FirstCounted`, `LastCounted`). A
+  filter set afterwards must not re-date a session, and one pull is as long
+  whoever is looked at.
+- **A rate stays a rate.** The characters isolated were in the fight all
+  through it, so their damage over the session clock is a DPS they dealt.
+- **Not a setting.** What is isolated belongs to the parse it was asked of,
+  kept per parse and emptied by Start and a new event file, as targets are
+  and for the same reason: one kept for the next pull would cut that pull's
+  totals with nothing to say so but a dimmed row.
+- **A floating panel's strip dims, and is not pressed.** A panel lies over
+  the game and is often clicked through; a filter set by a stray click
+  there would change every total on screen.
+
 ## Healing
 
-`Healing.Filter` applies the session window and the exclusions as the damage
-filter does, and credits a pet's heal to its owner.
+`Healing.Filter` applies the session window as the damage filter does, and
+the healers isolated (see "Isolating characters"), and credits a pet's heal
+to its owner.
 
 - **A pet's heals are its owner's healing**, as its damage is their damage:
   in Healing, Healing %, HPS, Casts, Avg, the top healer, the cumulative
@@ -584,24 +655,15 @@ the people a buff reached.
   spells and abilities the game lets nobody aim at an enemy. A message
   can't be trusted for this (the server answers Slow with the same message
   as Haste). So a charmed member's Lullaby or attack on the party is never
-  written. A file from an older addon may still hold such a row, filed here.
-- **Only as complete as the addon that wrote the file.** An event file
-  from before the addon wrote support that took effect has only the casts
-  that had none: an Erase that found nothing to remove, a Protect on
-  someone who had a stronger one.
-- **The session's window and exclusions, as heals have them**: from the zero
-  to the end, a pause's casts left out, an excluded character's too, a
-  pet's credited to its owner under the pet's name (`Titan: Earthen Ward`;
-  an older addon's file has `Titan: #564`).
+  written.
+- **The session's window and the healers isolated, as heals have them**:
+  from the zero to the end, a pause's casts left out, with healers isolated
+  the others' too, a
+  pet's credited to its owner under the pet's name (`Titan: Earthen Ward`).
 - **It starts and ends no clock.** The zero and the end are damage rows'.
 - **Exported among the events, as the file has them**, and filed apart again
-  when read, so a parse saved before support was filed apart opens with
-  its buffs out of the damage. Enfeebles go among the events as enfeeble
-  lines, as the addon wrote them.
-- **An event file from before enfeeble lines** has the resisted ones as
-  magic misses among the damage rows, and the landed ones not at all. They
-  are read as they are: the action id that would tell them apart is the
-  addon's list, not Zerg's.
+  when read. Enfeebles go among the events as enfeeble lines, as the addon
+  wrote them.
 - Compare does not list support.
 
 ## Export, import and Compare
@@ -609,8 +671,8 @@ the people a buff reached.
 - **Export only while paused** (`ParseFile.Export`): a running clock would be
   out of date before the file was written.
 - **The file is the addon's own records, replayed.** Rows and job lines are
-  stored in the wire format and read back through `EventReader.FeedRecord`,
-  the same door a live line uses. With them go what the records cannot state:
+  stored in the wire format (`t` in milliseconds) and read back through
+  `EventReader.Feed`, the same door a live line uses. With them go what the records cannot state:
   the session and the spawn kinds.
 - **Death lines go among the events**, as the addon wrote them, and rows
   keep their `targetId`. A kill goes with its killing blow (see "Kills and
@@ -618,13 +680,25 @@ the people a buff reached.
 - **Every export has an event list and a heal list**, each possibly empty: a
   parse in which nobody healed has `"heals": []` and opens like any other.
   A file without the heal list is refused.
-- **Only rows the session covers are written.** Filters are not: exclusions,
-  the skillchain switch and Hide names are the viewer's.
+- **Only rows the session covers are written.** Filters are not: what is
+  isolated, the skillchain switch and Hide names are the viewer's.
 - **An import is locked** (no Start, no Pause) and takes nothing from the live
   session, which goes on being read and measured underneath.
 - **An import lives in the View section** and is counted only while that
   section is on screen. Damage and Healing are always the session; leaving
   View keeps the parse open for the way back.
+- **A file that is not a parse this Zerg reads is refused with one message**,
+  whatever the reason (`ParseImportException.Invalid`): "Unable to load
+  parse: invalid format, check VibeXI version." The reason
+  (`ImportError`) goes to the log. Any reason means the same thing to the
+  player, and the likeliest is a file from another version.
+- **A parse of format version 1 is refused** (`ImportError.TooOld`): its
+  records' times are seconds, which read as milliseconds would be January
+  1970. Version 2 is the first with milliseconds; an older Zerg refuses it
+  as too new.
+- **A parse must have every part a version 2 export writes**: the session's
+  `armedAt`, `startedAt`, `pausedAt` and `spans`, and the `kinds` and `jobs`
+  lists. A parse missing one was not written by this Zerg.
 - **Exports are `.zerg`, never `.jsonl`** (`ParseFile.CanSaveAs`): the newest
   `*.jsonl` in the events folder is what Zerg follows. Detection is by
   content. Files written by the browser build that came before Zerg (`.json`)
@@ -639,7 +713,8 @@ the people a buff reached.
   borrowed from the other run.
 - **The shorter run's line ends where the run ends.** Carried flat it would
   claim it was still being measured.
-- A parse with no heal lines at all prints dashes in Healing mode, not zeroes.
+- **A run nobody healed in healed 0**, in Healing mode as anywhere: every
+  export since heal lines has its heal list, so none is none.
 - **An action's two distributions share one set of bins** (`Compare.Spread`;
   a heal's, `Compare.HealSpread`), from the least hit of either run to the greatest, so a column of A's stands
   beside the column of B's for the same damage. The width is the finer of the
@@ -650,14 +725,14 @@ the people a buff reached.
   shapes. The counts are in the hover card. Each run's figures are
   `Counting.Distribution`'s, the ones that file's own drill-down prints.
 - **A heal's distribution is of casts**, each what it healed over everyone it
-  reached, pet heals under the pet's name. A parse with no heal lines is
-  dashes; one that has them and never cast the heal cast it 0 times.
+  reached, pet heals under the pet's name. A run that never cast the heal
+  cast it 0 times.
 - **Kills per hour, Avg kill time and Deaths** are each run's own (see
   "Kills and deaths"), the change in deaths a count ("+1"); fewer seconds
   and fewer deaths are the good way. By target names each run's kills of a
-  name, "Tiger (9 · 10)", with each run's average kill time. A parse with
-  no death line and no `targetId` could not have recorded a kill, and
-  prints dashes, not zeroes.
+  name, "Tiger (9 · 10)", with each run's average kill time. A run with
+  no kill reads 0 kills; its average kill time, with nothing to average,
+  is a dash.
 
 ## Replay
 
@@ -670,14 +745,15 @@ An addon event file read whole, cropped to a range and exported (`Replay`,
   no Pause, no new lines) and takes nothing from the live session. The one
   difference is its clock, which is the range picked over it.
 - **A range is measured as Start and Pause would have measured it**
-  (`Replay.Crop`): armed at its start, floored to the second as arming is;
-  its zero the first party row from there; paused at its end, raised to the
-  second, and snapped back to the last party row before it
-  (`Session.Snap`). Dragging a handle into a quiet stretch moves no clock.
+  (`Replay.Crop`): armed at its start; its zero the first party row from
+  there; paused at its end, and snapped back to the last party row at or
+  before it (`Session.Snap`). A row at either end is in the range. The
+  handles stand on whole seconds (`ReplayRange.Set`), the step they move
+  by. Dragging a handle into a quiet stretch moves no clock.
 - **Asked without the viewer's switches.** The zero, the end and the bars
-  are of every party row, excluded characters and skillchains
-  included, as a paused session's end is. The range is picked over rows
-  already read; a zero that moved with each chip would re-date the parse,
+  are of every party row, skillchains included and whoever is
+  isolated, as a paused session's end is. The range is picked over rows
+  already read; a zero that moved with each filter would re-date the parse,
   and an export carries no filters to work it out from again.
 - **One range, one clock.** From its zero to its end, the quiet stretches
   inside it included, as a session left running through them would have it.
@@ -757,9 +833,7 @@ An addon event file read whole, cropped to a range and exported (`Replay`,
   Retaliation row always reads 100% accuracy.
 - Monster TP moves and pet abilities are named `#<id>`.
 - A few job abilities share an id with a weaponskill (Jump among them). The
-  addon now writes them as `kind:"ability"` under their own names, but a file
-  from an older addon still has them as `kind:"ws"` under the weaponskill's
-  name, so there they land in the WS columns.
+  addon writes them as `kind:"ability"` under their own names.
 - Absorbed and "no effect" outcomes are misses, except in Accuracy, where a
   swing into shadows is a hit.
 - Nothing reports double, triple or quad attack rates.

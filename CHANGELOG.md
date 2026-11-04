@@ -7,13 +7,24 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- Damage by character is the Overview pane, with a switch in its heading
+  for two tabs: By character, the table it was, and By target, the same
+  table under each target's heading. A heading carries the party's
+  figures against that target and how many of it were killed; pressing
+  it isolates the target (as its line of the Filters pane's By target
+  does), and its arrow shows or puts away the characters under it; every
+  target starts with them put away. Each character's
+  row under a target is their damage to it, their Damage % their share
+  of what it took; pressing one isolates them. No DPS or deaths there.
+  Whichever tab was last shown is kept (`overviewBy` in the settings).
+  Floating, the pane is the characters' strip, as before.
 - The band of figures over the Damage section reads Elapsed, Total damage,
   Party DPS, Kills / Deaths, Top DPS, Biggest hit; over the Healing
   section, in the same way, Elapsed, Total healing, Party HPS, Kills /
   Deaths, Top healer, Biggest heal.
 - The Damage section has a new installed layout, live and in a View tab
   alike: the cumulative chart across the top with the Battle Log beside
-  it, a third of the page tall; under them Damage by character over
+  it, a third of the page tall; under them the Overview over
   Actions on the left, Filters over the drill-down on the right. A layout
   the player has arranged is kept; Reset layout gives the new one.
 - The Fights pane is the Battle Log, in the pane's heading, its floating
@@ -27,6 +38,12 @@ takes its number when the version is cut.
   has Filters where By damage type stood (or By target, whichever came
   first), folded if that was; the two old panels' places and opacities are
   not carried over. The Compare section's two tables are unchanged.
+- Damage by character has a Columns menu in its heading: Ranged,
+  Weaponskill, Skillchain and Pet, each ticked while its group of columns
+  is shown. A group unticked is gone from the headings, the rows and the
+  Party line, and the columns left share its room, so a narrow pane drops
+  columns later. Kept between runs (`hiddenColumns` in the settings). Not
+  in the floating strip, which has none of the groups.
 - Damage by character has a Crit % column right of Accuracy: the
   character's own auto-attacks (Attack, Offhand Attack) that crit, out of
   those that dealt damage (a swing into shadows is left out; weaponskills,
@@ -40,6 +57,41 @@ takes its number when the version is cut.
   Accuracy and Crit % are, a dash for anyone who never shot. It goes first
   in a narrow pane, with Skillchain, Pet and Deaths. The floating strip
   has them as R.ACC% and R.CRIT%.
+- The band of character buttons under the command bar (Characters, All,
+  None) is gone, and characters are no longer left out: they are
+  isolated, as targets are. Pressing a row of Damage by character counts
+  only that character's damage; another press adds one, pressing an
+  isolated row lets it go, and the pane's Clear link empties it. The
+  others stay listed with their own figures, dimmed; the band's total
+  reads "Damage by Hasaya" with its share of everyone's. A Character menu
+  beside Target does the same, with each character's damage and share.
+  Healing by character does the same for the Healing section, apart from
+  the damage ("Healing by Sylviane"). Isolating moves no clock. It is not
+  saved: Start and a new event file empty it, and each parse in View keeps
+  its own. A floating panel's strip dims the others but is not pressed.
+  The old `excluded` and `charactersOpen` settings are no longer read.
+- Times are milliseconds, as VibeXI writes them from its 2.0.0 on, and an
+  older Zerg cannot read them. An event file from an older addon (whole
+  seconds) is not read: its lines are counted as unreadable, a replay of
+  it says "invalid format, check VibeXI version", and the Replay menu
+  gives it no times. The session runs from its first
+  counted row to its last, exactly: Start arms at the press itself (not
+  the start of its second), and Pause ends the clock at the last party
+  row (not the end of that row's second), so a pull reads a little shorter
+  and its DPS a little higher than before. A pull of one swing has no
+  length, and its DPS and HPS are a dash. A replay's range holds the rows
+  at its ends. The Replay menu's times leave out the meta line's (when the
+  addon loaded).
+- Parses are format version 2, their times in milliseconds. A parse of
+  version 1 is refused, as is one missing any part of its session (armed,
+  started, paused, the pauses) or its kinds or jobs.
+- Nothing from before the addon's 2.0 is read any more. A kill is matched
+  to its target by id alone: a row or death line without one is no fight's
+  (a parse saved before ids shows no kills). Compare reads 0 healing and 0
+  kills where a run has none, instead of dashes.
+- A file that cannot be opened as a parse, for whatever reason, is refused
+  with one message: "Unable to load parse: invalid format, check VibeXI
+  version." (in View and in Compare; why goes to the log).
 
 ## 1.7.0 — 2026-11-02
 

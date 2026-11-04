@@ -11,19 +11,19 @@ public class KillTests
     /// now writes every row aimed at one.</summary>
     static string Swing(double t, string actor, double dmg, string target, double? id, bool hit = true) =>
         FormattableString.Invariant(
-            $"{{\"t\":{t},\"seq\":1,\"use\":{++use},\"kind\":\"melee\",\"actor\":\"{actor}\",\"actorKind\":\"player\",\"action\":\"Attack\",\"actionId\":0,\"target\":\"{target}\",\"targetKind\":\"mob\"{Id(id)},\"dmg\":{dmg},\"hit\":{(hit ? "true" : "false")},\"crit\":false,\"burst\":false,\"msg\":1}}");
+            $"{{\"t\":{t * 1000},\"seq\":1,\"use\":{++use},\"kind\":\"melee\",\"actor\":\"{actor}\",\"actorKind\":\"player\",\"action\":\"Attack\",\"actionId\":0,\"target\":\"{target}\",\"targetKind\":\"mob\"{Id(id)},\"dmg\":{dmg},\"hit\":{(hit ? "true" : "false")},\"crit\":false,\"burst\":false,\"msg\":1}}");
 
     /// <summary>A monster's death line: the party member who killed it, its id.</summary>
     static string Kill(double t, string target, double? id, string killer = "Hasaya", int msg = 6) =>
         FormattableString.Invariant(
-            $"{{\"kind\":\"death\",\"t\":{t},\"seq\":1,\"actor\":\"{killer}\",\"actorKind\":\"player\",\"target\":\"{target}\",\"targetKind\":\"mob\"{Id(id)},\"msg\":{msg}}}");
+            $"{{\"kind\":\"death\",\"t\":{t * 1000},\"seq\":1,\"actor\":\"{killer}\",\"actorKind\":\"player\",\"target\":\"{target}\",\"targetKind\":\"mob\"{Id(id)},\"msg\":{msg}}}");
 
     static string Id(double? id) => id is double i ? FormattableString.Invariant($",\"targetId\":{i}") : "";
 
     /// <summary>A party member's death line: who died, and nothing else.</summary>
     static string Died(double t, string who) =>
         string.Create(CultureInfo.InvariantCulture,
-            $"{{\"kind\":\"death\",\"t\":{t},\"seq\":1,\"target\":\"{who}\",\"targetKind\":\"player\",\"msg\":97}}");
+            $"{{\"kind\":\"death\",\"t\":{t * 1000},\"seq\":1,\"target\":\"{who}\",\"targetKind\":\"player\",\"msg\":97}}");
 
     static Tracker Armed(double at = 1_000_000)
     {
@@ -39,7 +39,6 @@ public class KillTests
         Assert.Equal("002", Kills.Code(17195010));   // 0x1066002
         Assert.Equal("0CB", Kills.Code(0x10660CB));
         Assert.Equal("Tiger [00B]", Kills.Named("Tiger", 0x106600B));
-        Assert.Equal("Tiger", Kills.Named("Tiger", null));
         Assert.Equal("Tiger (10)", Kills.Counted("Tiger", 10));
         Assert.Equal("Goblin Leecher", Kills.Counted("Goblin Leecher", 0));
     }
@@ -58,7 +57,7 @@ public class KillTests
         Assert.Equal(0, r.Unreadable);
 
         // One with nobody dead, or no time, breaks the contract.
-        r.Feed("{\"kind\":\"death\",\"t\":12,\"targetKind\":\"player\",\"msg\":97}");
+        r.Feed("{\"kind\":\"death\",\"t\":12000,\"targetKind\":\"player\",\"msg\":97}");
         r.Feed("{\"kind\":\"death\",\"target\":\"Olivia\",\"targetKind\":\"player\",\"msg\":97}");
         Assert.Equal(2, r.Unreadable);
     }
@@ -109,16 +108,21 @@ public class KillTests
         ]);
         var f = t.Count(Nobody, true, 1_100_000).Kills.Fights;
         Assert.Equal(new[] { ("006", 200.0, 21_000.0), ("00B", 1000.0, 49_000.0) },
-                     f.Select(x => (x.Code!, x.Damage, x.Length!.Value)));
+                     f.Select(x => (x.Code, x.Damage, x.Length!.Value)));
     }
 
     [Fact]
-    public void A_file_without_ids_on_its_rows_is_matched_by_name()
+    public void Rows_and_kills_without_an_id_are_no_fight()
     {
+        // The addon writes an id on every line aimed at a monster; one
+        // without is matched to nothing, by name or otherwise.
         var t = Armed();
-        t.Feed([Swing(1000, "Hasaya", 100, "Crab", null), Swing(1005, "Hasaya", 50, "Crab", null), Kill(1006, "Crab", 77)]);
-        var f = Assert.Single(t.Count(Nobody, true, 1_100_000).Kills.Fights);
-        Assert.Equal(("Crab", (double?)null, 150.0, 6_000.0), (f.Named, f.Id, f.Damage, f.Length!.Value));
+        t.Feed([Swing(1000, "Hasaya", 100, "Crab", null), Swing(1005, "Hasaya", 50, "Crab", null), Kill(1006, "Crab", 77),
+                Swing(1010, "Hasaya", 70, "Crab", 78), Kill(1012, "Crab", null)]);
+        var c = t.Count(Nobody, true, 1_100_000);
+        var f = Assert.Single(c.Kills.Fights);
+        Assert.Equal(("Crab [04D]", 77d, 0d, (double?)null), (f.Named, f.Id, f.Damage, f.Length));
+        Assert.Equal(220, c.Totals.Total);                    // the damage is still counted
     }
 
     [Fact]
@@ -127,12 +131,12 @@ public class KillTests
         var t = Armed();
         t.Feed([Swing(1000, "Hasaya", 100, "Tiger", 2), Swing(1010, "Hasaya", 100, "Tiger", 2)]);
         t.Count(Nobody, true, 1_011_000);
-        // Paused after the last swing: the clock is snapped back to its
-        // second. The death line comes a second later, after that end.
+        // Paused after the last swing: the clock is snapped back to it.
+        // The death line comes two seconds later, after that end.
         t.TogglePause(1_015_000);
         t.Feed([Kill(1012, "Tiger", 2)]);
         var c = t.Count(Nobody, true, 1_020_000);
-        Assert.Equal(11_000, c.Elapsed);
+        Assert.Equal(10_000, c.Elapsed);
         var f = Assert.Single(c.Kills.Fights);
         Assert.Equal(10_000, f.At);
         Assert.Equal(12_000, f.Length);
@@ -167,8 +171,8 @@ public class KillTests
         Assert.Equal(new[] { ("Olivia", 5_000.0, (double?)30_000), ("Kanaria", 6_000.0, (double?)10_000) },
                      d.Select(x => (x.Name, x.At, x.Next)));
 
-        // An excluded character's death is not listed.
-        var off = t.Count(new HashSet<string> { "Olivia" }, true, 1_040_000).Kills;
+        // With a character isolated, only theirs is listed.
+        var off = t.Count(new HashSet<string> { "Kanaria" }, true, 1_040_000).Kills;
         Assert.Equal("Kanaria", Assert.Single(off.Deaths).Name);
         Assert.Equal(0, off.DeathsOf("Olivia"));
     }
@@ -288,8 +292,8 @@ public class KillTests
         t.TogglePause(1_007_000);
         var text = t.Export(1_008_000)!;
         Assert.Contains("\"targetKind\":\"mob\",\"targetId\":17195010,\"dmg\":100", text);
-        Assert.Contains("{\"kind\":\"death\",\"t\":1002,\"seq\":1,\"target\":\"Olivia\",\"targetKind\":\"player\",\"msg\":97}", text);
-        Assert.Contains("{\"kind\":\"death\",\"t\":1004,\"seq\":1,\"actor\":\"Hasaya\",\"actorKind\":\"player\"," +
+        Assert.Contains("{\"kind\":\"death\",\"t\":1002000,\"seq\":1,\"target\":\"Olivia\",\"targetKind\":\"player\",\"msg\":97}", text);
+        Assert.Contains("{\"kind\":\"death\",\"t\":1004000,\"seq\":1,\"actor\":\"Hasaya\",\"actorKind\":\"player\"," +
                         "\"target\":\"Tiger\",\"targetKind\":\"mob\",\"targetId\":17195010,\"msg\":6}", text);
 
         var parse = ParseFile.Import(text);

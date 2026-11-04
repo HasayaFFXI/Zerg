@@ -39,10 +39,6 @@ public sealed class Settings
     /// The runs themselves are not kept: a parse is a megabyte or two.</summary>
     public string CompareMode { get; set; } = "Damage";
 
-    /// <summary>Characters switched off, by name. Kept across event files on
-    /// purpose: a character never wanted in the count stays out of it.</summary>
-    public List<string> Excluded { get; set; } = [];
-
     /// <summary>Whether skillchain damage is counted, credited to whoever closed the chain.</summary>
     public bool Skillchains { get; set; } = true;
 
@@ -68,11 +64,15 @@ public sealed class Settings
     /// (By target), or "Types" (By damage type).</summary>
     public string FiltersBy { get; set; } = "Targets";
 
-    /// <summary>The characters' line is opened onto every chip, on as many
-    /// lines as they take. As installed it is not: one line of as many chips
-    /// as fit, and a chip that says how many do not ("+5"), which opens it.
-    /// A file that has the key keeps what it says.</summary>
-    public bool CharactersOpen { get; set; }
+    /// <summary>Which tab the Overview pane shows: "Characters", as
+    /// installed (By character), or "Targets" (By target).</summary>
+    public string OverviewBy { get; set; } = "Characters";
+
+    /// <summary>The column groups of the Overview table its Columns menu
+    /// has hidden: any of "ranged", "weaponskill", "skillchain" and "pet"
+    /// (<c>Zerg.Core/Layout/CharacterColumns</c>). None as installed; a key
+    /// that is not a group is let go.</summary>
+    public List<string> HiddenColumns { get; set; } = [];
 
     /// <summary>A character's row is shaded in their colour to the length of
     /// their share: in the two per-character tables, on their heading in the
@@ -246,11 +246,12 @@ public sealed class Settings
         HealsBy ??= installed.HealsBy;
         SupportBy ??= installed.SupportBy;
         FiltersBy ??= installed.FiltersBy;
+        OverviewBy ??= installed.OverviewBy;
         CompareBy ??= installed.CompareBy;
         CompareMode ??= installed.CompareMode;
         ClickThroughKey ??= installed.ClickThroughKey;
-        Excluded = Excluded?.Where(n => n is not null).ToList() ?? [];
         OpenPanels = OpenPanels?.Where(n => n is not null).ToList() ?? [];
+        HiddenColumns = HiddenColumns?.Where(Core.Layout.CharacterColumns.Groups.Contains).Distinct().ToList() ?? [];
         PanelOpacities ??= [];
         Sorts = Sorts?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value) ?? [];
         Windows = Windows?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value) ?? [];

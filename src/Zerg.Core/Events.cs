@@ -30,9 +30,8 @@ public sealed record CombatEvent
     public double ActionId { get; init; }
     public string Target { get; init; } = "";
     public string TargetKind { get; init; } = "";
-    /// <summary>The monster's id, on a row aimed at one, where the addon
-    /// wrote it: a spawn point, not one life (<see cref="Kills"/>). Null on
-    /// a file from before it did, and on a row aimed at anything else.</summary>
+    /// <summary>The monster's id, on a row aimed at one: a spawn point, not
+    /// one life (<see cref="Kills"/>). Null on a row aimed at anything else.</summary>
     public double? TargetId { get; init; }
     public double Dmg { get; init; }
     public bool Hit { get; init; }

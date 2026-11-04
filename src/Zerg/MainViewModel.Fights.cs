@@ -58,7 +58,7 @@ public sealed partial class MainViewModel
                 {
                     r.When = Format.Elapsed(f.At);
                     r.Name = f.Target;
-                    r.Code = f.Code is { } code ? "[" + code + "]" : "";
+                    r.Code = "[" + f.Code + "]";
                     r.KillTime = f.Length is double l ? Format.Elapsed(l) : None;
                     r.Damage = Format.Int(f.Damage);
                     r.Dps = f.Dps is double d ? Format.Num(d, 1) : None;

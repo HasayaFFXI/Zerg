@@ -19,7 +19,8 @@ It also adds three pet heals, which the fixture has none of: two from the pet
 of a character who heals too, and one from the pet of a character who does
 not, who must be listed in the Healing section with no healing of their own.
 
-Prints the first and last times written (seconds) and the line count.
+Prints the first and last times written (Unix milliseconds, as the file's
+are) and the line count.
 """
 import argparse
 import json
@@ -34,20 +35,20 @@ a = p.parse_args()
 
 rows = [json.loads(line) for line in open(a.source, encoding='ascii') if line.strip()]
 first = min(r['t'] for r in rows if r.get('kind') != 'job' and 'actor' in r)
-base = int(time.time()) + 1
+base = int(time.time() * 1000) + 1000
 for r in rows:
     if 't' in r:
         r['t'] = base + max(0, r['t'] - first) // a.squeeze
 
 if a.extras:
     for i, (who, dmg, hit) in enumerate((('Tinyone', 900, True), ('Tinytwo', 1400, True), ('Zeroth', 0, False))):
-        rows.append({'t': base + 3 + i, 'seq': 1, 'use': 900000 + i, 'kind': 'magic', 'actor': who,
+        rows.append({'t': base + 3000 + i * 1000, 'seq': 1, 'use': 900000 + i, 'kind': 'magic', 'actor': who,
                      'actorKind': 'player', 'action': 'Stone', 'actionId': 159, 'target': 'Goblin Pathfinder',
-                     'targetKind': 'mob', 'dmg': dmg, 'hit': hit, 'crit': False, 'burst': False, 'msg': 2})
+                     'targetKind': 'mob', 'targetId': 0x1066002, 'dmg': dmg, 'hit': hit, 'crit': False, 'burst': False, 'msg': 2})
     for i, (pet, owner, action, hp) in enumerate((('Fluffikins', 'Parabellum', 'Wild Carrot', 180),
                                                   ('Fluffikins', 'Parabellum', 'Wild Carrot', 164),
                                                   ('Carbuncle', 'Tinyone', 'Healing Ruby', 210))):
-        rows.append({'kind': 'heal', 't': base + 6 + i, 'seq': 1, 'use': 900010 + i, 'via': 'pet', 'actor': pet,
+        rows.append({'kind': 'heal', 't': base + 6000 + i * 1000, 'seq': 1, 'use': 900010 + i, 'via': 'pet', 'actor': pet,
                      'actorKind': 'pet', 'action': action, 'actionId': 900 + i, 'target': 'Hasaya',
                      'targetKind': 'player', 'hp': hp, 'msg': 7, 'owner': owner, 'pet': pet})
 

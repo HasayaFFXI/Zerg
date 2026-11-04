@@ -110,7 +110,7 @@ public sealed partial class TallyRow(string key, Action<string> flip) : Row(key)
 /// event file, another parse.</para>
 ///
 /// <para>One that is picked stays on the list while nothing that counts
-/// was dealt to it (its character excluded, skillchains switched off), with
+/// was dealt to it (its character not isolated, skillchains switched off), with
 /// dashes: a filter that could not be seen could not be taken off.</para>
 /// </summary>
 public sealed partial class PickFilter : ObservableObject
@@ -174,6 +174,33 @@ public sealed partial class PickFilter : ObservableObject
                   "Where the party’s damage came from. Select a type to isolate it",
                   (list, picked) => DamageTypes.Listed(list, picked)),
         DamageTypes.Label);
+
+    /// <summary>By character, over one parse: the Character button and the
+    /// Overview table's rows. A key is a character's real name;
+    /// it is called what <paramref name="called"/> draws it as (their job,
+    /// while names are hidden). Its table is that card's, not this one's.</summary>
+    public static PickFilter OfCharacters(Func<string, string> called) => new(false, "Character", "All characters",
+        "Clear the character filter", "Count every character again",
+        "Count only the damage of the characters you pick. Every character counts now.",
+        names => "Counting only the damage dealt by " + names + ".",
+        new Words("Clear the isolated characters", "Out of the damage of every character",
+                  name => "Count only the damage dealt by " + name, "",
+                  "Total dealt since the session started. Select a character to isolate them",
+                  (list, _) => [.. list]),
+        called);
+
+    /// <summary>By healer, over one parse: the Healing by character table's
+    /// rows, which have no button. The Healing section's own: it cuts the
+    /// healing and the support, and no damage.</summary>
+    public static PickFilter OfHealers(Func<string, string> called) => new(false, "Character", "All characters",
+        "Clear the healer filter", "Count every healer again",
+        "Count only the healing of the characters you pick. Every character counts now.",
+        names => "Counting only the healing done by " + names + ".",
+        new Words("Clear the isolated healers", "Out of the healing of every character",
+                  name => "Count only the healing done by " + name, "",
+                  "Total healed since the session started. Select a character to isolate them",
+                  (list, _) => [.. list]),
+        called);
 
     /// <summary>The list is of two runs, a column each; otherwise of one
     /// parse, with each one's share.</summary>
@@ -311,7 +338,19 @@ public sealed partial class PickFilter : ObservableObject
         Tip = IsOn ? busy(Names) : idle;
         foreach (var row in Rows) Tick(row);
         foreach (var row in Table) Mark(row);
-        TableNote = NoteOf(Table.Count(r => r.CanPick));
+        TableNote = NoteOf(pickable);
+    }
+
+    /// <summary>How many lines the table, or the menu where the table is
+    /// another card's, has that can be picked, as last drawn.</summary>
+    int pickable;
+
+    /// <summary>What a row of another card's table that picks is told, as
+    /// what is picked leaves it: the Damage and Healing by character tables'.</summary>
+    public (bool Isolated, bool Dimmed, string Tip) Marks(string key, string name)
+    {
+        bool isolated = picked.Contains(key), dimmed = picked.Count > 0 && !isolated;
+        return (isolated, dimmed, TipOf(name, isolated, dimmed, PickTip(name)));
     }
 
     void Tick(PickRow row)
@@ -395,7 +434,38 @@ public sealed partial class PickFilter : ObservableObject
             Mark(row);
         });
         HasTable = Table.Count > 0;
-        TableNote = NoteOf(Table.Count(r => r.CanPick));
+        pickable = Table.Count(r => r.CanPick);
+        TableNote = NoteOf(pickable);
+    }
+
+    /// <summary>
+    /// The menu alone, for a filter whose table is another card's (by
+    /// character, by healer): each one's damage, or healing, and its share
+    /// of <paramref name="whole"/>. What it is called is asked again each
+    /// time, so the button and the menu follow names being hidden.
+    /// </summary>
+    public void DrawMenu(IReadOnlyList<TargetTotal> list, double whole)
+    {
+        var by = list.ToDictionary(t => t.Name, t => t.Total, StringComparer.Ordinal);
+        double most = RowMarks.Largest(by.Values);
+        Zerg.Rows.Sync(Rows, Listed(by.Keys), k => k, k => new PickRow(k, Flip), (row, k) =>
+        {
+            if (row.IsAll)
+            {
+                row.Name = AllRow;
+                row.Damage = Format.Int(whole);
+                row.Share = whole > 0 ? "100%" : None;
+                row.Bar = 0;
+                return;
+            }
+            row.Name = called(k);
+            bool hit = by.TryGetValue(k, out var v);
+            row.Damage = hit ? Format.Int(v) : None;
+            row.Share = hit && whole > 0 ? Format.Num(v / whole * 100, 1) + "%" : None;
+            row.Bar = hit ? PickRow.BarLength * RowMarks.Fraction(v, most) : 0;
+        });
+        pickable = Rows.Count - 1;
+        Said();
     }
 
     static string Percent(double? x) => x is double v ? Format.Num(v * 100, 1) + "%" : None;
