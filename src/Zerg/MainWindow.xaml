@@ -509,6 +509,22 @@
 
           <Border Style="{StaticResource GroupRule}" Height="20" Margin="12,0,11,6" v:BarWrap.Rule="True"/>
 
+          <!-- Which characters the damage is isolated to, which targets and
+               which damage types, and the way to pick them: filters on what
+               damage is counted. Not offered over healing (whose table
+               isolates its own healers); the whole group goes, and the bar
+               draws one rule where two would meet. In Compare the last two
+               are on the Compare card too. One piece, so a narrow window
+               wraps the group and never parts it. -->
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,6"
+                      Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
+            <v:PickButton DataContext="{Binding CharacterFilter}" Margin="0,0,6,0"/>
+            <v:PickButton DataContext="{Binding TargetFilter}" Margin="0,0,6,0"/>
+            <v:PickButton DataContext="{Binding TypeFilter}"/>
+          </StackPanel>
+
+          <Border Style="{StaticResource GroupRule}" Height="20" Margin="12,0,11,6" v:BarWrap.Rule="True"/>
+
           <!-- Toggles, not actions: the label is fixed and the tick says it is on.
                One piece, so a narrow window wraps the group and never parts it.
                The room at its end keeps the note off it. -->
@@ -518,21 +534,6 @@
             <ToggleButton Style="{StaticResource SmallToggle}" Content="Include Skillchains" IsChecked="{Binding Skillchains}"
                           ToolTip="{Binding SkillchainsTip}" Margin="0,0,6,0"
                           Visibility="{Binding IsDamage, Converter={StaticResource Visible}}"/>
-            <!-- Which characters the damage is isolated to, which targets
-                 and which damage types, and the way to pick them: filters on
-                 what damage is counted, as the switch before them is, and
-                 like it not offered over healing (whose table isolates its
-                 own healers). In Compare the last two are on the Compare
-                 card too. -->
-            <Grid Margin="0,0,6,0" Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
-              <v:PickButton DataContext="{Binding CharacterFilter}"/>
-            </Grid>
-            <Grid Margin="0,0,6,0" Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
-              <v:PickButton DataContext="{Binding TargetFilter}"/>
-            </Grid>
-            <Grid Margin="0,0,6,0" Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
-              <v:PickButton DataContext="{Binding TypeFilter}"/>
-            </Grid>
             <ToggleButton Style="{StaticResource SmallToggle}" Content="Hide names" IsChecked="{Binding HideNames}"
                           ToolTip="{Binding HideNamesTip}" Margin="0,0,6,0"/>
             <!-- About every panel at once. The hot key does the same from inside

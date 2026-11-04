@@ -24,6 +24,9 @@ takes its number when the version is cut.
   what is under it counts. The boxes set the Character and Target
   filters, so their menus and the Filters pane show the same; the
   pane's note says what is isolated, and its Clear lets both go.
+- The command bar's filters come first: Character, Target and Type, then a
+  rule, then Include Skillchains, Hide names and Click-through. A narrow
+  window wraps the two groups apart.
 
 ## 2.0.0 — 2026-11-04
 
