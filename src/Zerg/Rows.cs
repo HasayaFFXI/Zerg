@@ -22,33 +22,62 @@ public abstract class Row(string key) : ObservableObject
     public abstract override string ToString();
 }
 
-/// <summary>One character in the per-character table: a row to press, which
-/// isolates them (or, isolated, lets them go), as their line of the
-/// Character button's menu does. In the Overview pane's By target tab, also
-/// a target's heading (<see cref="IsTarget"/>), pressed to isolate the
-/// target, and the characters under it (<see cref="Nested"/>).</summary>
-public sealed partial class ActorRow(string key, Action<string> pick, Action<string>? fold = null) : Row(key)
+/// <summary>One row of the Overview pane's table. By character, a
+/// character's heading, and while it is open their targets under it
+/// (<see cref="Nested"/>, <see cref="IsTarget"/>); By target, a target's
+/// heading (<see cref="IsTarget"/>) and the characters under it. A heading
+/// is pressed to show or put away what is under it; a row under one is
+/// pressed to tick its box. The box isolates (<see cref="Ticked"/>).</summary>
+/// <param name="press">What a press on the row does: fold, or tick.</param>
+/// <param name="tick">What a press on the box does.</param>
+public sealed partial class ActorRow(string key, Action<string> press, Action<string> tick) : Row(key)
 {
-    /// <summary>A target's heading in By target: the party's figures
-    /// against it, its characters' rows under it while it is open.</summary>
+    /// <summary>The row names a target: no swatch, no job.</summary>
     public bool IsTarget { get; init; }
-    /// <summary>A character's row under a target's heading.</summary>
+    /// <summary>A row under a heading.</summary>
     public bool Nested { get; init; }
-    /// <summary>A target's characters show under its heading.</summary>
+    /// <summary>A heading's rows show under it.</summary>
     [ObservableProperty] private bool open;
     /// <summary>After a target's name: how many of it were killed, "(4)"; none for none.</summary>
     [ObservableProperty] private string tag = "";
 
-    [RelayCommand]
-    void Fold() => fold?.Invoke(Key);
-
-    /// <summary>Damage is isolated to this character, alone or among others.</summary>
+    /// <summary>Unused by the Overview's rows, whose box says it; kept for
+    /// the row style they share with the other tables that pick.</summary>
     [ObservableProperty] private bool isolated;
-    /// <summary>Damage is isolated to others and not this character.</summary>
+    /// <summary>Something is isolated and none of this row is counted.</summary>
     [ObservableProperty] private bool dimmed;
 
     [RelayCommand]
-    void Pick() => pick(Key);
+    void Pick() => press(Key);
+
+    bool? ticked = false;
+    /// <summary>
+    /// The box: true while all of the row counts, null while some of a
+    /// heading does, false otherwise. Set by the box (a press, or UI
+    /// Automation's toggle), which isolates; what it reads then is what the
+    /// count that follows says, given by <see cref="Show"/>, and the box is
+    /// told again whatever it set itself to.
+    /// </summary>
+    public bool? Ticked
+    {
+        get => ticked;
+        set
+        {
+            tick(Key);
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>What the box reads, as the filters now leave the row.</summary>
+    public void Show(bool? value)
+    {
+        if (ticked == value) return;
+        ticked = value;
+        OnPropertyChanged(nameof(Ticked));
+    }
+
+    /// <summary>What the box is called and told the pointer: "Isolate Hasaya at Kirin".</summary>
+    [ObservableProperty] private string tickName = "";
 
     /// <summary>The damage DPS is worked out from, on every clock tick.</summary>
     public double Total { get; set; }

@@ -307,32 +307,10 @@ public sealed partial class MainViewModel
         // carries the share of the whole.
         double top = RowMarks.Largest(actors.Select(a => a.Total));
 
-        string Tip(ActorTotals a, string pick) => RowTip(a.Name, Format.Int(a.Avg) + " avg per action") + "\n" + pick;
-
         ShowJob = !HideNames;
         HasActors = actors.Count > 0;
-        Rows.Sync(Actors, actors, a => a.Name, a => new ActorRow(a.Name, CharacterFilter.Toggle), (row, a) =>
-        {
-            var (isolated, dimmed, pick) = CharacterFilter.Marks(a.Name, NameOf(a.Name));
-            row.Total = a.Total;
-            row.Shade = ShadeOf(a.Name);
-            row.Fraction = RowMarks.Fraction(a.Total, top);
-            row.IsOwner = a.Name == Roster.Owner;
-            row.Isolated = isolated;
-            row.Dimmed = dimmed;
-            row.Tip = Tip(a, pick);
-            row.Name = NameOf(a.Name);
-            row.Swatch = SwatchOf(a.Name);
-            row.Job = Roster.JobLabel(a.Name) is { Length: > 0 } job ? job : None;
-            row.JobTip = Roster.JobTitle(a.Name);
-            row.ShowJob = ShowJob;
-            row.Damage = Format.Int(a.Total);
-            row.Share = Percent(a.Share);
-            row.Dps = Rate(a.Total, c.Elapsed / 1000);
-            Split(row, Figures(a));
-            row.Delay = Seconds(a.Delay);
-            row.Deaths = Died(c.DiedOf(a.Name));
-        });
+        DescribeOverview();
+        DrawCharacterRows(c, actors, top);
 
         // The Party line, under the columns it sums. The split columns are
         // the party's own (Aggregate.Party): everyone's swings together,
@@ -415,6 +393,228 @@ public sealed partial class MainViewModel
         row.PetAccuracy = Percent(f.PetAcc);
     }
 
+    // ------------------------------------------------- overview, by character
+
+    /// <summary>The characters whose targets show under their heading, by
+    /// real name. Every character starts folded. Not saved: the names are a
+    /// session's.</summary>
+    readonly HashSet<string> openCharacters = new(StringComparer.Ordinal);
+
+    /// <summary>A character's heading was pressed: their targets shown or
+    /// put away. Nothing is counted again: the last count, with more or
+    /// fewer of its lines.</summary>
+    void FoldCharacter(string key)
+    {
+        if (!openCharacters.Remove(key)) openCharacters.Add(key);
+        if (snapshot is { } c) DrawBars(c);
+    }
+
+    /// <summary>One target under a character's heading: their figures at it.</summary>
+    readonly record struct AtTarget(string Target, ActorTotals Actor);
+
+    /// <summary>
+    /// The targets a character dealt damage to, as the rows under their
+    /// heading list them: their figures at each, which are what their row
+    /// reads with that target alone isolated (<see cref="TargetGroups"/>).
+    /// Every target, isolated or not, as By target lists them; one isolated
+    /// that they acted at and dealt nothing stays, to be let go.
+    /// </summary>
+    List<AtTarget> TargetsOf(Snapshot c, string who)
+    {
+        var targets = TargetFilter.Picked;
+        var list = new List<AtTarget>();
+        foreach (var g in c.TargetGroups)
+            if (g.Characters.FirstOrDefault(a => a.Name == who) is { } a && (a.Total > 0 || targets.Contains(g.Name)))
+                list.Add(new AtTarget(g.Name, a));
+        return list;
+    }
+
+    /// <summary>The characters who dealt a target damage, as the rows
+    /// under its heading list them; one isolated who acted at it and dealt
+    /// nothing stays.</summary>
+    List<ActorTotals> CharactersAt(Snapshot c, string target)
+    {
+        var characters = CharacterFilter.Picked;
+        return c.TargetGroups.FirstOrDefault(g => g.Name == target) is { } g
+            ? g.Characters.Where(a => a.Total > 0 || characters.Contains(a.Name)).ToList()
+            : [];
+    }
+
+    /// <summary>
+    /// The By character tab: each character's heading, pressed to show or
+    /// put away their targets, and under it while it is open each target
+    /// they dealt damage to. A target's row is their damage to it; its
+    /// Damage % is its share of theirs, so the rows under a heading add to
+    /// 100%, and it is shaded in their colour to its damage out of their
+    /// largest target's. No DPS or deaths there, as in By target. The
+    /// heading's figures are as they always were.
+    /// </summary>
+    void DrawCharacterRows(Snapshot c, List<ActorTotals> actors, double top)
+    {
+        var lines = new List<(string Key, ActorTotals Actor, AtTarget? At, double Top, double Whole)>();
+        foreach (var a in actors)
+        {
+            lines.Add((a.Name, a, null, top, 0));
+            if (!openCharacters.Contains(a.Name)) continue;
+            var under = TargetsOf(c, a.Name);
+            double most = RowMarks.Largest(under.Select(t => t.Actor.Total));
+            double whole = under.Sum(t => t.Actor.Total);
+            foreach (var t in BarsSort.Order(under, column => AtTargetKey(c, column)))
+                lines.Add((a.Name + PickFilter.Rest + t.Target, a, t, most, whole));
+        }
+
+        var chars = CharacterFilter.Picked;
+        var targets = TargetFilter.Picked;
+        Rows.Sync(Actors, lines, l => l.Key,
+            l => l.At is { } at
+                ? new ActorRow(l.Key, _ => TickCharacterAt(l.Actor.Name, at.Target), _ => TickCharacterAt(l.Actor.Name, at.Target))
+                  { Nested = true, IsTarget = true }
+                : new ActorRow(l.Key, FoldCharacter, TickCharacter),
+            (row, l) =>
+            {
+                var a = l.Actor;
+                row.Shade = ShadeOf(a.Name);
+                row.ShowJob = ShowJob;
+                if (l.At is { } at)
+                {
+                    var t = at.Actor;
+                    bool counts = OverviewTicks.Counts(chars, targets, a.Name, at.Target);
+                    var killed = c.Kills.KillsOf(at.Target) is int n and > 0 ? " (" + Format.Int(n) + ")" : "";
+                    row.Total = t.Total;
+                    row.Fraction = RowMarks.Fraction(t.Total, l.Top);
+                    row.Show(counts);
+                    row.Dimmed = OverviewOn && !counts;
+                    row.Name = NameOf(at.Target);
+                    row.Tag = killed;
+                    row.TickName = (counts ? "Let go of " : "Isolate ") + NameOf(a.Name) + " at " + NameOf(at.Target);
+                    row.Tip = NameOf(a.Name) + " at " + NameOf(at.Target) + killed + "\n" + Format.Int(t.Avg) +
+                              " avg per action";
+                    row.Job = "";
+                    row.Damage = Format.Int(t.Total);
+                    row.Share = l.Whole > 0 ? Percent(t.Total / l.Whole) : None;
+                    row.Dps = None;
+                    Split(row, Figures(t));
+                    row.Delay = Seconds(t.Delay);
+                    row.Deaths = None;
+                    return;
+                }
+                var tick = CharacterTick(c, a.Name);
+                row.Total = a.Total;
+                row.Fraction = RowMarks.Fraction(a.Total, l.Top);
+                row.Open = openCharacters.Contains(a.Name);
+                row.Show(TickOf(tick));
+                row.Dimmed = OverviewOn && tick == TickState.None;
+                row.IsOwner = a.Name == Roster.Owner;
+                row.TickName = (tick == TickState.All ? "Let go of " : "Isolate ") + NameOf(a.Name);
+                row.Tip = RowTip(a.Name, Format.Int(a.Avg) + " avg per action") + "\n" +
+                          (row.Open ? "Select to put away their targets" : "Select to show their targets");
+                row.Name = NameOf(a.Name);
+                row.Swatch = SwatchOf(a.Name);
+                row.Job = Roster.JobLabel(a.Name) is { Length: > 0 } job ? job : None;
+                row.JobTip = Roster.JobTitle(a.Name);
+                row.Damage = Format.Int(a.Total);
+                row.Share = Percent(a.Share);
+                row.Dps = Rate(a.Total, c.Elapsed / 1000);
+                Split(row, Figures(a));
+                row.Delay = Seconds(a.Delay);
+                row.Deaths = Died(c.DiedOf(a.Name));
+            });
+    }
+
+    /// <summary>What a heading's box reads: ticked, part ticked, empty.</summary>
+    static bool? TickOf(TickState tick) => tick switch { TickState.All => true, TickState.Some => null, _ => false };
+
+    /// <summary>What each column orders a character's targets by: their
+    /// figures at each. Job, DPS and Deaths have none to give.</summary>
+    SortKey<AtTarget>? AtTargetKey(Snapshot c, string column)
+    {
+        if (column == "name") return SortKey<AtTarget>.Of(t => NameOf(t.Target));
+        if (column is "job" or "dps" or "deaths" || BarKey(c, column) is not { } key) return null;
+        return key.Figure is { } f ? SortKey<AtTarget>.Of(t => f(t.Actor)) : SortKey<AtTarget>.Of(t => key.Words!(t.Actor));
+    }
+
+    // ------------------------------------------------- overview, the boxes
+
+    /// <summary>Something the Overview's boxes set is isolated: a character or a target.</summary>
+    [ObservableProperty] private bool overviewOn;
+    /// <summary>What the Overview pane says after its title: what is
+    /// isolated, or what the tab is and how it is used.</summary>
+    [ObservableProperty] private string overviewNote = "";
+
+    void DescribeOverview()
+    {
+        var chars = CharacterFilter.Picked;
+        var targets = TargetFilter.Picked;
+        OverviewOn = chars.Count > 0 || targets.Count > 0;
+        string Who() => chars.Count == 0 ? "everyone" : chars.Count == 1 ? NameOf(chars.First()) : chars.Count + " characters";
+        string At() => targets.Count == 1 ? NameOf(targets.First()) : targets.Count + " targets";
+        OverviewNote = OverviewOn
+            ? "Isolated: " + Who() + (targets.Count > 0 ? " at " + At() : "")
+            : OverviewByTarget
+                ? "Party damage dealt to each target name. Select one for its characters, and tick to isolate"
+                : "Total dealt since the session started. Select a character for their targets, and tick to isolate";
+    }
+
+    /// <summary>The Overview's Clear: every character and every target count again.</summary>
+    [RelayCommand]
+    void ClearOverview() => SetPairs([], []);
+
+    /// <summary>
+    /// What the boxes set: the characters isolated and the targets isolated,
+    /// both at once, then one count. The two filters are the Character and
+    /// Target buttons' own, as they always were.
+    /// </summary>
+    void SetPairs(IEnumerable<string> characters, IEnumerable<string> targets)
+    {
+        CharacterFilter.Set(characters);
+        TargetFilter.Set(targets);
+        Log.Write("characters " + (CharacterFilter.IsOn ? string.Join(", ", CharacterFilter.Picked) : "all") +
+                  "; targets " + (TargetFilter.IsOn ? TargetFilter.Names : "all"));
+        Recount();
+    }
+
+    /// <summary>A character's heading box, By character: of their targets listed under them.</summary>
+    TickState CharacterTick(Snapshot c, string who) =>
+        OverviewTicks.Heading(CharacterFilter.Picked, TargetFilter.Picked, who,
+                              () => TargetsOf(c, who).Select(t => t.Target).ToList());
+
+    /// <summary>A target's heading box, By target: of its characters listed under it.</summary>
+    TickState TargetTick(Snapshot c, string target) =>
+        OverviewTicks.Heading(TargetFilter.Picked, CharacterFilter.Picked, target,
+                              () => CharactersAt(c, target).Select(a => a.Name).ToList());
+
+    void TickCharacter(string who)
+    {
+        if (snapshot is not { } c) return;
+        var (chars, targets) = OverviewTicks.PressHeading(CharacterFilter.Picked, TargetFilter.Picked, who,
+                                                          CharacterTick(c, who));
+        SetPairs(chars, targets);
+    }
+
+    void TickCharacterAt(string who, string target)
+    {
+        if (snapshot is not { } c) return;
+        var (chars, targets) = OverviewTicks.PressPair(CharacterFilter.Picked, TargetFilter.Picked, who, target,
+            TargetsOf(c, who).Select(t => t.Target), CharactersAt(c, target).Select(a => a.Name));
+        SetPairs(chars, targets);
+    }
+
+    void TickTarget(string target)
+    {
+        if (snapshot is not { } c) return;
+        var (targets, chars) = OverviewTicks.PressHeading(TargetFilter.Picked, CharacterFilter.Picked, target,
+                                                          TargetTick(c, target));
+        SetPairs(chars, targets);
+    }
+
+    void TickTargetBy(string target, string who)
+    {
+        if (snapshot is not { } c) return;
+        var (targets, chars) = OverviewTicks.PressPair(TargetFilter.Picked, CharacterFilter.Picked, target, who,
+            CharactersAt(c, target).Select(a => a.Name), TargetsOf(c, who).Select(t => t.Target));
+        SetPairs(chars, targets);
+    }
+
     // ------------------------------------------------- overview, by target
 
     /// <summary>The Overview pane's By target tab: each target's heading,
@@ -436,16 +636,16 @@ public sealed partial class MainViewModel
 
     /// <summary>
     /// The damage by target, as the per-character table: each target a
-    /// heading with the party's figures against it, pressed to isolate it
-    /// as its line of By target is, and under it every character who dealt
-    /// it damage, pressed to isolate them. Every target, isolated or not, of
-    /// what the character and type filters leave, as By target lists them;
-    /// one isolated that nothing reached stays, to be let go. A target's
-    /// Damage % is its share of what every target took; a character's is
-    /// their share of what this target took, and their row is shaded to
-    /// their damage out of its leader's. No DPS: damage to one target over
-    /// the session clock is no rate anybody dealt (Snapshot.Rate). No
-    /// deaths: a death is not at a target.
+    /// heading with the party's figures against it, pressed to show or put
+    /// away the characters under it, and under it every character who dealt
+    /// it damage. Every target, isolated or not, of what the character and
+    /// type filters leave, as By target lists them; one isolated that
+    /// nothing reached stays, to be let go. A target's Damage % is its
+    /// share of what every target took; a character's is their share of
+    /// what this target took, and their row is shaded to their damage out
+    /// of its leader's. No DPS: damage to one target over the session clock
+    /// is no rate anybody dealt (Snapshot.Rate). No deaths: a death is not
+    /// at a target.
     /// </summary>
     void DrawTargetRows(Snapshot c)
     {
@@ -463,7 +663,7 @@ public sealed partial class MainViewModel
         {
             lines.Add(("t" + PickFilter.Rest + g.Name, g, null, 0));
             if (!openTargets.Contains(g.Name)) continue;
-            var listed = g.Characters.Where(a => a.Total > 0 || characters.Contains(a.Name)).ToList();
+            var listed = CharactersAt(c, g.Name);
             double top = RowMarks.Largest(listed.Select(a => a.Total));
             foreach (var a in BarsSort.Order(listed, column => NestedKey(c, column)))
                 lines.Add(("c" + PickFilter.Rest + g.Name + PickFilter.Rest + a.Name, g, a, top));
@@ -473,24 +673,27 @@ public sealed partial class MainViewModel
         HasTargetRows = lines.Count > 0;
         Rows.Sync(TargetRows, lines, l => l.Key,
             l => l.Actor is { } who
-                ? new ActorRow(l.Key, _ => CharacterFilter.Toggle(who.Name)) { Nested = true }
-                : new ActorRow(l.Key, _ => TargetFilter.Toggle(l.Group.Name), _ => FoldTarget(l.Group.Name)) { IsTarget = true },
+                ? new ActorRow(l.Key, _ => TickTargetBy(l.Group.Name, who.Name), _ => TickTargetBy(l.Group.Name, who.Name))
+                  { Nested = true }
+                : new ActorRow(l.Key, _ => FoldTarget(l.Group.Name), _ => TickTarget(l.Group.Name)) { IsTarget = true },
             (row, l) =>
             {
                 var g = l.Group;
-                var (onTarget, offTarget, pickTarget) = TargetFilter.Marks(g.Name, NameOf(g.Name));
                 row.ShowJob = ShowJob;
                 row.Dps = None;
                 row.Deaths = None;
                 if (l.Actor is not { } a)
                 {
+                    var tick = TargetTick(c, g.Name);
                     var killed = c.Kills.KillsOf(g.Name) is int n and > 0 ? "(" + Format.Int(n) + ")" : "";
                     row.Name = NameOf(g.Name);
                     row.Tag = killed.Length > 0 ? " " + killed : "";
                     row.Open = openTargets.Contains(g.Name);
-                    row.Isolated = onTarget;
-                    row.Dimmed = offTarget;
-                    row.Tip = NameOf(g.Name) + (killed.Length > 0 ? " " + killed : "") + "\n" + pickTarget;
+                    row.Show(TickOf(tick));
+                    row.Dimmed = OverviewOn && tick == TickState.None;
+                    row.TickName = (tick == TickState.All ? "Let go of " : "Isolate ") + NameOf(g.Name);
+                    row.Tip = NameOf(g.Name) + (killed.Length > 0 ? " " + killed : "") + "\n" +
+                              (row.Open ? "Select to put away its characters" : "Select to show its characters");
                     row.Damage = Format.Int(g.Total);
                     row.Share = all > 0 ? Percent(g.Total / all) : None;
                     Split(row, g.Party);
@@ -498,14 +701,15 @@ public sealed partial class MainViewModel
                     row.Delay = None;
                     return;
                 }
-                var (isolated, dimmed, pick) = CharacterFilter.Marks(a.Name, NameOf(a.Name));
+                bool counts = OverviewTicks.Counts(targets, characters, g.Name, a.Name);
                 row.Total = a.Total;
                 row.Shade = ShadeOf(a.Name);
                 row.Fraction = RowMarks.Fraction(a.Total, l.Top);
                 row.IsOwner = a.Name == Roster.Owner;
-                row.Isolated = isolated;
-                row.Dimmed = dimmed || offTarget;
-                row.Tip = RowTip(a.Name, Format.Int(a.Avg) + " avg per action at " + NameOf(g.Name)) + "\n" + pick;
+                row.Show(counts);
+                row.Dimmed = OverviewOn && !counts;
+                row.TickName = (counts ? "Let go of " : "Isolate ") + NameOf(a.Name) + " at " + NameOf(g.Name);
+                row.Tip = RowTip(a.Name, Format.Int(a.Avg) + " avg per action at " + NameOf(g.Name));
                 row.Name = NameOf(a.Name);
                 row.Swatch = SwatchOf(a.Name);
                 row.Job = Roster.JobLabel(a.Name) is { Length: > 0 } job ? job : None;

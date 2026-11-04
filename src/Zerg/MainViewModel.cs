@@ -226,15 +226,11 @@ public sealed partial class MainViewModel : ObservableObject
     /// the last count when it is shown. A floating Overview is the
     /// characters' strip whichever this is.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(OverviewByTarget), nameof(OverviewShown))]
+    [NotifyPropertyChangedFor(nameof(OverviewByTarget))]
     private string overviewBy = OverviewByCharacters;
 
     /// <summary>The By target tab is shown.</summary>
     public bool OverviewByTarget => OverviewBy == OverviewByTargets;
-
-    /// <summary>The filter the tab shown sets by its rows' headings: what
-    /// the docked pane's note says and its Clear link clears.</summary>
-    public PickFilter OverviewShown => OverviewByTarget ? TargetFilter : CharacterFilter;
 
     partial void OnOverviewByChanged(string value)
     {
@@ -763,7 +759,9 @@ public sealed partial class MainViewModel : ObservableObject
             // No rate while a target is isolated: a dash, here and in
             // every row (Snapshot.Rate says why).
             DpsText = Rate(agg?.Total ?? 0, secs);
-            foreach (var row in Actors) row.Dps = Rate(row.Total, secs);
+            // A character's target under them has none (a dash, as at any one target).
+            foreach (var row in Actors)
+                if (!row.Nested) row.Dps = Rate(row.Total, secs);
             // The Party line under the rows is the party's figure again.
             Party.Dps = DpsText;
         }

@@ -181,12 +181,16 @@
       </Style.Triggers>
     </Style>
 
-    <!-- A row of the docked table, in either tab: a character, or in By
-         target a target's heading (IsTarget) or a character under one
-         (Nested). A heading is on the raised surface, its name stronger,
-         with the caret that folds its characters where a character has
-         their swatch, and how many of it were killed after its name; a
-         character under it stands in from it. -->
+    <!-- A row of the docked table, in either tab: a heading (a character,
+         or in By target a target), or a row under one (Nested: a target
+         under a character, a character under a target). A heading is
+         pressed to fold what is under it, and wears a caret that says
+         which way it is; a target's heading is on the raised surface, its
+         name stronger, with how many of it were killed after its name. A
+         row under a heading stands in from it, and is pressed to tick its
+         box. Every row has a box first: it isolates (ActorRow.Ticked).
+         A row names a target (IsTarget) or a character, who has their
+         swatch. -->
     <DataTemplate x:Key="ActorLine">
       <Button Style="{StaticResource CharacterPick}" Height="{StaticResource RowHeight}">
         <Grid>
@@ -195,13 +199,10 @@
             <Rectangle Style="{StaticResource RowShade}" Margin="0,0,0,1" Fill="{Binding Shade}"
                        v:Grow.Share="{Binding Fraction}"/>
             <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1">
-              <DockPanel x:Name="NameCell" Margin="12,0,8,0" VerticalAlignment="Center">
-                <Button x:Name="Caret" Style="{StaticResource IconButton}" Width="18" Height="18" Margin="-5,0,3,0"
-                        Command="{Binding FoldCommand}" Visibility="Collapsed"
-                        ToolTip="Show or put away the characters under this target"
-                        AutomationProperties.Name="{Binding Name, StringFormat=Characters at {0}}">
-                  <Path Style="{StaticResource RowCaret}"/>
-                </Button>
+              <DockPanel x:Name="NameCell" Margin="6,0,8,0" VerticalAlignment="Center">
+                <ToggleButton Style="{StaticResource RowTick}" Margin="0,0,2,0" IsChecked="{Binding Ticked, Mode=TwoWay}"
+                              ToolTip="{Binding TickName}" AutomationProperties.Name="{Binding TickName}"/>
+                <Path x:Name="Caret" Style="{StaticResource RowCaret}" Margin="1,0,5,0"/>
                 <Rectangle x:Name="Swatch" Style="{StaticResource Swatch}" Fill="{Binding Swatch}" Margin="0,0,6,0"/>
                 <TextBlock x:Name="Name" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                   <Run Text="{Binding Name, Mode=OneWay}"/><Run Text="{Binding Tag, Mode=OneWay}" FontWeight="Normal"
@@ -253,22 +254,38 @@
           <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
         </DataTrigger>
         <DataTrigger Binding="{Binding IsTarget}" Value="True">
-          <Setter TargetName="Raised" Property="Visibility" Value="Visible"/>
-          <Setter TargetName="Caret" Property="Visibility" Value="Visible"/>
           <Setter TargetName="Swatch" Property="Visibility" Value="Collapsed"/>
-          <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
         </DataTrigger>
         <DataTrigger Binding="{Binding Nested}" Value="True">
           <Setter TargetName="NameCell" Property="Margin" Value="30,0,8,0"/>
+          <Setter TargetName="Caret" Property="Visibility" Value="Collapsed"/>
         </DataTrigger>
+        <!-- A target's heading. -->
+        <MultiDataTrigger>
+          <MultiDataTrigger.Conditions>
+            <Condition Binding="{Binding IsTarget}" Value="True"/>
+            <Condition Binding="{Binding Nested}" Value="False"/>
+          </MultiDataTrigger.Conditions>
+          <Setter TargetName="Raised" Property="Visibility" Value="Visible"/>
+          <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
+        </MultiDataTrigger>
         <!-- A target has no job, and its name is often longer than a
              character's: it runs on over the Job column, where there is one. -->
         <MultiDataTrigger>
           <MultiDataTrigger.Conditions>
             <Condition Binding="{Binding IsTarget}" Value="True"/>
             <Condition Binding="{Binding ShowJob}" Value="True"/>
+            <Condition Binding="{Binding Nested}" Value="False"/>
           </MultiDataTrigger.Conditions>
-          <Setter TargetName="NameCell" Property="Margin" Value="12,0,-54,0"/>
+          <Setter TargetName="NameCell" Property="Margin" Value="6,0,-54,0"/>
+        </MultiDataTrigger>
+        <MultiDataTrigger>
+          <MultiDataTrigger.Conditions>
+            <Condition Binding="{Binding IsTarget}" Value="True"/>
+            <Condition Binding="{Binding ShowJob}" Value="True"/>
+            <Condition Binding="{Binding Nested}" Value="True"/>
+          </MultiDataTrigger.Conditions>
+          <Setter TargetName="NameCell" Property="Margin" Value="30,0,-54,0"/>
         </MultiDataTrigger>
       </DataTemplate.Triggers>
     </DataTemplate>
@@ -289,16 +306,16 @@
 
        The pane says how its rows are drawn (v:Shading), to both forms. -->
   <v:Pane Title="Overview"
-          Hint="Total dealt since the session started, by character or by target. Select a character or a target to isolate it, and another to add it. Hover a column heading for how it is counted, and press one to sort by it."
+          Hint="Total dealt since the session started, by character or by target. Select a row to show what is under it: a character's targets, or a target's characters. Tick a box to isolate: a character or a target, or one character at one target. Hover a column heading for how it is counted, and press one to sort by it."
           PopOutCommand="{Binding Panels[bars].PopOutCommand}"
           v:Shading.Characters="{Binding ShadeCharacters}" v:Shading.LowAccuracy="{Binding LowAccuracy}">
-    <!-- The note and the Clear link are those of the filter the tab shown
-         sets from its headings (OverviewShown); floating, the card is the
-         characters' strip whichever tab is shown, and they are the
+    <!-- The note and the Clear link are of the two filters the boxes set,
+         the characters' and the targets' (OverviewNote); floating, the card
+         is the characters' strip whichever tab is shown, and they are the
          characters'. -->
     <v:Pane.Style>
       <Style TargetType="v:Pane" BasedOn="{StaticResource ZPane}">
-        <Setter Property="Note" Value="{Binding OverviewShown.TableNote}"/>
+        <Setter Property="Note" Value="{Binding OverviewNote}"/>
         <Style.Triggers>
           <Trigger Property="v:Float.On" Value="True">
             <Setter Property="Note" Value="{Binding CharacterFilter.TableNote}"/>
@@ -319,10 +336,10 @@
           <Button.Style>
             <Style TargetType="Button" BasedOn="{StaticResource LinkButton}">
               <Setter Property="Margin" Value="0,0,10,0"/>
-              <Setter Property="Command" Value="{Binding OverviewShown.ClearCommand}"/>
-              <Setter Property="ToolTip" Value="{Binding OverviewShown.ClearTip}"/>
-              <Setter Property="AutomationProperties.Name" Value="{Binding OverviewShown.TableClearName}"/>
-              <Setter Property="Visibility" Value="{Binding OverviewShown.IsOn, Converter={StaticResource Visible}}"/>
+              <Setter Property="Command" Value="{Binding ClearOverviewCommand}"/>
+              <Setter Property="ToolTip" Value="Count every character and every target again"/>
+              <Setter Property="AutomationProperties.Name" Value="Clear the isolated characters and targets"/>
+              <Setter Property="Visibility" Value="{Binding OverviewOn, Converter={StaticResource Visible}}"/>
               <Style.Triggers>
                 <Trigger Property="v:Float.On" Value="True">
                   <Setter Property="Margin" Value="0,3,10,1"/>
@@ -340,11 +357,11 @@
           <StackPanel Orientation="Horizontal">
             <RadioButton Style="{StaticResource Segment}" GroupName="overviewBy" Content="By character"
                          IsChecked="{Binding OverviewBy, Converter={StaticResource Equals}, ConverterParameter=Characters}"
-                         ToolTip="Each character's damage. Select one to isolate them"
+                         ToolTip="Each character's damage, and each target under them. Tick a box to isolate"
                          AutomationProperties.Name="Overview: by character"/>
             <RadioButton Style="{StaticResource Segment}" GroupName="overviewBy" Content="By target"
                          IsChecked="{Binding OverviewBy, Converter={StaticResource Equals}, ConverterParameter=Targets}"
-                         ToolTip="Each target's damage, and each character's under it. Select a target to isolate it"
+                         ToolTip="Each target's damage, and each character under it. Tick a box to isolate"
                          AutomationProperties.Name="Overview: by target"/>
           </StackPanel>
         </Border>
@@ -625,13 +642,12 @@
               <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
             </Grid>
 
-            <!-- The rows. Each is pressed to isolate its character, as a
-                 row of By target is (CharacterPick); isolated, it has the
-                 accent down its left edge and its name is stronger, and the
-                 rows that are not are dimmed, with their own figures. Back
-                 to front: the shade and the cells (what dims), the rule,
-                 the accent, the owner's mark, then what the row wears under
-                 the pointer. A rate that is low has its mark under it
+            <!-- The rows (ActorLine). A heading is pressed to fold what is
+                 under it, a row under one to tick its box; the boxes
+                 isolate, and while anything is isolated the rows none of
+                 which counts are dimmed, with their own figures. Back to
+                 front: the shade and the cells (what dims), the rule, the
+                 owner's mark, then what the row wears under the pointer. A rate that is low has its mark under it
                  (v:LowMark); the Damage % has a small bar beside it only
                  while the row is not shaded (v:SmallBar). -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"

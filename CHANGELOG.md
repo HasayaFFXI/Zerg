@@ -14,6 +14,16 @@ takes its number when the version is cut.
   that file is on screen. The version is the one the file's first line
   states; a file that states none counts as older, a newer addon does not.
   The followed file and a replay's tab are checked; a saved parse is not.
+- The Overview's rows fold instead of isolating. By character, pressing a
+  character's row shows the targets they dealt damage to under it, each
+  with their figures at it and its share of their damage; By target,
+  pressing a target's row shows its characters, as its arrow did. Every
+  row has a tick box, which isolates: a heading's box a character (or a
+  target) as a press on the row used to, a box under one that character
+  at that target. A heading's box is half filled while only some of
+  what is under it counts. The boxes set the Character and Target
+  filters, so their menus and the Filters pane show the same; the
+  pane's note says what is isolated, and its Clear lets both go.
 
 ## 2.0.0 — 2026-11-04
 

@@ -259,21 +259,25 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   (saved in `settings.sorts`), rows listed through `Zerg.Core/TableOrder`'s
   `Ordering`; a press redraws from the last count, never counts.
 - **Filters.** Target, Type and Character (`PickFilter`) cut together;
-  each list shows what the others leave. Characters are isolated by
-  pressing a character's row of the Overview (`ActorRow.Pick`) or from the
-  Character menu; the Healing section has its own (`HealerFilter`, rows
-  only). Neither moves the clock. While a target is isolated every DPS is a dash
+  each list shows what the others leave. Characters are isolated by the
+  Overview's tick boxes (`ActorRow.Ticked`, which set the character and
+  target filters together) or from the Character menu; the Healing section
+  has its own (`HealerFilter`, rows only). Neither moves the clock. While a target is isolated every DPS is a dash
   (`MainViewModel.Rate`, which the beat goes through too). Never saved.
   `RULES.md` has the rules. In the Damage section their tables
   (`Views/TallyCard`) are the Filters pane's two tabs (`Views/FiltersCard`);
   both are drawn on every count, `FiltersBy` (saved) says which is seen.
 - **Overview.** The Damage section's per-character pane (key `bars`,
-  `Views/BarsCard`) has two tabs, `OverviewBy` (saved): By character, and
-  By target, the same table under each target's heading (`TargetRows`,
-  drawn from `Snapshot.TargetGroups`, which is worked out only when
-  asked). Both tabs use one row template (`ActorLine`); only the tab shown
-  is drawn. A heading picks the target (`TargetFilter`), its caret opens
-  it (every target starts folded; not saved). Floating, it is the characters' strip either way.
+  `Views/BarsCard`) has two tabs, `OverviewBy` (saved): By character
+  (`Actors`: each character, their targets under them while open), and
+  By target, the same table under each target's heading (`TargetRows`).
+  Rows under a heading come from `Snapshot.TargetGroups`, which is worked
+  out only when asked. Both tabs use one row template (`ActorLine`); only
+  the tab shown is drawn (the beat writes DPS on `Actors`' headings only).
+  A press on a heading folds it (every heading starts folded; not saved),
+  a press on a row under one ticks its box; the boxes isolate, by the
+  rules in `Zerg.Core/OverviewTicks` (`MainViewModel.SetPairs`).
+  Floating, it is the characters' strip either way.
 - **Compare.** `CompareViewModel` over a `CompareSheet`; redraws only on a
   change and only while on screen. A pair the player made (A's action
   against another of B's) is a `CrossPair`, a row before its row's actions.

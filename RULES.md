@@ -456,17 +456,48 @@ The Target button counts only the damage dealt to the targets picked
 - **The Overview's By target tab is the per-character table under each
   target** (`TargetGroups`). A target's heading is its line of By target
   (the same total, the Party line's figures with it alone isolated) and
-  is pressed to pick it, the same filter's. Under it each character's
-  row is what their By character row reads with that target alone
-  isolated, folded the same way, and is pressed to isolate them. A
-  heading's Damage % is its share of what every target took; a
-  character's is their share of what that target took, from everyone,
-  isolated or not, so the rows under a target add to 100% and the row
-  is shaded to their damage out of that target's leader's. It lists
-  every target and every character whatever is picked, as By target and
-  By character do; those not picked are dimmed. There is no DPS (a
-  target's damage over the session clock is no rate anybody dealt, as
-  below) and no deaths (a death is at no target).
+  is pressed to show or put away the characters under it. Under it each
+  character's row is what their By character row reads with that target
+  alone isolated, folded the same way. A heading's Damage % is its share
+  of what every target took; a character's is their share of what that
+  target took, from everyone, isolated or not, so the rows under a
+  target add to 100% and the row is shaded to their damage out of that
+  target's leader's. It lists every target and every character whatever
+  is isolated, as By target and By character do; those none of which
+  counts are dimmed. There is no DPS (a target's damage over the session
+  clock is no rate anybody dealt, as below) and no deaths (a death is at
+  no target). Its boxes isolate, as By character's do (below).
+- **The Overview's By character tab has each character's targets under
+  them** (the same `TargetGroups`, read the other way): a heading is
+  pressed to show or put away their targets, and each target's row is
+  their row with that target alone isolated. Its Damage % is that
+  target's share of the character's damage, so the rows under a heading
+  add to 100%, and it is shaded in their colour to that target out of
+  their largest. No DPS or deaths there either. Every heading starts
+  folded, in both tabs; what is open is not saved.
+- **The Overview's boxes set the character and target filters, and
+  nothing else** (`OverviewTicks`). There is no third filter: "Hasaya at
+  Kirin" is Hasaya isolated and Kirin isolated, which every pane, the
+  menus, Clear and the total's wording already understand. Two filters
+  cut together are always a block, every character isolated at every
+  target isolated, and the boxes say what is counted, so they keep to
+  it. A heading's box is ticked while every row under it counts (and
+  isolated with nothing under the headings isolated, all of it counts,
+  whatever it does next), part ticked while some do. Pressed, a ticked
+  heading is let go, and what was isolated under the headings with it
+  when nothing else is left beside it (or all of that would count for
+  everyone); any other becomes all of it, and since that cannot be while
+  anything is isolated under the headings, that is let go. A row's box, a pair:
+  one not counted joins the block when it shares a side with it (one
+  more target for a character isolated beside targets; one more
+  character at a target isolated beside characters), and is otherwise
+  all that is counted; a counted one goes, taking as little else as the
+  block allows (one target of several, one character of several). One
+  row unticked under a heading that was all ticked leaves the rest of
+  that heading ticked: its other targets (or characters) are isolated
+  in its place. A pair from another character and another target is a
+  fresh start, not a widened block, because widening both filters would
+  count the two crossed pairs nobody ticked.
 - **The list names every target whatever is picked**, each with what it took
   from the characters who count (the characters isolated and the
   skillchain switch apply; the targets picked do not). A target nothing landed on is not
@@ -599,12 +630,13 @@ fight, and are found where they always are.
 
 ## Isolating characters
 
-A press on a character's row of the Overview (either tab), or a tick on the Character menu
+A tick on a character's box in the Overview, or on the Character menu
 beside Target, counts only the damage that character dealt
 (`Counting.Counts`, one line of `Counting.Counted`): in the band, the
 cumulative chart, the Actions table, the Battle Log, By target and By damage
-type. Another press adds a character; a press on an isolated row lets it go;
-Clear empties it. None isolated is everyone. It works as a target does, for
+type. Another tick adds a character; unticking one lets it go; Clear
+empties it. (The Overview's boxes set the targets isolated too: see
+"Isolating targets".) None isolated is everyone. It works as a target does, for
 the same reason: "what did these two do" is a question about part of the
 fight, asked of the fight, not a change to what the party was.
 
