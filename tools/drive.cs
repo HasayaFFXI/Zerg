@@ -367,6 +367,27 @@ switch (args[0])
         Console.WriteLine(SetCursorPos(at.L + int.Parse(args[2]), at.T + int.Parse(args[3])));
         break;
 
+    case "wheel":
+    {
+        // A real turn of the wheel with the pointer at x, y in the window,
+        // whatever window is in front: Windows decides where it goes.
+        // Ticks below zero turn it towards the user (down the list).
+        var f = Frame(hwnd);
+        SetCursorPos(f.L + int.Parse(args[2]), f.T + int.Parse(args[3]));
+        Thread.Sleep(120);
+        // A nudge, so the window under the pointer hears it is there.
+        mouse_event(1 /* MOVE */, 0, 0, 0, 0);
+        Thread.Sleep(60);
+        int ticks = int.Parse(args[4]);
+        for (int i = 0; i < Math.Abs(ticks); i++)
+        {
+            mouse_event(0x0800 /* WHEEL */, 0, 0, unchecked((uint)(ticks < 0 ? -120 : 120)), 0);
+            Thread.Sleep(60);
+        }
+        Console.WriteLine($"wheeled {ticks}; in front: h{GetForegroundWindow()}");
+        break;
+    }
+
     case "press":
     {
         var f = Frame(hwnd);

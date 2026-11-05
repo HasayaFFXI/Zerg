@@ -7,6 +7,10 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- The mouse wheel scrolls a wide table under the pointer (the Overview,
+  Actions, Healing by character, Heals, Compare's tables). The sideways
+  scroller round the table took the wheel and handed it to the page, so
+  the rows never moved under the wheel, only by their scroll bar.
 - Zerg says when the event file on screen was written by a VibeXI addon
   older than the one it expects (2.0.0): "VibeXI addon version is behind
   expected version: 2.0.0, data may be inaccurate or missing", in an amber
