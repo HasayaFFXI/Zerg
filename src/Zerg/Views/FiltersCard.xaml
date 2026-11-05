@@ -105,6 +105,8 @@
             </RadioButton>
           </StackPanel>
         </Border>
+        <!-- The shown tab's columns. -->
+        <v:ColumnsButton Table="{Binding FiltersShown.Columns}" Margin="8,0,0,0"/>
       </StackPanel>
     </v:Pane.Tools>
 

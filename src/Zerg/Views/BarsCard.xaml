@@ -6,10 +6,12 @@
              xmlns:layout="clr-namespace:Zerg.Core.Layout;assembly=Zerg.Core">
   <UserControl.Resources>
     <!-- Character, Job, then seventeen figures, and when the table drops
-         them in a narrow pane: Zerg.Core/Layout/CharacterColumns. A group
-         hidden from the Columns menu (v:ColumnGroup) is collapsed, which
-         takes its columns with it, and needs no room. Worked out with the
-         Job column there: with names hidden it goes a little early. -->
+         them in a narrow pane: Zerg.Core/Layout/CharacterColumns. The cells
+         are written in that order; where the player has dragged columns
+         or hidden them from the Columns menu, each row stands them as the
+         table says (v:ColumnSet, on the docked form below), and a hidden
+         column needs no room. Worked out with the Job column there: with
+         names hidden it goes a little early. -->
     <Style x:Key="Table" TargetType="v:Cells">
       <Setter Property="Widths" Value="{x:Static layout:CharacterColumns.Shaded}"/>
       <Style.Triggers>
@@ -19,26 +21,16 @@
       </Style.Triggers>
     </Style>
     <!-- The docked form says whether its columns fit (v:Shed.Full, and
-         v:Shed.Less for the second step), leaving out the groups hidden. -->
-    <v:CharacterRoom x:Key="Room"/>
+         v:Shed.Less for the second step); the columns hidden need no room. -->
     <Style x:Key="TableRoom" TargetType="Grid">
-      <Setter Property="v:ColumnGroup.Hidden" Value="{Binding HiddenColumns}"/>
-      <Setter Property="v:Shed.Full">
-        <Setter.Value>
-          <MultiBinding Converter="{StaticResource Room}">
-            <Binding Path="(v:Shading.Characters)" RelativeSource="{RelativeSource Self}"/>
-            <Binding Path="HiddenColumns"/>
-          </MultiBinding>
-        </Setter.Value>
-      </Setter>
-      <Setter Property="v:Shed.Less">
-        <Setter.Value>
-          <MultiBinding Converter="{StaticResource Room}" ConverterParameter="Less">
-            <Binding Path="(v:Shading.Characters)" RelativeSource="{RelativeSource Self}"/>
-            <Binding Path="HiddenColumns"/>
-          </MultiBinding>
-        </Setter.Value>
-      </Setter>
+      <Setter Property="v:Shed.Full" Value="{x:Static layout:CharacterColumns.Shaded}"/>
+      <Setter Property="v:Shed.Less" Value="{x:Static layout:CharacterColumns.LessShaded}"/>
+      <Style.Triggers>
+        <Trigger Property="v:Shading.Characters" Value="False">
+          <Setter Property="v:Shed.Full" Value="{x:Static layout:CharacterColumns.Unshaded}"/>
+          <Setter Property="v:Shed.Less" Value="{x:Static layout:CharacterColumns.LessUnshaded}"/>
+        </Trigger>
+      </Style.Triggers>
     </Style>
     <!-- A group's name between two hairlines, over its columns. -->
     <ControlTemplate x:Key="Group" TargetType="ContentControl">
@@ -221,20 +213,20 @@
               </v:LowMark>
               <TextBlock Text="{Binding Crit}" Style="{StaticResource FigShedsLate}"/>
               <TextBlock Text="{Binding Delay}" Style="{StaticResource FigShedsLate}"/>
-              <v:LowMark v:ColumnGroup.Of="ranged" Rate="{Binding RangedAccuracyRate}" Style="{StaticResource Sheds}">
+              <v:LowMark Rate="{Binding RangedAccuracyRate}" Style="{StaticResource Sheds}">
                 <TextBlock Text="{Binding RangedAccuracy}" Style="{StaticResource Fig}"/>
               </v:LowMark>
-              <TextBlock v:ColumnGroup.Of="ranged" Text="{Binding RangedCrit}" Style="{StaticResource FigSheds}"/>
-              <TextBlock v:ColumnGroup.Of="weaponskill" Text="{Binding WsDamage}" Style="{StaticResource FigShedsLate}" Padding="2,0,8,0"/>
-              <TextBlock v:ColumnGroup.Of="weaponskill" Text="{Binding WsAvg}" Style="{StaticResource FigQuietShedsLate}"/>
-              <TextBlock v:ColumnGroup.Of="weaponskill" Text="{Binding WsShare}" Style="{StaticResource FigQuietShedsLate}"/>
-              <v:LowMark v:ColumnGroup.Of="weaponskill" Rate="{Binding WsAccuracyRate}" Style="{StaticResource ShedsLate}">
+              <TextBlock Text="{Binding RangedCrit}" Style="{StaticResource FigSheds}"/>
+              <TextBlock Text="{Binding WsDamage}" Style="{StaticResource FigShedsLate}" Padding="2,0,8,0"/>
+              <TextBlock Text="{Binding WsAvg}" Style="{StaticResource FigQuietShedsLate}"/>
+              <TextBlock Text="{Binding WsShare}" Style="{StaticResource FigQuietShedsLate}"/>
+              <v:LowMark Rate="{Binding WsAccuracyRate}" Style="{StaticResource ShedsLate}">
                 <TextBlock Text="{Binding WsAccuracy}" Style="{StaticResource Fig}"/>
               </v:LowMark>
-              <TextBlock v:ColumnGroup.Of="skillchain" Text="{Binding ScDamage}" Style="{StaticResource FigSheds}" Padding="2,0,8,0"/>
-              <TextBlock v:ColumnGroup.Of="skillchain" Text="{Binding ScShare}" Style="{StaticResource FigQuietSheds}"/>
-              <TextBlock v:ColumnGroup.Of="pet" Text="{Binding PetDamage}" Style="{StaticResource FigSheds}" Padding="2,0,8,0"/>
-              <v:LowMark v:ColumnGroup.Of="pet" Rate="{Binding PetAccuracyRate}" Style="{StaticResource Sheds}">
+              <TextBlock Text="{Binding ScDamage}" Style="{StaticResource FigSheds}" Padding="2,0,8,0"/>
+              <TextBlock Text="{Binding ScShare}" Style="{StaticResource FigQuietSheds}"/>
+              <TextBlock Text="{Binding PetDamage}" Style="{StaticResource FigSheds}" Padding="2,0,8,0"/>
+              <v:LowMark Rate="{Binding PetAccuracyRate}" Style="{StaticResource Sheds}">
                 <TextBlock Text="{Binding PetAccuracy}" Style="{StaticResource Fig}"/>
               </v:LowMark>
               <TextBlock Text="{Binding Deaths}" Style="{StaticResource DeathsFig}"/>
@@ -270,11 +262,14 @@
           <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
         </MultiDataTrigger>
         <!-- A target has no job, and its name is often longer than a
-             character's: it runs on over the Job column, where there is one. -->
+             character's: it runs on over the Job column, where there is one
+             straight after the name. -->
         <MultiDataTrigger>
           <MultiDataTrigger.Conditions>
             <Condition Binding="{Binding IsTarget}" Value="True"/>
             <Condition Binding="{Binding ShowJob}" Value="True"/>
+            <Condition Binding="{Binding Path=(v:ColumnSet.Layout).AfterLead, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                       Value="job"/>
             <Condition Binding="{Binding Nested}" Value="False"/>
           </MultiDataTrigger.Conditions>
           <Setter TargetName="NameCell" Property="Margin" Value="6,0,-54,0"/>
@@ -283,6 +278,8 @@
           <MultiDataTrigger.Conditions>
             <Condition Binding="{Binding IsTarget}" Value="True"/>
             <Condition Binding="{Binding ShowJob}" Value="True"/>
+            <Condition Binding="{Binding Path=(v:ColumnSet.Layout).AfterLead, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                       Value="job"/>
             <Condition Binding="{Binding Nested}" Value="True"/>
           </MultiDataTrigger.Conditions>
           <Setter TargetName="NameCell" Property="Margin" Value="30,0,-54,0"/>
@@ -326,9 +323,9 @@
     <!-- Clear, while the tab's filter has something isolated: the
          command bar's buttons have marks of other names, and both can be on
          screen. Then the tabs, By character and By target, as the Filters
-         pane's are; then Columns, a menu of the column groups the table
-         shows, each ticked while it is (v:ColumnGroup); it stays open while
-         they are ticked and unticked. Neither in a panel: the strip has
+         pane's are; then Columns, a menu of every column the table can
+         show, its groups' columns under their names (v:ColumnsButton).
+         Neither in a panel: the strip has
          none of the groups, and no targets. -->
     <v:Pane.Tools>
       <StackPanel Orientation="Horizontal">
@@ -365,26 +362,7 @@
                          AutomationProperties.Name="Overview: by target"/>
           </StackPanel>
         </Border>
-        <Button x:Name="ColumnsButton" Click="OnColumns" Style="{StaticResource GhostButton}" Height="22"
-                Padding="10,0,8,0" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center"
-                ContextMenuService.IsEnabled="False" AutomationProperties.Name="Columns"
-                ToolTip="Choose which groups of columns the table shows"
-                Visibility="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}, Converter={StaticResource Hidden}}">
-          <Button.Resources>
-            <ContextMenu x:Key="ColumnsMenu">
-              <MenuItem Header="Ranged" IsCheckable="True" StaysOpenOnClick="True" IsChecked="{Binding ShowRanged}"/>
-              <MenuItem Header="Weaponskill" IsCheckable="True" StaysOpenOnClick="True" IsChecked="{Binding ShowWeaponskill}"/>
-              <MenuItem Header="Skillchain" IsCheckable="True" StaysOpenOnClick="True" IsChecked="{Binding ShowSkillchain}"/>
-              <MenuItem Header="Pet" IsCheckable="True" StaysOpenOnClick="True" IsChecked="{Binding ShowPet}"/>
-            </ContextMenu>
-          </Button.Resources>
-          <StackPanel Orientation="Horizontal">
-            <TextBlock Text="Columns" VerticalAlignment="Center"/>
-            <Path Data="M0,0 L3.5,3.5 L7,0" Width="7" Height="4" StrokeThickness="1.2" Margin="6,1,0,0"
-                  VerticalAlignment="Center"
-                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-          </StackPanel>
-        </Button>
+        <v:ColumnsButton Table="{Binding BarsColumns}"/>
       </StackPanel>
     </v:Pane.Tools>
     <Grid>
@@ -485,7 +463,7 @@
       </StackPanel>
 
       <!-- The docked form: not in a floating panel. -->
-      <Grid Style="{StaticResource TableRoom}"
+      <Grid Style="{StaticResource TableRoom}" v:ColumnSet.Table="{Binding BarsColumns}"
             Visibility="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}, Converter={StaticResource Hidden}}">
         <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Label}" FontSize="12" Margin="0,18,0,8"
                    HorizontalAlignment="Center" VerticalAlignment="Top"
@@ -525,35 +503,41 @@
                  room the rows' scroll bar is drawn in. -->
             <Grid Height="{StaticResource GroupedHeadHeight}">
               <!-- In the table's own columns, so each group stands over
-                   its two or four at any width: nothing over the first
-                   eight (the Job column, Accuracy, Crit % and Delay each a
-                   cell of their own, to go as theirs do), then the four groups. -->
-              <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1">
+                   its two or four at any width and wherever it has been
+                   moved: nothing over the first eight (each a cell of its
+                   own, to go and move as theirs do), then the four groups.
+                   A group's name is dragged to move the group
+                   (v:ColumnDrag), as its headings are. -->
+              <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1" v:ColumnDrag.On="True">
                 <Border/>
                 <Border Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
-                <Border v:Cells.Span="3"/>
+                <Border/>
+                <Border/>
+                <Border/>
                 <Border Style="{StaticResource ShedsLate}"/>
                 <Border Style="{StaticResource ShedsLate}"/>
                 <Border Style="{StaticResource ShedsLate}"/>
-                <ContentControl v:ColumnGroup.Of="ranged" v:Cells.Span="2" Style="{StaticResource GroupSheds}">
+                <ContentControl v:Cells.Span="2" Style="{StaticResource GroupSheds}">
                   <v:Caps Text="Ranged" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
-                <ContentControl v:ColumnGroup.Of="weaponskill" v:Cells.Span="4" Style="{StaticResource GroupShedsLate}">
+                <ContentControl v:Cells.Span="4" Style="{StaticResource GroupShedsLate}">
                   <v:Caps Text="Weaponskill" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
-                <ContentControl v:ColumnGroup.Of="skillchain" v:Cells.Span="2" Style="{StaticResource GroupSheds}">
+                <ContentControl v:Cells.Span="2" Style="{StaticResource GroupSheds}">
                   <v:Caps Text="Skillchain" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
-                <ContentControl v:ColumnGroup.Of="pet" v:Cells.Span="2" Style="{StaticResource GroupSheds}">
+                <ContentControl v:Cells.Span="2" Style="{StaticResource GroupSheds}">
                   <v:Caps Text="Pet" Style="{StaticResource GroupCaps}"/>
                 </ContentControl>
                 <Border Style="{StaticResource Sheds}"/>
               </v:Cells>
-              <!-- Each heading orders the table (v:SortHead); a column that
+              <!-- Each heading orders the table (v:SortHead), and is
+                   dragged to move its column (v:ColumnDrag); a column that
                    goes in a narrow pane takes its heading with it. Where two
                    say the same, a script and a reader tell them apart by
                    the group's name. -->
-              <v:Cells Style="{StaticResource Table}" Margin="0,16,14,1" v:SortHead.Sort="{Binding BarsSort}">
+              <v:Cells Style="{StaticResource Table}" Margin="0,16,14,1" v:SortHead.Sort="{Binding BarsSort}"
+                       v:ColumnDrag.On="True">
                 <v:SortHead Column="name" Words="True">
                   <TextBlock Padding="12,0,8,0">
                     <TextBlock.Style>
@@ -594,43 +578,43 @@
                   <TextBlock Text="Delay" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="The average time from one round of auto-attacks to the next, in seconds. Weaponskills, job abilities, spells and ranged attacks between two rounds are part of it. Not counted: the time after a target died or was changed, around a death or a pause, or a gap far longer than usual (asleep, stunned, out of range). The pet is not included"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="ranged" Column="rangedAccuracy" Style="{StaticResource Sheds}" AutomationProperties.Name="Ranged accuracy">
+                <v:SortHead Column="rangedAccuracy" Style="{StaticResource Sheds}" AutomationProperties.Name="Ranged accuracy">
                   <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Ranged attacks that connected, out of all attempted. A shot taken by shadows counts as a hit"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="ranged" Column="rangedCrit" Style="{StaticResource Sheds}" AutomationProperties.Name="Ranged crit">
+                <v:SortHead Column="rangedCrit" Style="{StaticResource Sheds}" AutomationProperties.Name="Ranged crit">
                   <TextBlock Text="Crit %" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Ranged attacks that landed a critical hit, out of those that dealt damage. A shot taken by shadows is not counted"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="weaponskill" Column="wsDamage" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill damage">
+                <v:SortHead Column="wsDamage" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill damage">
                   <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Total weaponskill damage. Skillchain damage is not part of it"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="weaponskill" Column="wsAvg" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill average">
+                <v:SortHead Column="wsAvg" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill average">
                   <TextBlock Text="Avg" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Average damage of the weaponskills that dealt damage"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="weaponskill" Column="wsShare" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill share">
+                <v:SortHead Column="wsShare" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill share">
                   <TextBlock Text="%" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Weaponskill damage out of this character's damage"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="weaponskill" Column="wsAccuracy" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill accuracy">
+                <v:SortHead Column="wsAccuracy" Style="{StaticResource ShedsLate}" AutomationProperties.Name="Weaponskill accuracy">
                   <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Weaponskills that dealt damage, out of all used"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="skillchain" Column="scDamage" Style="{StaticResource Sheds}" AutomationProperties.Name="Skillchain damage">
+                <v:SortHead Column="scDamage" Style="{StaticResource Sheds}" AutomationProperties.Name="Skillchain damage">
                   <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Total damage of the skillchains this character closed. Empty while Include Skillchains is off"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="skillchain" Column="scShare" Style="{StaticResource Sheds}" AutomationProperties.Name="Skillchain share">
+                <v:SortHead Column="scShare" Style="{StaticResource Sheds}" AutomationProperties.Name="Skillchain share">
                   <TextBlock Text="%" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Skillchain damage out of this character's damage"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="pet" Column="petDamage" Style="{StaticResource Sheds}" AutomationProperties.Name="Pet damage">
+                <v:SortHead Column="petDamage" Style="{StaticResource Sheds}" AutomationProperties.Name="Pet damage">
                   <TextBlock Text="Damage" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="Everything this character's pet dealt. Already part of Damage"/>
                 </v:SortHead>
-                <v:SortHead v:ColumnGroup.Of="pet" Column="petAccuracy" Style="{StaticResource Sheds}" AutomationProperties.Name="Pet accuracy">
+                <v:SortHead Column="petAccuracy" Style="{StaticResource Sheds}" AutomationProperties.Name="Pet accuracy">
                   <TextBlock Text="Acc" Style="{StaticResource Head}" Padding="0,0,8,0"
                              ToolTip="The pet's melee attacks that connected, out of all attempted"/>
                 </v:SortHead>
@@ -669,14 +653,16 @@
               <v:Cells Style="{StaticResource Table}" Margin="0,1,14,0">
                 <Border/>
                 <Border Visibility="{Binding ShowJob, Converter={StaticResource Visible}}"/>
-                <Border v:Cells.Span="3"/>
+                <Border/>
+                <Border/>
+                <Border/>
                 <Border Style="{StaticResource ShedsLate}"/>
                 <Border Style="{StaticResource ShedsLate}"/>
                 <Border Style="{StaticResource ShedsLate}"/>
-                <Border v:ColumnGroup.Of="ranged" v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
-                <Border v:ColumnGroup.Of="weaponskill" v:Cells.Span="4" Style="{StaticResource PartyRuleShedsLate}"/>
-                <Border v:ColumnGroup.Of="skillchain" v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
-                <Border v:ColumnGroup.Of="pet" v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
+                <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
+                <Border v:Cells.Span="4" Style="{StaticResource PartyRuleShedsLate}"/>
+                <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
+                <Border v:Cells.Span="2" Style="{StaticResource PartyRuleSheds}"/>
                 <Border Style="{StaticResource PartyRuleSheds}"/>
               </v:Cells>
               <v:Cells Style="{StaticResource Table}" Margin="0,1,14,0">
@@ -693,16 +679,16 @@
                 <!-- No party delay: one average over everyone's weapons describes nobody. -->
                 <TextBlock Text="&#x2014;" Style="{StaticResource SubFigShedsLate}"
                            ToolTip="A delay is each character's own"/>
-                <TextBlock v:ColumnGroup.Of="ranged" Text="{Binding Party.RangedAccuracy}" Style="{StaticResource SubFigSheds}"/>
-                <TextBlock v:ColumnGroup.Of="ranged" Text="{Binding Party.RangedCrit}" Style="{StaticResource SubFigSheds}"/>
-                <TextBlock v:ColumnGroup.Of="weaponskill" Text="{Binding Party.WsDamage}" Style="{StaticResource SubFigShedsLate}" Padding="2,0,8,0"/>
-                <TextBlock v:ColumnGroup.Of="weaponskill" Text="{Binding Party.WsAvg}" Style="{StaticResource SubFigQuietShedsLate}"/>
-                <TextBlock v:ColumnGroup.Of="weaponskill" Text="{Binding Party.WsShare}" Style="{StaticResource SubFigQuietShedsLate}"/>
-                <TextBlock v:ColumnGroup.Of="weaponskill" Text="{Binding Party.WsAccuracy}" Style="{StaticResource SubFigShedsLate}"/>
-                <TextBlock v:ColumnGroup.Of="skillchain" Text="{Binding Party.ScDamage}" Style="{StaticResource SubFigSheds}" Padding="2,0,8,0"/>
-                <TextBlock v:ColumnGroup.Of="skillchain" Text="{Binding Party.ScShare}" Style="{StaticResource SubFigQuietSheds}"/>
-                <TextBlock v:ColumnGroup.Of="pet" Text="{Binding Party.PetDamage}" Style="{StaticResource SubFigSheds}" Padding="2,0,8,0"/>
-                <TextBlock v:ColumnGroup.Of="pet" Text="{Binding Party.PetAccuracy}" Style="{StaticResource SubFigSheds}"/>
+                <TextBlock Text="{Binding Party.RangedAccuracy}" Style="{StaticResource SubFigSheds}"/>
+                <TextBlock Text="{Binding Party.RangedCrit}" Style="{StaticResource SubFigSheds}"/>
+                <TextBlock Text="{Binding Party.WsDamage}" Style="{StaticResource SubFigShedsLate}" Padding="2,0,8,0"/>
+                <TextBlock Text="{Binding Party.WsAvg}" Style="{StaticResource SubFigQuietShedsLate}"/>
+                <TextBlock Text="{Binding Party.WsShare}" Style="{StaticResource SubFigQuietShedsLate}"/>
+                <TextBlock Text="{Binding Party.WsAccuracy}" Style="{StaticResource SubFigShedsLate}"/>
+                <TextBlock Text="{Binding Party.ScDamage}" Style="{StaticResource SubFigSheds}" Padding="2,0,8,0"/>
+                <TextBlock Text="{Binding Party.ScShare}" Style="{StaticResource SubFigQuietSheds}"/>
+                <TextBlock Text="{Binding Party.PetDamage}" Style="{StaticResource SubFigSheds}" Padding="2,0,8,0"/>
+                <TextBlock Text="{Binding Party.PetAccuracy}" Style="{StaticResource SubFigSheds}"/>
                 <TextBlock Text="{Binding Party.Deaths}" Style="{StaticResource PartyDeathsFig}"/>
               </v:Cells>
             </Grid>

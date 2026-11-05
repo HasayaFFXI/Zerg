@@ -14,9 +14,12 @@
          scroll viewer below): the mark first, which is how the design
          draws the table floating over the game; then Miss, Acc and Min as
          well, when what is left without the mark (LessColumns) does not
-         fit either. -->
+         fit either (the mark there 0 wide: every column keeps its place,
+         as v:ColumnSet needs). The cells are written in this order; where
+         the player has dragged or hidden columns, each row stands them as
+         the table says (v:ColumnSet, on the scroll viewer below). -->
     <sys:String x:Key="Columns">278*150,50*40,50*40,60*52,76*60,60*48,56*48,60*52,160*112,60*52,32*0</sys:String>
-    <sys:String x:Key="LessColumns">278*150,50*40,50*40,60*52,76*60,60*48,56*48,60*52,60*52,32*0</sys:String>
+    <sys:String x:Key="LessColumns">278*150,50*40,50*40,60*52,76*60,60*48,56*48,60*52,0,60*52,32*0</sys:String>
 
     <!-- A character's heading: who, their uses under Hits and Miss, what
          they dealt in all under Total, and their share of the party under
@@ -87,7 +90,8 @@
          context is the view model, as the docked card's is. -->
     <DataTemplate x:Key="Nothing"/>
     <DataTemplate x:Key="Detail">
-      <v:DrillCard DataContext="{Binding DamageDrill}" Margin="40,0,0,12" Loaded="OnDetailLoaded"/>
+      <v:DrillCard DataContext="{Binding DamageDrill}" Margin="40,0,0,12" Loaded="OnDetailLoaded"
+                   v:ColumnSet.Layout="{x:Null}"/>
     </DataTemplate>
     <Style x:Key="Under" TargetType="ContentControl">
       <Setter Property="Focusable" Value="False"/>
@@ -179,12 +183,16 @@
           PopOutCommand="{Binding Panels[actions].PopOutCommand}"
           v:Shading.Characters="{Binding ShadeCharacters}" v:Shading.Actions="{Binding ShadeActions}"
           v:Shading.LowAccuracy="{Binding LowAccuracy}">
+    <v:Pane.Tools>
+      <v:ColumnsButton Table="{Binding ActionsColumns}"/>
+    </v:Pane.Tools>
     <DockPanel>
       <TextBlock DockPanel.Dock="Top" Text="{Binding EmptyText}" Style="{StaticResource Label}" FontSize="12"
                  Margin="0,18,0,8" HorizontalAlignment="Center"
                  Visibility="{Binding HasActions, Converter={StaticResource Hidden}}"/>
 
       <ScrollViewer x:Name="Sideways" HorizontalScrollBarVisibility="Auto" v:Shed.Full="{StaticResource Columns}"
+                    v:ColumnSet.Table="{Binding ActionsColumns}"
                     v:Shed.Less="{StaticResource LessColumns}"
                     VerticalScrollBarVisibility="Disabled" v:WheelChain.On="True"
                     Visibility="{Binding HasActions, Converter={StaticResource Visible}}">
@@ -209,7 +217,8 @@
             <!-- Each heading but the spread's orders every character's
                  actions under them (v:SortHead); the characters stay
                  largest first. -->
-            <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding ActionsSort}">
+            <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding ActionsSort}"
+                     v:ColumnDrag.On="True">
               <v:SortHead Column="name" Words="True">
                 <TextBlock Text="Action" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
               </v:SortHead>

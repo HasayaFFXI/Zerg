@@ -129,12 +129,14 @@ public static class Columns
     }
 
     /// <summary>The columns written as <paramref name="text"/>, written again
-    /// without those at the places <paramref name="drop"/> names (from 0).</summary>
-    public static string Without(string? text, IEnumerable<int> drop)
+    /// with those at the places <paramref name="drop"/> names (from 0) made
+    /// 0 units wide: they take no room, and every other column keeps its
+    /// place, so a list of places still names the same columns in it.</summary>
+    public static string Zeroed(string? text, IEnumerable<int> drop)
     {
         var gone = drop.ToHashSet();
         var parts = (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return string.Join(",", parts.Where((_, i) => !gone.Contains(i)));
+        return string.Join(",", parts.Select((p, i) => gone.Contains(i) ? "0" : p));
     }
 
     /// <summary>The narrowest a row written as <paramref name="text"/> can be.</summary>

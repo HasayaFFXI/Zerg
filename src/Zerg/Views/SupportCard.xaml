@@ -168,7 +168,8 @@
     <!-- What the table lists: buffs or enfeebles. Saved, and the same in a
          floating panel. -->
     <v:Pane.Tools>
-      <Border>
+      <StackPanel Orientation="Horizontal">
+      <Border VerticalAlignment="Center">
         <Border.Style>
           <Style TargetType="Border" BasedOn="{StaticResource SegmentGroup}">
             <Style.Triggers>
@@ -189,6 +190,8 @@
                        AutomationProperties.Name="Support: enfeebles"/>
         </StackPanel>
       </Border>
+      <v:ColumnsButton Table="{Binding SupportColumns}" Margin="8,0,0,0"/>
+      </StackPanel>
     </v:Pane.Tools>
 
     <DockPanel>
@@ -196,13 +199,15 @@
                  Margin="0,18,0,8" HorizontalAlignment="Center"
                  Visibility="{Binding HasSupport, Converter={StaticResource Hidden}}"/>
 
-      <Grid Visibility="{Binding HasSupport, Converter={StaticResource Visible}}" v:Shed.Full="{StaticResource Columns}">
+      <Grid Visibility="{Binding HasSupport, Converter={StaticResource Visible}}" v:Shed.Full="{StaticResource Columns}"
+            v:ColumnSet.Table="{Binding SupportColumns}">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
+        <!-- A heading is dragged to move its column (v:ColumnDrag). -->
         <Grid Height="{StaticResource ColumnHeadHeight}">
-          <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
+          <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:ColumnDrag.On="True">
             <TextBlock Text="Character / action" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
             <TextBlock Text="Casts" Style="{StaticResource Head}" ToolTip="{Binding SupportCastsTip}"/>
             <TextBlock Text="Hit" Style="{StaticResource Head}" ToolTip="{Binding SupportHitTip}"/>

@@ -90,6 +90,7 @@
           v:Shading.Characters="{Binding ShadeCharacters}">
     <!-- Clear, while a healer is isolated: there is no button for them. -->
     <v:Pane.Tools>
+      <StackPanel Orientation="Horizontal">
       <Button Content="Clear" Command="{Binding HealerFilter.ClearCommand}"
               ToolTip="{Binding HealerFilter.ClearTip}"
               AutomationProperties.Name="{Binding HealerFilter.TableClearName}"
@@ -105,6 +106,9 @@
           </Style>
         </Button.Style>
       </Button>
+      <!-- Not in a panel: the strip has its own few columns. -->
+      <v:ColumnsButton Table="{Binding HealersColumns}"/>
+      </StackPanel>
     </v:Pane.Tools>
     <Grid>
       <!-- The strip, as the damage card's is (Views/BarsCard.xaml): the
@@ -166,8 +170,11 @@
         </ItemsControl>
       </StackPanel>
 
-      <!-- The docked form: not in a floating panel. -->
-      <Grid Visibility="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}, Converter={StaticResource Hidden}}">
+      <!-- The docked form: not in a floating panel. Its rows stand their
+           cells where the player has dragged them, and leave out those
+           hidden (v:ColumnSet). -->
+      <Grid v:ColumnSet.Table="{Binding HealersColumns}"
+            Visibility="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}, Converter={StaticResource Hidden}}">
         <TextBlock Text="{Binding HealEmptyText}" Style="{StaticResource Label}" FontSize="12" Margin="0,18,0,8"
                    HorizontalAlignment="Center" VerticalAlignment="Top"
                    Visibility="{Binding HasHealers, Converter={StaticResource Hidden}}"/>
@@ -199,8 +206,10 @@
                  rows' cells and the Party line: the room the rows' scroll
                  bar is drawn in. -->
             <Grid Height="{StaticResource ColumnHeadHeight}">
-              <!-- Each heading orders the table (v:SortHead). -->
-              <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding HealersSort}">
+              <!-- Each heading orders the table (v:SortHead), and is
+                   dragged to move its column (v:ColumnDrag). -->
+              <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding HealersSort}"
+                       v:ColumnDrag.On="True">
                 <v:SortHead Column="name" Words="True">
                   <TextBlock Text="Character" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
                 </v:SortHead>

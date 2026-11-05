@@ -125,7 +125,7 @@
                Margin="12,18,12,8" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
                Visibility="{Binding Filter.HasTable, ElementName=Self, Converter={StaticResource Hidden}}"/>
 
-    <Grid Style="{StaticResource TableRoom}"
+    <Grid Style="{StaticResource TableRoom}" v:ColumnSet.Table="{Binding Filter.Columns, ElementName=Self}"
           Visibility="{Binding Filter.HasTable, ElementName=Self, Converter={StaticResource Visible}}">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
@@ -135,8 +135,12 @@
            every row's cells: the room the list's scroll bar is drawn in. -->
       <Grid Height="{StaticResource SubRowHeight}">
         <!-- Each heading orders the table (v:SortHead); the line for
-             what named nothing stays last. -->
-        <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1" v:SortHead.Sort="{Binding Filter.Sort, ElementName=Self}">
+             what named nothing stays last. A heading is dragged to move its
+             column (v:ColumnDrag): each tab's order is its own
+             (PickFilter.Columns), as the player has it from the pane's
+             Columns menu. -->
+        <v:Cells Style="{StaticResource Table}" Margin="0,0,14,1" v:SortHead.Sort="{Binding Filter.Sort, ElementName=Self}"
+                 v:ColumnDrag.On="True">
           <v:SortHead Column="name" Words="True">
             <TextBlock Text="{Binding Filter.Word, ElementName=Self}" Style="{StaticResource HeadText}" Padding="14,0,8,0"/>
           </v:SortHead>

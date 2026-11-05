@@ -9,6 +9,23 @@ namespace Zerg;
 /// GetWindowPlacement reports it, and whether it was maximized over that.</summary>
 public sealed record Placement(int X, int Y, int Width, int Height, bool Maximized);
 
+/// <summary>One table's columns, as the player has them (<see cref="Settings.Columns"/>).</summary>
+public sealed class ColumnsKept
+{
+    /// <summary>The columns and groups in the order they stand, by key; the fixed ones are not listed.</summary>
+    public List<string> Order { get; set; } = [];
+
+    /// <summary>The columns hidden, by key.</summary>
+    public List<string> Hidden { get; set; } = [];
+
+    internal ColumnsKept Normal()
+    {
+        Order = Order?.Where(k => k is not null).ToList() ?? [];
+        Hidden = Hidden?.Where(k => k is not null).ToList() ?? [];
+        return this;
+    }
+}
+
 /// <summary>
 /// Everything Zerg remembers between runs, in
 /// %LOCALAPPDATA%\VibeXI\zerg\settings.json. Best effort both ways: a missing
@@ -68,11 +85,22 @@ public sealed class Settings
     /// installed (By character), or "Targets" (By target).</summary>
     public string OverviewBy { get; set; } = "Characters";
 
-    /// <summary>The column groups of the Overview table its Columns menu
-    /// has hidden: any of "ranged", "weaponskill", "skillchain" and "pet"
-    /// (<c>Zerg.Core/Layout/CharacterColumns</c>). None as installed; a key
-    /// that is not a group is let go.</summary>
-    public List<string> HiddenColumns { get; set; } = [];
+    /// <summary>What a build before <see cref="Columns"/> kept: the column
+    /// groups the Overview's Columns menu had hidden ("ranged", "pet").
+    /// Read once into <see cref="Columns"/>' "bars", then no longer
+    /// written.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? HiddenColumns { get; set; }
+
+    /// <summary>
+    /// Each table's columns where the player has moved or hidden any, by
+    /// the table's key ("bars", "actions", "targets", "types", "fights",
+    /// "healers", "heals", "support"): the order of its columns and groups,
+    /// and the columns hidden, each by key (<c>Zerg.Core/Layout/ColumnTable</c>).
+    /// A table not here is as installed. A key a table has not got is let
+    /// go, and a column the list leaves out is put back where it is written.
+    /// </summary>
+    public Dictionary<string, ColumnsKept> Columns { get; set; } = [];
 
     /// <summary>A character's row is shaded in their colour to the length of
     /// their share: in the two per-character tables, on their heading in the
@@ -251,7 +279,8 @@ public sealed class Settings
         CompareMode ??= installed.CompareMode;
         ClickThroughKey ??= installed.ClickThroughKey;
         OpenPanels = OpenPanels?.Where(n => n is not null).ToList() ?? [];
-        HiddenColumns = HiddenColumns?.Where(Core.Layout.CharacterColumns.Groups.Contains).Distinct().ToList() ?? [];
+        HiddenColumns = HiddenColumns?.Where(n => n is not null).ToList();
+        Columns = Columns?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value.Normal()) ?? [];
         PanelOpacities ??= [];
         Sorts = Sorts?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value) ?? [];
         Windows = Windows?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value) ?? [];

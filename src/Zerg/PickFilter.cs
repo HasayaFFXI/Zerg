@@ -259,6 +259,8 @@ public sealed partial class PickFilter : ObservableObject
     public ObservableCollection<TallyRow> Table { get; } = [];
     /// <summary>The table's order, as its headings set it; null over two runs, which have no table.</summary>
     public ColumnSort? Sort { get; set; }
+    /// <summary>The table's columns, where the player has moved or hidden them; null over two runs.</summary>
+    public TableColumns? Columns { get; set; }
     /// <summary>The table has a line: something was dealt, or something is picked.</summary>
     [ObservableProperty] private bool hasTable;
     /// <summary>What the table's pane says after its title (<see cref="NoteOf"/>).</summary>

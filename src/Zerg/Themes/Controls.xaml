@@ -1040,7 +1040,7 @@
         <ControlTemplate TargetType="MenuItem">
           <Grid SnapsToDevicePixels="True">
             <Border x:Name="Slab" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource ControlRadius}"/>
-            <Grid>
+            <Grid x:Name="Line">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="32"/>
                 <ColumnDefinition Width="*"/>
@@ -1085,6 +1085,17 @@
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="Tick" Property="Visibility" Value="Visible"/>
               <Setter TargetName="Icon" Property="Visibility" Value="Collapsed"/>
+            </Trigger>
+            <!-- A group's line in a Columns menu while only some of its
+                 columns are shown: a dash where the tick goes. -->
+            <Trigger Property="v:ColumnsMenu.Partial" Value="True">
+              <Setter TargetName="Tick" Property="Visibility" Value="Visible"/>
+              <Setter TargetName="Tick" Property="Text" Value="&#xE738;"/>
+              <Setter TargetName="Icon" Property="Visibility" Value="Collapsed"/>
+            </Trigger>
+            <!-- A column under its group's line, a step in. -->
+            <Trigger Property="v:ColumnsMenu.Indent" Value="True">
+              <Setter TargetName="Line" Property="Margin" Value="16,0,0,0"/>
             </Trigger>
             <Trigger Property="InputGestureText" Value="">
               <Setter TargetName="Keys" Property="Visibility" Value="Collapsed"/>

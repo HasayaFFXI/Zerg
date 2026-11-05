@@ -77,6 +77,7 @@
           PopOutCommand="{Binding Panels[fights].PopOutCommand}"
           v:Shading.Characters="{Binding ShadeCharacters}">
     <v:Pane.Tools>
+      <StackPanel Orientation="Horizontal">
       <Button Content="Clear" Command="{Binding ClearFightCommand}" ToolTip="Let the fight go: count every fight again"
               AutomationProperties.Name="Clear the fight"
               Visibility="{Binding FightIsolated, Converter={StaticResource Visible}}">
@@ -90,20 +91,25 @@
           </Style>
         </Button.Style>
       </Button>
+      <v:ColumnsButton Table="{Binding FightsColumns}"/>
+      </StackPanel>
     </v:Pane.Tools>
     <DockPanel>
       <TextBlock DockPanel.Dock="Top" Text="No kills yet" Style="{StaticResource Label}" FontSize="12"
                  Margin="12,18,12,8" HorizontalAlignment="Center"
                  Visibility="{Binding HasFights, Converter={StaticResource Hidden}}"/>
 
-      <Grid v:Shed.Full="{StaticResource Columns}" Visibility="{Binding HasFights, Converter={StaticResource Visible}}">
+      <Grid v:Shed.Full="{StaticResource Columns}" v:ColumnSet.Table="{Binding FightsColumns}"
+            Visibility="{Binding HasFights, Converter={StaticResource Visible}}">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition/>
           <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
+        <!-- A heading is dragged to move its column (v:ColumnDrag); the
+             clock stays first. -->
         <Grid Height="{StaticResource SubRowHeight}">
-          <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1">
+          <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:ColumnDrag.On="True">
             <TextBlock Text="When" Style="{StaticResource Head}" Padding="0,0,8,0"
                        ToolTip="The session clock at the killing blow"/>
             <TextBlock Text="Target" Style="{StaticResource HeadText}" Padding="14,0,8,0"

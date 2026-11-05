@@ -103,12 +103,15 @@ public static class Shed
         if (e.WidthChanged) Decide((FrameworkElement)sender);
     }
 
-    static void Decide(FrameworkElement el)
+    internal static void Decide(FrameworkElement el)
     {
         // Said outright each time, not only when it differs from what is
         // inherited: a table inside another (a drill-down under a row of a
         // floating table) must not take the outer one's answer for its own.
-        SetNarrow(el, Columns.Sheds(GetFull(el), el.ActualWidth, Margin));
-        SetTight(el, GetLess(el) is { } less && Columns.Sheds(less, el.ActualWidth, Margin));
+        // A column the player has hidden needs no room (ColumnSet).
+        var layout = ColumnSet.GetLayout(el);
+        string? Needs(string? widths) => layout is null || widths is null ? widths : layout.Needs(widths);
+        SetNarrow(el, Columns.Sheds(Needs(GetFull(el)), el.ActualWidth, Margin));
+        SetTight(el, GetLess(el) is { } less && Columns.Sheds(Needs(less), el.ActualWidth, Margin));
     }
 }

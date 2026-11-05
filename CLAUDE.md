@@ -251,9 +251,22 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   share of the leader at the strength `RowShade` allows. Shading settings are
   set once on a card (`Views/Shading`) and inherited. Columns come from
   `Layout/Columns`; narrow tables drop columns (`Views/Shed`), then scroll.
-  The Overview's Columns menu hides whole groups (`Views/ColumnGroup`:
-  a local `Collapsed` over the shedding trigger; `Layout/CharacterColumns`
-  leaves them out of the room needed; saved in `settings.hiddenColumns`).
+  **Columns move and hide.** Each table's columns are a
+  `Layout/ColumnTable` (`Layout/Tables`, `CharacterColumns.Table`: keys,
+  menu names, groups, the first column and a row's blank end fixed); the
+  player's order and hidden columns are a `TableColumns` per table
+  (`MainViewModel.*Columns`, `PickFilter.Columns`; saved in
+  `settings.columns`), giving an immutable `ColumnLayout`. Cells are still
+  written in the table's own order: `v:ColumnSet.Table` on the table's
+  holder hands the layout down (inherited), `Cells` stands each cell where
+  its column stands and collapses hidden ones (a local `Collapsed` over the
+  shedding trigger; a cell's own `Visibility` binding is given back), and
+  `Shed` needs no room for them (`ColumnLayout.Needs`; a `Less` set writes
+  dropped columns as `0`, never leaves them out). Headings drag
+  (`Views/ColumnDrag` on the heading `Cells`: a group moves as one, never
+  in a floating panel); each pane's `Views/ColumnsButton` is its menu. A
+  table inside another (the drill-down under an action) sets
+  `v:ColumnSet.Layout="{x:Null}"`.
   A heading that sorts is a `Views/SortHead` round the heading's `TextBlock`
   (the shedding style goes on it); each table's order is a `ColumnSort`
   (saved in `settings.sorts`), rows listed through `Zerg.Core/TableOrder`'s

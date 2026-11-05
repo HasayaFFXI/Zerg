@@ -241,36 +241,32 @@ public sealed partial class MainViewModel : ObservableObject
 
     // ------------------------------------------------------------- columns
 
-    // Which of the Overview table's column groups are shown: its Columns
-    // menu ticks them. Hiding one only collapses its cells (Views/ColumnGroup):
-    // no count, no new row. Saved (settings.HiddenColumns).
-    [ObservableProperty] private bool showRanged = true;
-    [ObservableProperty] private bool showWeaponskill = true;
-    [ObservableProperty] private bool showSkillchain = true;
-    [ObservableProperty] private bool showPet = true;
+    // Each table's columns: where the player has dragged them, and which
+    // its Columns menu has hidden. A change lays the table's rows out
+    // again (Views/ColumnSet): no count, no new row. Saved (settings.Columns).
+    // By target's and By damage type's are their filters'.
 
-    /// <summary>The groups hidden, as <c>Views/ColumnGroup.Hidden</c> takes them: "ranged,pet".</summary>
-    public string HiddenColumns => string.Join(",", Hidden());
+    /// <summary>The Overview's columns.</summary>
+    public TableColumns BarsColumns { get; }
+    /// <summary>The Actions table's.</summary>
+    public TableColumns ActionsColumns { get; }
+    /// <summary>The Battle Log's.</summary>
+    public TableColumns FightsColumns { get; }
+    /// <summary>Healing by character's.</summary>
+    public TableColumns HealersColumns { get; }
+    /// <summary>The Heals table's.</summary>
+    public TableColumns HealsColumns { get; }
+    /// <summary>The Support table's.</summary>
+    public TableColumns SupportColumns { get; }
 
-    IEnumerable<string> Hidden()
+    /// <summary>A build before settings.Columns kept the Overview's hidden
+    /// groups on their own: they are the Overview's hidden columns now.</summary>
+    static void ReadOldHidden(Settings settings)
     {
-        if (!ShowRanged) yield return CharacterColumns.Ranged;
-        if (!ShowWeaponskill) yield return CharacterColumns.Weaponskill;
-        if (!ShowSkillchain) yield return CharacterColumns.Skillchain;
-        if (!ShowPet) yield return CharacterColumns.Pet;
-    }
-
-    partial void OnShowRangedChanged(bool value) => ColumnsChanged();
-    partial void OnShowWeaponskillChanged(bool value) => ColumnsChanged();
-    partial void OnShowSkillchainChanged(bool value) => ColumnsChanged();
-    partial void OnShowPetChanged(bool value) => ColumnsChanged();
-
-    void ColumnsChanged()
-    {
-        OnPropertyChanged(nameof(HiddenColumns));
-        settings.HiddenColumns = [.. Hidden()];
-        Log.Write($"settings: hidden columns [{HiddenColumns}]");
-        settings.Save();
+        if (settings.HiddenColumns is not { } old) return;
+        settings.HiddenColumns = null;
+        if (old.Count == 0 || settings.Columns.ContainsKey(CharacterColumns.Table.Key)) return;
+        settings.Columns[CharacterColumns.Table.Key] = new ColumnsKept { Hidden = old };
     }
 
     // ------------------------------------------------------------- sorting
@@ -345,10 +341,15 @@ public sealed partial class MainViewModel : ObservableObject
         supportBy = settings.SupportBy == SupportByEnfeebles ? SupportByEnfeebles : SupportByBuffs;
         filtersBy = settings.FiltersBy == FiltersByTypes ? FiltersByTypes : FiltersByTargets;
         overviewBy = settings.OverviewBy == OverviewByTargets ? OverviewByTargets : OverviewByCharacters;
-        showRanged = !settings.HiddenColumns.Contains(CharacterColumns.Ranged);
-        showWeaponskill = !settings.HiddenColumns.Contains(CharacterColumns.Weaponskill);
-        showSkillchain = !settings.HiddenColumns.Contains(CharacterColumns.Skillchain);
-        showPet = !settings.HiddenColumns.Contains(CharacterColumns.Pet);
+        ReadOldHidden(settings);
+        BarsColumns = new TableColumns(CharacterColumns.Table, settings);
+        ActionsColumns = new TableColumns(Tables.Actions, settings);
+        FightsColumns = new TableColumns(Tables.Fights, settings);
+        HealersColumns = new TableColumns(Tables.Healers, settings);
+        HealsColumns = new TableColumns(Tables.Heals, settings);
+        SupportColumns = new TableColumns(Tables.Support, settings);
+        TargetFilter.Columns = new TableColumns(Tables.Targets, settings);
+        TypeFilter.Columns = new TableColumns(Tables.Types, settings);
         shadeCharacters = settings.ShadeCharacters;
         shadeActions = settings.ShadeActions;
         lowAccuracy = LowMark.Clamp(settings.LowAccuracy);

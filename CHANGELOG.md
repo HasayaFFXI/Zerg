@@ -27,6 +27,17 @@ takes its number when the version is cut.
 - The command bar's filters come first: Character, Target and Type, then a
   rule, then Include Skillchains, Hide names and Click-through. A narrow
   window wraps the two groups apart.
+- A table's columns can be dragged to another place by their headings, in
+  the Overview, Actions, the Filters pane's two tabs, the Battle Log,
+  Healing by character, Heals and Support. A grouped column (Ranged,
+  Weaponskill, Skillchain, Pet) carries its whole group, as dragging the
+  group's name does; the first column stays first. A press without a drag
+  still sorts. Each of those panes has a Columns menu listing every column
+  in the order they stand, a group's columns under its name, which shows
+  or hides them all (a dash while only some are shown), and Restore
+  default columns. Each table's order and hidden columns are saved
+  (settings.json `columns`); the Overview's hidden groups from before are
+  kept. A floating panel shows the same order, and is not dragged.
 
 ## 2.0.0 — 2026-11-04
 

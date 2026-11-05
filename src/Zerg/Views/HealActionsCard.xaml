@@ -96,7 +96,8 @@
          picked and thrown away when it is not. -->
     <DataTemplate x:Key="Nothing"/>
     <DataTemplate x:Key="Detail">
-      <v:DrillCard DataContext="{Binding HealingDrill}" Margin="40,0,0,12" Loaded="OnDetailLoaded"/>
+      <v:DrillCard DataContext="{Binding HealingDrill}" Margin="40,0,0,12" Loaded="OnDetailLoaded"
+                   v:ColumnSet.Layout="{x:Null}"/>
     </DataTemplate>
     <Style x:Key="Under" TargetType="ContentControl">
       <Setter Property="Focusable" Value="False"/>
@@ -250,9 +251,11 @@
     <!-- The three ways to list the heals: each character, their heals,
          the people each reached; each character, the people they healed,
          the heals on each; or each person healed, who healed them, with
-         what. Saved, and the same in a floating panel. -->
+         what. Saved, and the same in a floating panel. Then the table's
+         Columns menu, which is not. -->
     <v:Pane.Tools>
-      <Border>
+      <StackPanel Orientation="Horizontal">
+      <Border VerticalAlignment="Center">
         <Border.Style>
           <Style TargetType="Border" BasedOn="{StaticResource SegmentGroup}">
             <Style.Triggers>
@@ -277,6 +280,8 @@
                        AutomationProperties.Name="Heals by target"/>
         </StackPanel>
       </Border>
+      <v:ColumnsButton Table="{Binding HealsColumns}" Margin="8,0,0,0"/>
+      </StackPanel>
     </v:Pane.Tools>
 
     <DockPanel>
@@ -285,6 +290,7 @@
                  Visibility="{Binding HasHeals, Converter={StaticResource Hidden}}"/>
 
       <ScrollViewer x:Name="Sideways" HorizontalScrollBarVisibility="Auto" v:Shed.Full="{StaticResource Columns}"
+                    v:ColumnSet.Table="{Binding HealsColumns}"
                     VerticalScrollBarVisibility="Disabled" v:WheelChain.On="True"
                     Visibility="{Binding HasHeals, Converter={StaticResource Visible}}">
         <Grid MinWidth="476" Width="{Binding ViewportWidth, ElementName=Sideways}">
@@ -307,7 +313,8 @@
           <Grid Height="{StaticResource ColumnHeadHeight}">
             <!-- Each heading orders every character's heals under them
                  (v:SortHead); the characters stay largest first. -->
-            <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding HealsSort}">
+            <v:Cells Widths="{StaticResource Columns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding HealsSort}"
+                     v:ColumnDrag.On="True">
               <v:SortHead Column="name" Words="True">
                 <TextBlock Text="{Binding HealsNameHead}" Style="{StaticResource HeadText}" Padding="12,0,8,0"/>
               </v:SortHead>
