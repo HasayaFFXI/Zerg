@@ -49,8 +49,23 @@ public sealed class Settings
     /// "Healing". The parse itself is not kept, as Compare's runs are not.</summary>
     public string ViewMode { get; set; } = "Damage";
 
-    /// <summary>What a Compare row is: "Character" or "Job".</summary>
-    public string CompareBy { get; set; } = "Character";
+    /// <summary>What a Compare row was before its Overview had tabs:
+    /// "Character" or "Job". Read once into <see cref="CompareOverviewBy"/>
+    /// ("Job" is By job), then no longer written.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CompareBy { get; set; }
+
+    /// <summary>Compare's Overview tab: "Characters", "Targets" or "Jobs".</summary>
+    public string CompareOverviewBy { get; set; } = "Characters";
+
+    /// <summary>Compare's cells carry A's figure on a line under B's.</summary>
+    public bool CompareShowA { get; set; }
+
+    /// <summary>Compare's cumulative chart: "Both" lines, or the "Gap" between them.</summary>
+    public string ComparePace { get; set; } = "Both";
+
+    /// <summary>The parses Compare last opened, newest first, at most five.</summary>
+    public List<string> CompareRecent { get; set; } = [];
 
     /// <summary>Which side of the two runs Compare shows: "Damage" or "Healing".
     /// The runs themselves are not kept: a parse is a megabyte or two.</summary>
@@ -275,7 +290,14 @@ public sealed class Settings
         SupportBy ??= installed.SupportBy;
         FiltersBy ??= installed.FiltersBy;
         OverviewBy ??= installed.OverviewBy;
-        CompareBy ??= installed.CompareBy;
+        if (CompareBy is not null)
+        {
+            CompareOverviewBy = CompareBy == "Job" ? "Jobs" : "Characters";
+            CompareBy = null;
+        }
+        CompareOverviewBy ??= installed.CompareOverviewBy;
+        ComparePace ??= installed.ComparePace;
+        CompareRecent = CompareRecent?.Where(n => n is not null).Take(5).ToList() ?? [];
         CompareMode ??= installed.CompareMode;
         ClickThroughKey ??= installed.ClickThroughKey;
         OpenPanels = OpenPanels?.Where(n => n is not null).ToList() ?? [];

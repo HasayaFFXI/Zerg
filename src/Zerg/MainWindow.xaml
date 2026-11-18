@@ -32,6 +32,11 @@
        window's menu); whatever in the bar is to be pressed says
        WindowChrome.IsHitTestVisibleInChrome="True", or the press would
        drag the window instead. -->
+  <!-- Compare's swap of the two runs, only while Compare is on screen. -->
+  <Window.InputBindings>
+    <KeyBinding Modifiers="Ctrl+Shift" Key="S" Command="{Binding SwapRunsCommand}"/>
+  </Window.InputBindings>
+
   <Window.Resources>
 
     <!-- ================================================= the band of figures
@@ -522,6 +527,13 @@
             <v:PickButton DataContext="{Binding TargetFilter}" Margin="0,0,6,0"/>
             <v:PickButton DataContext="{Binding TypeFilter}"/>
           </StackPanel>
+          <!-- In Compare, the same three over both runs, by name. -->
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,6"
+                      Visibility="{Binding IsCompare, Converter={StaticResource Visible}}">
+            <v:PickButton DataContext="{Binding Compare.CharacterFilter}" Margin="0,0,6,0"/>
+            <v:PickButton DataContext="{Binding Compare.TargetFilter}" Margin="0,0,6,0"/>
+            <v:PickButton DataContext="{Binding Compare.TypeFilter}"/>
+          </StackPanel>
 
           <Border Style="{StaticResource GroupRule}" Height="20" Margin="12,0,11,6" v:BarWrap.Rule="True"/>
 
@@ -533,7 +545,7 @@
                  In Compare it is on the Compare card, beside what it changes. -->
             <ToggleButton Style="{StaticResource SmallToggle}" Content="Include Skillchains" IsChecked="{Binding Skillchains}"
                           ToolTip="{Binding SkillchainsTip}" Margin="0,0,6,0"
-                          Visibility="{Binding IsDamage, Converter={StaticResource Visible}}"/>
+                          Visibility="{Binding ShowsSkillchains, Converter={StaticResource Visible}}"/>
             <ToggleButton Style="{StaticResource SmallToggle}" Content="Hide names" IsChecked="{Binding HideNames}"
                           ToolTip="{Binding HideNamesTip}" Margin="0,0,6,0"/>
             <!-- About every panel at once. The hot key does the same from inside
@@ -664,7 +676,9 @@
               <ColumnDefinition/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <v:Caps Text="Elapsed" Style="{StaticResource BandLabel}"/>
+            <!-- "Range" over a range picked on the Timeline: its length, and
+                 the range under it. -->
+            <v:Caps Text="{Binding ClockLabel}" Style="{StaticResource BandLabel}"/>
             <!-- The tenths smaller, so the seconds stay what is read. -->
             <TextBlock Style="{StaticResource BandClock}"><Run Text="{Binding ClockText, Mode=OneWay}"/><Run
                 Text="{Binding ClockTenths, Mode=OneWay}" FontSize="15"/></TextBlock>
@@ -738,7 +752,8 @@
         </v:FigureBand>
 
         <!-- Over the heals: the same band. The clock is the same clock;
-             there is one session. -->
+             there is one session, unless a range is picked on one
+             section's Timeline and not the other's. -->
         <v:FigureBand Six="True" RowHeight="{StaticResource FiguresBandHeight}" Rule="{DynamicResource Line2Brush}"
                       Visibility="{Binding IsHealing, Converter={StaticResource Visible}}">
           <Grid>
@@ -746,13 +761,14 @@
               <ColumnDefinition/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <v:Caps Text="Elapsed" Style="{StaticResource BandLabel}"/>
+            <!-- The Healing section's range is its own. -->
+            <v:Caps Text="{Binding HealClockLabel}" Style="{StaticResource BandLabel}"/>
             <!-- The tenths smaller, so the seconds stay what is read. -->
-            <TextBlock Style="{StaticResource BandClock}"><Run Text="{Binding ClockText, Mode=OneWay}"/><Run
-                Text="{Binding ClockTenths, Mode=OneWay}" FontSize="15"/></TextBlock>
+            <TextBlock Style="{StaticResource BandClock}"><Run Text="{Binding HealClockText, Mode=OneWay}"/><Run
+                Text="{Binding HealClockTenths, Mode=OneWay}" FontSize="15"/></TextBlock>
             <v:StateTag Grid.Column="1" Style="{StaticResource StateTag}" State="{Binding Tag}" VerticalAlignment="Top"
                         Margin="0,24,14,0"/>
-            <TextBlock Text="{Binding ClockNote}" Style="{StaticResource BandNote}"/>
+            <TextBlock Text="{Binding HealClockNote}" Style="{StaticResource BandNote}"/>
           </Grid>
           <Grid>
             <Grid.ColumnDefinitions>
@@ -887,7 +903,7 @@
           <v:Away DataContext="{Binding Panels[actions]}"/>
         </Grid>
 
-        <Grid v:SplitPanel.Key="line" v:SplitPanel.Title="Cumulative damage">
+        <Grid v:SplitPanel.Key="line" v:SplitPanel.Title="Timeline">
           <Grid.Style>
             <Style TargetType="Grid">
               <Style.Triggers>
@@ -978,7 +994,7 @@
           <v:Away DataContext="{Binding Panels[hactions]}"/>
         </Grid>
 
-        <Grid v:SplitPanel.Key="hline" v:SplitPanel.Title="Cumulative healing">
+        <Grid v:SplitPanel.Key="hline" v:SplitPanel.Title="Timeline">
           <Grid.Style>
             <Style TargetType="Grid">
               <Style.Triggers>
@@ -1061,7 +1077,7 @@
                   WindowChrome.IsHitTestVisibleInChrome="True"/>
         </StackPanel>
         <!-- While the arrangement is in someone's hand, what is happening
-             and the way out of it: "Moving Cumulative damage · Esc
+             and the way out of it: "Moving Timeline · Esc
              cancels", "Double-click a divider to set it back". The panes'
              panel says it; the window's code puts it here. -->
         <TextBlock DockPanel.Dock="Right" Text="{Binding LayoutNote}" VerticalAlignment="Center"
@@ -1102,8 +1118,20 @@
           </TextBlock.Style>
           <Run Text="&#xE7BA;" FontFamily="{StaticResource IconFont}"/><Run Text=" "/><Run Text="{Binding AddonWarning, Mode=OneWay}"/>
         </TextBlock>
-        <TextBlock Text="{Binding StatusDetail}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="10,0,0,0"
-                   Typography.NumeralAlignment="Tabular" TextTrimming="CharacterEllipsis"/>
+        <!-- In Compare, the two runs: their names and files. -->
+        <TextBlock VerticalAlignment="Center" Margin="10,0,0,0"
+                   Typography.NumeralAlignment="Tabular" TextTrimming="CharacterEllipsis">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource Label}">
+              <Setter Property="Text" Value="{Binding StatusDetail}"/>
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCompare}" Value="True">
+                  <Setter Property="Text" Value="{Binding Compare.Status}"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
       </DockPanel>
     </Border>
   </Grid>

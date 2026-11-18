@@ -4,9 +4,16 @@
              xmlns:c="clr-namespace:Zerg.Charts"
              xmlns:v="clr-namespace:Zerg.Views">
 
-  <!-- Cumulative damage: a line per character, each named at its end. A
-       pane: the chart has the whole of it, edge to edge, and keeps its own
-       margins.
+  <!-- The Timeline: each character's running total of damage, a line per
+       character, each named at its end. A pane: the chart has the whole of
+       it, edge to edge, and keeps its own margins.
+
+       Dragged across, it picks a range (ClockRange), and the Damage
+       section counts that range alone: the heading says which, Reset
+       range (or a click outside the range) counts the whole session
+       again, and Export range saves the range as a parse. An edge of the
+       range is dragged alone. The lines stay whole, so another range can
+       be picked from them. Not in a floating panel, which a drag moves.
 
        "Group under 5%" is in the heading, not the command bar: it changes
        this chart and nothing else, and it goes wherever the card goes. Its
@@ -15,10 +22,32 @@
        Floating, the pane has no heading and the switch has a line of its
        own; the chart takes what the switch leaves, following the panel when
        it is dragged larger. -->
-  <v:Pane Title="Cumulative damage" Note="Running total per character"
-          Hint="Running total per character. Hover for every character at one instant."
+  <v:Pane Title="Timeline" Note="Running total per character · drag to pick a range"
+          Hint="Running total per character. Hover for every character at one instant. Drag across it to count only that stretch of the session; drag an edge of the range to move that edge alone. Reset range, or a click outside the range, counts all of it again."
           PopOutCommand="{Binding Panels[line].PopOutCommand}">
     <v:Pane.Tools>
+      <StackPanel Orientation="Horizontal">
+      <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+        <StackPanel.Style>
+          <Style TargetType="StackPanel">
+            <Setter Property="Visibility" Value="{Binding HasDamageRange, Converter={StaticResource Visible}}"/>
+            <Style.Triggers>
+              <Trigger Property="v:Float.On" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </StackPanel.Style>
+        <TextBlock Text="{Binding DamageRangeText}" Style="{StaticResource Label}" FontSize="11" Margin="0,0,8,0"
+                   VerticalAlignment="Center" Typography.NumeralAlignment="Tabular"
+                   ToolTip="The stretch of the session the Damage section is counting"/>
+        <Button Style="{StaticResource AccentButton}" Height="22" Padding="10,0" FontSize="11" Content="Reset range"
+                Command="{Binding WholeDamageCommand}" AutomationProperties.Name="Reset range"
+                ToolTip="Let the range go: count the whole session again"/>
+        <Button Style="{StaticResource GhostButton}" Height="22" Padding="10,0" FontSize="11" Margin="6,0,0,0"
+                Content="Export range…" Command="{Binding ExportDamageRangeCommand}" AutomationProperties.Name="Export range"
+                ToolTip="Save the range picked to a parse file another copy of Zerg can open with Import or in Compare"/>
+      </StackPanel>
       <ToggleButton Content="Group under 5%" IsChecked="{Binding GroupSmallLines}" ToolTip="{Binding GroupTip}">
         <ToggleButton.Style>
           <Style TargetType="ToggleButton" BasedOn="{StaticResource SmallToggle}">
@@ -32,16 +61,19 @@
           </Style>
         </ToggleButton.Style>
       </ToggleButton>
+      </StackPanel>
     </v:Pane.Tools>
 
-    <c:LineChart Edge="{Binding Edge}" EmptyText="{Binding EmptyText}" EndLabels="True"
-                 AutomationProperties.Name="Cumulative damage chart">
+    <c:LineChart Edge="{Binding Edge}" EmptyText="{Binding EmptyText}" EndLabels="True" Picked="{Binding DamageRange}"
+                 AutomationProperties.Name="Damage timeline chart">
       <c:LineChart.Style>
         <Style TargetType="c:LineChart">
           <!-- In a pane: as tall as the pane leaves it, and no shorter
                than a chart can be read at. -->
           <Setter Property="MinHeight" Value="80"/>
           <Setter Property="Model" Value="{Binding Line}"/>
+          <Setter Property="PickCommand" Value="{Binding PickDamageCommand}"/>
+          <Setter Property="ResetCommand" Value="{Binding WholeDamageCommand}"/>
           <Style.Triggers>
             <!-- In a narrow window the panes stand in one column, each as
                  tall as it asks to be: the chart is the height it was
@@ -56,6 +88,8 @@
               <Setter Property="MinHeight" Value="120"/>
               <Setter Property="Margin" Value="0,2,0,0"/>
               <Setter Property="Model" Value="{Binding PanelLine}"/>
+              <Setter Property="PickCommand" Value="{x:Null}"/>
+              <Setter Property="ResetCommand" Value="{x:Null}"/>
               <Setter Property="Compact" Value="True"/>
               <!-- No effect lies over this chart (its lines are drawn at
                    the draw frequency): it outlines its own labels. -->

@@ -23,6 +23,18 @@ public partial class ColumnsButton : UserControl
 
     public TableColumns? Table { get => (TableColumns?)GetValue(TableProperty); set => SetValue(TableProperty, value); }
 
+    /// <summary>A switch of the table's own, ticked at the menu's head
+    /// ("Show Previous Run's figures"): its words, and the path of the bool it
+    /// toggles on the button's data context. None when <see cref="Extra"/> is empty.</summary>
+    public static readonly DependencyProperty ExtraProperty = DependencyProperty.Register(nameof(Extra), typeof(string),
+        typeof(ColumnsButton), new PropertyMetadata(""));
+
+    public static readonly DependencyProperty ExtraPathProperty = DependencyProperty.Register(nameof(ExtraPath), typeof(string),
+        typeof(ColumnsButton), new PropertyMetadata(""));
+
+    public string Extra { get => (string)GetValue(ExtraProperty); set => SetValue(ExtraProperty, value); }
+    public string ExtraPath { get => (string)GetValue(ExtraPathProperty); set => SetValue(ExtraPathProperty, value); }
+
     readonly ContextMenu menu;
     List<ColumnChoice> lines = [];
     long shutAt = -1000;
@@ -64,6 +76,13 @@ public partial class ColumnsButton : UserControl
     {
         Let();
         menu.Items.Clear();
+        if (Extra.Length > 0 && ExtraPath.Length > 0)
+        {
+            var extra = new MenuItem { Header = Extra, IsCheckable = true, StaysOpenOnClick = true, DataContext = DataContext };
+            extra.SetBinding(MenuItem.IsCheckedProperty, new Binding(ExtraPath) { Mode = BindingMode.TwoWay });
+            menu.Items.Add(extra);
+            menu.Items.Add(new Separator());
+        }
         lines = table.Choices();
         ColumnChoice.Kind? last = null;
         foreach (var line in lines)

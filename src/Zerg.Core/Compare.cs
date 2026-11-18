@@ -63,6 +63,32 @@ public sealed class Measurement
     public KillTotals Kills { get; set; } = KillTotals.None;
     /// <summary>The kills of the targets isolated; every kill with none.</summary>
     public IReadOnlyList<Fight> Killed { get; set; } = [];
+    /// <summary>Each character's delay samples, under the run's own names.</summary>
+    public DelayTotals Delays { get; set; } = DelayTotals.None;
+    /// <summary>Who stands behind each row's key in the run itself: a
+    /// character matched with another run's is keyed by that run's name.</summary>
+    public Dictionary<string, string> Original { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>The targets and types isolated, as <see cref="Targets.Only"/> gives them.</summary>
+    public IReadOnlySet<string>? Only { get; set; }
+    public IReadOnlySet<string>? OnlyTypes { get; set; }
+    /// <summary>The session-clock time of the run's first counted hit, in ms:
+    /// where its line starts on the cumulative chart's one clock.</summary>
+    public double First { get; set; }
+    /// <summary>False for the side of a comparison that holds no run yet.</summary>
+    public bool Present { get; set; } = true;
+
+    /// <summary>A row's delay in milliseconds, from its character's own
+    /// samples; none by job.</summary>
+    public double? DelayOf(string key) =>
+        By == "job" ? null : Delays.Mean(Original.GetValueOrDefault(key, key), Only, OnlyTypes);
+
+    /// <summary>How many times a row's characters died in the run.</summary>
+    public int DeathsOf(string key) =>
+        By == "job" && Members.TryGetValue(key, out var m) ? m.Names.Sum(Kills.DeathsOf)
+        : Kills.DeathsOf(Original.GetValueOrDefault(key, key));
+
+    /// <summary>A run that is not there: every figure a dash.</summary>
+    public static Measurement Absent() => new() { Present = false, Run = null! };
 }
 
 /// <summary>A row present in either run; a side is null where the key was absent.</summary>
@@ -88,14 +114,24 @@ public sealed class CompareRows
     public List<PairTotal> HealTargets { get; set; } = [];
 }
 
-/// <summary>Both runs' running party total on one grid. The shorter run is NaN
-/// past its own end.</summary>
+/// <summary>A kill or a death on the cumulative chart: whose, and when on
+/// its run's clock from the first hit, in ms.</summary>
+public sealed record PaceMark(string Name, double At);
+
+/// <summary>Both runs' running party total on one grid, each from its own
+/// first hit. The shorter run is NaN past its own end.</summary>
 public sealed class Pace
 {
     public double[] Times { get; set; } = [];
     public double Step { get; set; }
     public double[] A { get; set; } = [];
     public double[] B { get; set; } = [];
+    /// <summary>B − A at each time; NaN where either run has ended.</summary>
+    public double[] Gap { get; set; } = [];
+    public IReadOnlyList<PaceMark> KillsA { get; set; } = [];
+    public IReadOnlyList<PaceMark> KillsB { get; set; } = [];
+    public IReadOnlyList<PaceMark> DeathsA { get; set; } = [];
+    public IReadOnlyList<PaceMark> DeathsB { get; set; } = [];
 }
 
 /// <summary>A histogram bin both runs share, [Lo, Hi): how many of each run's
@@ -178,14 +214,28 @@ public static class Compare
     /// to it; with a type isolated, the targets are of what that type dealt
     /// to each. A type takes no rate away.</para>
     /// </summary>
+    /// <param name="characters">Characters isolated, by the name their row
+    /// has (after <paramref name="rename"/>); null or empty for everyone.</param>
+    /// <param name="rename">Characters of this run keyed by another name:
+    /// a character matched with the other run's by hand ("Match with"), whose
+    /// row is then the other's. Not by job.</param>
+    /// <param name="scope">One character of this run, by their own name, as
+    /// the whole of it; null for the whole party.</param>
     public static Measurement Measure(ImportedParse run, bool skillchains = true, bool byJob = false,
-                                      IReadOnlySet<string>? targets = null, IReadOnlySet<string>? types = null)
+                                      IReadOnlySet<string>? targets = null, IReadOnlySet<string>? types = null,
+                                      IReadOnlySet<string>? characters = null,
+                                      IReadOnlyDictionary<string, string>? rename = null, string? scope = null)
     {
         var roster = run.Source.Roster;
         var sn = run.Session;
+        if (byJob) rename = null;
+        string Key(string name) => rename != null && rename.TryGetValue(name, out var n) ? n : name;
+        var own = Own(characters, rename);
+        if (scope != null)
+            own = characters is { Count: > 0 } && !characters.Contains(Key(scope)) ? NoOne : new HashSet<string>([scope], StringComparer.Ordinal);
 
         var scoped = Counting.Filter(run.Source.Events,
-            new FilterOptions { Session = sn, Roster = roster, Skillchains = skillchains });
+            new FilterOptions { Session = sn, Roster = roster, Skillchains = skillchains, Characters = own });
 
         // By target and by type over every landed row, each before its own
         // filter and after the other's. Unfolded is right: both only sum,
@@ -201,6 +251,7 @@ public static class Compare
         // the exporter was looking at.
         var secs = sn.Elapsed(sn.PausedAt) / 1000;
 
+        var original = new Dictionary<string, string>(StringComparer.Ordinal);
         var members = new OrderedDictionary<string, Members>(StringComparer.Ordinal);
         void Note(string key, string name)
         {
@@ -220,6 +271,17 @@ public static class Compare
                 return e with { Actor = key };
             }).ToList();
         }
+        else if (rename is { Count: > 0 })
+        {
+            rows = scoped.Select(e =>
+            {
+                var key = Key(e.Actor);
+                Note(key, e.Actor);
+                original[key] = e.Actor;
+                return key == e.Actor ? e : e with { Actor = key };
+            }).ToList();
+            scoped = rows;
+        }
         else
         {
             rows = scoped;
@@ -229,7 +291,7 @@ public static class Compare
         var agg = Counting.Aggregate(rows, secs);
 
         // Healing over the same window, re-keyed by job the same way.
-        var hl = Healing.Filter(run.Source.Heals, new FilterOptions { Session = sn, Roster = roster });
+        var hl = Healing.Filter(run.Source.Heals, new FilterOptions { Session = sn, Roster = roster, Characters = own });
         if (byJob)
         {
             hl = hl.Select(h =>
@@ -237,6 +299,16 @@ public static class Compare
                 var key = MainJob(roster, h.Actor);
                 Note(key, h.Actor);
                 return h with { Actor = key };
+            }).ToList();
+        }
+        else if (rename is { Count: > 0 })
+        {
+            hl = hl.Select(h =>
+            {
+                var key = Key(h.Actor);
+                Note(key, h.Actor);
+                original[key] = h.Actor;
+                return key == h.Actor ? h : h with { Actor = key };
             }).ToList();
         }
         var heal = Healing.Totals(hl);
@@ -258,7 +330,10 @@ public static class Compare
         // from the same per-character splits: they agree with the table by
         // construction.
         var party = agg.Party;
-        var kills = Zerg.Core.Kills.Count(run.Source, sn);
+        var kills = Zerg.Core.Kills.Count(run.Source, sn, own, skillchains);
+        double first = double.PositiveInfinity;
+        foreach (var e in scoped) if (e.Hit && e.Dmg > 0) { first = e.T; break; }
+        if (double.IsInfinity(first)) first = 0;
 
         return new Measurement
         {
@@ -290,7 +365,26 @@ public static class Compare
             HealTargets = healTargets,
             Kills = kills,
             Killed = only != null ? kills.Fights.Where(f => only.Contains(f.Target)).ToList() : kills.Fights,
+            Delays = byJob ? DelayTotals.None : Zerg.Core.Delays.Count(run.Source, sn),
+            Original = original,
+            Only = only,
+            OnlyTypes = onlyTypes,
+            First = first,
         };
+    }
+
+    /// <summary>A set that holds no character's name: isolating it leaves nobody.</summary>
+    static readonly IReadOnlySet<string> NoOne = new HashSet<string>(["\u0000"], StringComparer.Ordinal);
+
+    /// <summary>The characters isolated, by the names this run has them
+    /// under: a matched character's other name stands for them.</summary>
+    static IReadOnlySet<string>? Own(IReadOnlySet<string>? characters, IReadOnlyDictionary<string, string>? rename)
+    {
+        if (characters is not { Count: > 0 } || rename is not { Count: > 0 }) return characters;
+        var own = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var c in characters) if (!rename.ContainsKey(c)) own.Add(c);
+        foreach (var (from, to) in rename) if (characters.Contains(to)) own.Add(from);
+        return own.Count > 0 ? own : NoOne;
     }
 
     /// <summary>The keys of either map, A's first, each with what either side had.</summary>
@@ -321,7 +415,7 @@ public static class Compare
     static List<Pair<T>> Pairs<T>(OrderedDictionary<string, T> a, OrderedDictionary<string, T> b) where T : class =>
         PairUp(a, b).Select(p => new Pair<T>(p.Key, p.A, p.B)).ToList();
 
-    static List<PairTotal> Totals(OrderedDictionary<string, double> a, OrderedDictionary<string, double> b)
+    internal static List<PairTotal> Totals(OrderedDictionary<string, double> a, OrderedDictionary<string, double> b)
     {
         var list = PairUp(a, b).Select(p => new PairTotal(p.Key, p.A, p.B)).ToList();
         list.SortByDescending(x => Math.Max(x.A, x.B));
@@ -492,7 +586,10 @@ public static class Compare
     public static Pace Pace(Measurement ma, Measurement mb, bool healing = false, int maxPoints = 0)
     {
         if (maxPoints == 0) maxPoints = 400;
-        var end = Math.Max(ma.Duration, mb.Duration) * 1000;
+        // Each run on its own clock from its first hit: two pulls line up
+        // however long each party stood about before the first swing.
+        static double Span(Measurement m) => m.Present ? Math.Max(0, m.Duration * 1000 - m.First) : 0;
+        var end = Math.Max(Span(ma), Span(mb));
         if (end <= 0 || double.IsNaN(end)) end = 1000;
         var step = Math.Max(1000, Math.Ceiling(end / maxPoints / 1000) * 1000);
         int n = (int)Math.Ceiling(end / step) + 1;
@@ -502,13 +599,14 @@ public static class Compare
         double[] Line(Measurement m)
         {
             var v = new double[n];
-            var stop = m.Duration * 1000;
+            if (!m.Present) { Array.Fill(v, double.NaN); return v; }
+            var stop = Span(m);
             foreach (var e in healing ? m.HealEvents : m.Events)
             {
                 if (!e.Hit || e.Dmg == 0 || double.IsNaN(e.Dmg)) continue;
                 // Into the first sample at or after the hit, so a sample reads
                 // the damage done by that instant, never a hit still to come.
-                var bin = (int)Math.Min(n - 1, Math.Max(0, Math.Ceiling(e.T / step)));
+                var bin = (int)Math.Min(n - 1, Math.Max(0, Math.Ceiling((e.T - m.First) / step)));
                 v[bin] += e.Dmg;
             }
             double run = 0;
@@ -522,7 +620,18 @@ public static class Compare
             return v;
         }
 
-        return new Pace { Times = times, Step = step, A = Line(ma), B = Line(mb) };
+        static List<PaceMark> Kills(Measurement m) =>
+            m.Present ? m.Killed.Where(f => f.At >= m.First).Select(f => new PaceMark(f.Target, f.At - m.First)).ToList() : [];
+        static List<PaceMark> Deaths(Measurement m) =>
+            m.Present ? m.Kills.Deaths.Where(d => d.At >= m.First).Select(d => new PaceMark(d.Name, d.At - m.First)).ToList() : [];
+        var (a, b) = (Line(ma), Line(mb));
+        var gap = new double[n];
+        for (int i = 0; i < n; i++) gap[i] = double.IsFinite(a[i]) && double.IsFinite(b[i]) ? b[i] - a[i] : double.NaN;
+        return new Pace
+        {
+            Times = times, Step = step, A = a, B = b, Gap = gap,
+            KillsA = Kills(ma), KillsB = Kills(mb), DeathsA = Deaths(ma), DeathsB = Deaths(mb),
+        };
     }
 
     public static Delta Delta(double? a, double? b)

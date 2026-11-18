@@ -124,6 +124,25 @@
     </Style.Triggers>
   </Style>
 
+  <!-- Something in force, pressed to let it go (Reset range): outlined and
+     written in the accent over a wash of it, so it is seen beside the ghost
+     buttons around it without being the one to press. -->
+  <Style x:Key="AccentButton" TargetType="ButtonBase" BasedOn="{StaticResource ZButton}">
+    <Setter Property="Background" Value="{DynamicResource AccentWashBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource AccentWashHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+      </Trigger>
+      <Trigger Property="IsPressed" Value="True">
+        <Setter Property="Background" Value="{DynamicResource AccentWashBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
   <!-- The one to press: one per place at most. The sheet draws it at rest
        only; under the pointer and pressed it dims, as the session pair does. -->
   <Style x:Key="FilledButton" TargetType="ButtonBase" BasedOn="{StaticResource ZButton}">

@@ -59,7 +59,8 @@ public sealed partial class MainViewModel
         // band's marks are both drawn from these.
         var own = Healing.AsEvents(c.Heals);
         DrawHealTiles(c, own);
-        DrawHealLine(c, own);
+        // The Timeline is the whole session's, whatever range is picked.
+        DrawHealLine(c, HealingRange != null ? Healing.AsEvents(c.HealTimeline) : own);
         DrawHealBars(c);
         DrawHeals(c);
         DrawHealDrill(c);
@@ -81,7 +82,7 @@ public sealed partial class MainViewModel
         int n = h.Actors.Count(a => a.Total > 0);
         HpsNote = n > 0 ? n + " healer" + (n == 1 ? "" : "s") : None;
 
-        var pulse = Shown.Session.StartedAt != null ? BandMarks.Pulse(own, c.Elapsed) : null;
+        var pulse = Shown.Session.StartedAt != null ? BandMarks.Pulse(own, c.HealElapsed, c.HealRange?.From ?? 0) : null;
         HasHealMarks = pulse != null;
         HealTotalMark = Kept(HealTotalMark, pulse?.Bars);
         if (pulse != null) HealTotalMarkCaption = BandMarks.Caption(pulse.Bucket);
@@ -114,9 +115,10 @@ public sealed partial class MainViewModel
         // A line for everyone who healed anything, or whose pet did. Every healer
         // keeps their own: a party has two or three, so there is no pack to
         // fold into an "others" line as the damage chart does.
-        var names = c.Healing.Actors.Where(a => a.Total > 0).Select(a => a.Name).ToList();
+        var healers = HealingRange != null ? Healing.Totals(c.HealTimeline) : c.Healing;
+        var names = healers.Actors.Where(a => a.Total > 0).Select(a => a.Name).ToList();
 
-        double? now = Shown.Session.StartedAt != null ? c.Elapsed : null;
+        double? now = Shown.Session.StartedAt != null ? c.Clock : null;
         var cum = Counting.Cumulative(rows, names, 0, now);
 
         // Largest total last, so the leading line is drawn on top.
@@ -126,7 +128,7 @@ public sealed partial class MainViewModel
         // where the fights were and who went down.
         HealLine = new LineModel(cum.Times, lines.Select(l => l.Series).ToList(), cum.Live == true,
                                  Running: cum.Live == true && Shown.Session.Running,
-                                 Deaths: ChartDeaths(c, lines.Select(l => l.Real).ToList()), Kills: ChartKills(c.Killed));
+                                 Deaths: ChartDeaths(c, lines.Select(l => l.Real).ToList()), Kills: ChartKills(c.TimelineKilled));
         PanelHealLine = AppTheme.IsDark ? HealLine : HealLine with
         {
             Series = lines.Select(l => l.Series with { Color = PanelColorOf(l.Real!) }).ToList(),

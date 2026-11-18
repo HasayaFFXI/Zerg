@@ -82,7 +82,9 @@ public partial class PanelWindow : Window
         // accent: a panel is read over the game, where the main window's
         // buttons and tables cannot be seen.
         BarTitle.Inlines.Add(new Run(info.Title));
-        string[] filters = PanelSet.IsHealing(info.Key) ? [nameof(MainViewModel.HealerFilter)]
+        // Compare's live panel says what it compares in its own heading.
+        string[] filters = info.Key == PanelSet.CompareLive ? []
+            : PanelSet.IsHealing(info.Key) ? [nameof(MainViewModel.HealerFilter)]
             : [nameof(MainViewModel.CharacterFilter), nameof(MainViewModel.TargetFilter), nameof(MainViewModel.TypeFilter)];
         foreach (var filter in filters)
         {
@@ -105,10 +107,17 @@ public partial class PanelWindow : Window
             PanelSet.HealActions => new HealActionsCard(),
             PanelSet.HealSupport => new SupportCard(),
             PanelSet.Fights => new FightsCard(),
+            PanelSet.CompareLive => Scrolling(new CompareLive { DataContext = model.Compare }),
             _ => Scrolling(new HealBarsCard()),
         };
         Body.Margin = Margins();
         Halo();
+        // The runs' brushes, made for a dark panel from the colours set.
+        if (info.Key == PanelSet.CompareLive)
+        {
+            PutRuns();
+            AppTheme.RunsChanged += PutRuns;
+        }
 
         // The bar's total is the total of the side of the fight the card
         // shows. Beside a heals table, the party's damage would be a figure
@@ -139,7 +148,7 @@ public partial class PanelWindow : Window
             {
                 int i = Array.IndexOf([PanelSet.Line, PanelSet.Bars, PanelSet.Actions,
                                        PanelSet.HealLine, PanelSet.HealBars, PanelSet.HealActions,
-                                       PanelSet.Filters, PanelSet.Fights, PanelSet.HealSupport], info.Key);
+                                       PanelSet.Filters, PanelSet.Fights, PanelSet.HealSupport, PanelSet.CompareLive], info.Key);
                 int step = 36 * (i % 3), across = 48 * (i / 3);
                 WindowPlacement.MoveFrame(this, at.X + 60 + step + across, at.Y + 140 + step);
             }
@@ -217,7 +226,9 @@ public partial class PanelWindow : Window
     /// </summary>
     void Halo()
     {
-        if (!IsChart) Body.Effect = (Effect)FindResource("PanelHalo");
+        // The live compare's clock and rates move each second: its halo is
+        // on its still text alone (Views/CompareLive).
+        if (!IsChart && info.Key != PanelSet.CompareLive) Body.Effect = (Effect)FindResource("PanelHalo");
     }
 
     // ------------------------------------------------------ move and resize
@@ -341,6 +352,8 @@ public partial class PanelWindow : Window
             PanelSet.Filters => (400, 260),
             // The kills: five columns, and room for eight lines.
             PanelSet.Fights => (420, 270),
+            // Compare's live run: four columns, a heading line and seven rows.
+            PanelSet.CompareLive => (480, 250),
             // Room for a few rows and the drill-down that opens under one.
             _ => (660, 520),
         };
@@ -449,6 +462,20 @@ public partial class PanelWindow : Window
         // The view model outlives the panel and would keep it alive.
         info.PropertyChanged -= OnPanelChanged;
         model.Panels.PropertyChanged -= OnSetChanged;
+        AppTheme.RunsChanged -= PutRuns;
         base.OnClosed(e);
+    }
+
+    ResourceDictionary? runs;
+
+    /// <summary>The live compare's run brushes, replaced in one step.</summary>
+    void PutRuns()
+    {
+        var next = AppTheme.PanelRuns();
+        var merged = Resources.MergedDictionaries;
+        int at = runs is null ? -1 : merged.IndexOf(runs);
+        if (at >= 0) merged[at] = next;
+        else merged.Add(next);
+        runs = next;
     }
 }

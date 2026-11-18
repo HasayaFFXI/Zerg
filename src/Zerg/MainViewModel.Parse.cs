@@ -48,7 +48,7 @@ public sealed partial class MainViewModel
 
     /// <summary>A parse is open in the View section, whichever section is on screen.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDamage), nameof(IsHealing), nameof(ShowsParse), nameof(FillsPage), nameof(HideNamesTip))]
+    [NotifyPropertyChangedFor(nameof(IsDamage), nameof(IsHealing), nameof(ShowsParse), nameof(FillsPage), nameof(HideNamesTip), nameof(ShowsSkillchains))]
     private bool hasParse;
 
     /// <summary>The parse whose tab is picked: what the View section's band
@@ -73,6 +73,7 @@ public sealed partial class MainViewModel
             settings.Save();
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsDamage));
+            OnPropertyChanged(nameof(ShowsSkillchains));
             OnPropertyChanged(nameof(IsHealing));
             // The characters listed follow the side on screen, as they
             // follow the section.
@@ -211,6 +212,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(Viewed));
         OnPropertyChanged(nameof(ViewMode));
         OnPropertyChanged(nameof(IsDamage));
+        OnPropertyChanged(nameof(ShowsSkillchains));
         OnPropertyChanged(nameof(IsHealing));
         OnPropertyChanged(nameof(ShowsParse));
         OnPropertyChanged(nameof(FillsPage));
@@ -322,6 +324,34 @@ public sealed partial class MainViewModel
     {
         var shown = Shown;
         if (shown.Export() is not { } text || shown.Session.StartedAt is not double began) return;
+        Save(shown, text, began);
+    }
+
+    /// <summary>Export range, on the Damage section's Timeline: the range
+    /// picked saved as a parse of its own, as a replay's range is. Made
+    /// before the dialog opens, as Export is.</summary>
+    [RelayCommand]
+    void ExportDamageRange() => ExportRange(DamageRange);
+
+    /// <summary>Export range, on the Healing section's.</summary>
+    [RelayCommand]
+    void ExportHealRange() => ExportRange(HealingRange);
+
+    void ExportRange(ClockRange? range)
+    {
+        var shown = Shown;
+        if (range == null) return;
+        if (shown.ExportRange(range, Skillchains) is not { } made)
+        {
+            Note("Nothing to export — no party damage falls in the range picked", bad: true);
+            return;
+        }
+        Save(shown, made.Text, made.StartedAt);
+    }
+
+    /// <summary>Asks where, and writes the text made for an export there.</summary>
+    void Save(Tracker shown, string text, double began)
+    {
         try
         {
             if (Saver?.Invoke(ParseFile.SuggestedName(shown.Reader.Roster.Owner, began)) is not { } path) return;

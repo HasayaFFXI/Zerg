@@ -127,6 +127,10 @@
   <SolidColorBrush x:Key="RowHoverBrush" Color="{StaticResource Text1}" Opacity="0.05"/>
   <SolidColorBrush x:Key="ActionShadeBrush" Color="{StaticResource Text1}" Opacity="0.08"/>
   <SolidColorBrush x:Key="DropZoneFillBrush" Color="{StaticResource Accent}" Opacity="0.15"/>
+  <!-- A button that stands for something in force (Reset range): a wash
+       of the accent, stronger under the pointer. -->
+  <SolidColorBrush x:Key="AccentWashBrush" Color="{StaticResource Accent}" Opacity="0.10"/>
+  <SolidColorBrush x:Key="AccentWashHoverBrush" Color="{StaticResource Accent}" Opacity="0.20"/>
   <SolidColorBrush x:Key="EdgeZoneBrush" Color="{StaticResource Accent}" Opacity="0.28"/>
   <SolidColorBrush x:Key="DividerHoverBrush" Color="{StaticResource Accent}" Opacity="0.55"/>
   <SolidColorBrush x:Key="HistogramBandBrush" Color="{StaticResource Text1}" Opacity="0.04"/>

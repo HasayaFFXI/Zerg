@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using Zerg.Core;
 using Zerg.Core.Charts;
@@ -28,7 +29,26 @@ namespace Zerg.Charts;
 /// their next action, and a tick on the time axis; a kill is a fainter tick.
 /// All of it is placed by the time axis, so it moves with the edge, on the
 /// lines' layer and the axis's.</para>
+///
+/// <para><b>A range is picked by dragging across it</b> (a Timeline): while
+/// <see cref="PickCommand"/> is set, a drag over the plot hands it the
+/// stretch dragged (<see cref="ClockRange"/>), and <see cref="Picked"/> is
+/// drawn lit in the accent with the rest dimmed. An edge of the range is
+/// taken by pressing on it and moves alone, the other where it was; the
+/// range is carried by its middle, as long as it was, as a replay's range
+/// is; a click outside the range, not a drag, lets it go
+/// (<see cref="ResetCommand"/>). The range has a layer of its own over the
+/// lines, placed by the time axis as they are, so it moves
+/// with the edge; while a drag is under way it is drawn from the drag alone,
+/// and handed on as it goes (<see cref="RangePick"/>, not settled), so what
+/// it cuts can be counted as it moves, as a replay's range is. Let go, it is
+/// handed on settled; called off (Esc, the capture lost), the range picked
+/// before it is handed back.</para>
 /// </summary>
+/// <summary>A range dragged across a Timeline (<see cref="LineChart.PickCommand"/>):
+/// settled once let go, before that where the drag has got to.</summary>
+public sealed record RangePick(ClockRange Range, bool Settled);
+
 public sealed class LineChart : Chart
 {
     public static readonly DependencyProperty ModelProperty = DependencyProperty.Register(nameof(Model), typeof(LineModel),
@@ -51,6 +71,16 @@ public sealed class LineChart : Chart
             if (chart.IsVisible) chart.InvalidateVisual();
         }));
 
+    public static readonly DependencyProperty PickedProperty = DependencyProperty.Register(nameof(Picked), typeof(ClockRange),
+        typeof(LineChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty PickCommandProperty = DependencyProperty.Register(nameof(PickCommand),
+        typeof(ICommand), typeof(LineChart), new PropertyMetadata(null));
+
+    public static readonly DependencyProperty ResetCommandProperty = DependencyProperty.Register(nameof(ResetCommand),
+        typeof(ICommand), typeof(LineChart), new PropertyMetadata(null));
+
+    public static readonly DependencyProperty AccentProperty = RegisterInk(nameof(Accent), typeof(LineChart));
     public static readonly DependencyProperty LiveInkProperty = RegisterInk(nameof(LiveInk), typeof(LineChart));
     public static readonly DependencyProperty LeaderInkProperty = RegisterInk(nameof(LeaderInk), typeof(LineChart));
     public static readonly DependencyProperty DeathInkProperty = RegisterInk(nameof(DeathInk), typeof(LineChart));
@@ -61,11 +91,28 @@ public sealed class LineChart : Chart
     const double DownStrength = 0.45;
     /// <summary>Half an X's width; how tall a death's or a kill's tick stands over the baseline.</summary>
     const double CrossReach = 3.5, MarkTick = 6;
+    /// <summary>How strong the dimming outside a range is; the light inside it;
+    /// a range's edges.</summary>
+    const double OutsideStrength = 0.6, InsideStrength = 0.08, RangeEdge = 1.5;
+    /// <summary>How far the pointer must go before a press is a drag, not a click.</summary>
+    const double DragSlop = 4;
+    /// <summary>How near an edge of the range the pointer must be to take it.</summary>
+    const double Reach = 7;
 
     readonly DrawingVisual back = new(), axis = new();
     readonly DrawingVisual lines = new() { CacheMode = new BitmapCache { SnapsToDevicePixels = true } };
-    readonly DrawingVisual front = new(), crosshair = new();
+    readonly DrawingVisual range = new(), front = new(), crosshair = new();
     double edge = double.NaN;
+    /// <summary>What a press took hold of: a new range from where it was
+    /// pressed, an edge of the range, or the range by its middle.</summary>
+    enum Grip { New, Edge, Middle }
+
+    /// <summary>A drag under way: what it holds, where it was pressed, on
+    /// the clock and across the chart, and where it has got to. An edge taken
+    /// is dragged from the other, which stays: At is that edge, To the one in
+    /// hand. Live once it has gone far enough to be a drag, not a click, and
+    /// so handed on as it goes; Before, the range picked when it began.</summary>
+    (Grip Hold, double At, double X, double To, bool Live, ClockRange? Before)? dragging;
     LineLayout? layout;
     LineHover? hover;
 
@@ -84,7 +131,8 @@ public sealed class LineChart : Chart
 
     public LineChart()
     {
-        Layers(back, axis, lines, front, crosshair);
+        Layers(back, axis, lines, range, front, crosshair);
+        SetResourceReference(AccentProperty, "AccentBrush");
         SetResourceReference(LiveInkProperty, "LiveBrush");
         SetResourceReference(LeaderInkProperty, "Line3Brush");
         SetResourceReference(DeathInkProperty, "CritBrush");
@@ -107,6 +155,21 @@ public sealed class LineChart : Chart
     /// </summary>
     public double Edge { get => (double)GetValue(EdgeProperty); set => SetValue(EdgeProperty, value); }
 
+    /// <summary>The range picked, on the session clock: lit, and the rest
+    /// of the plot dimmed. Null: none.</summary>
+    public ClockRange? Picked { get => (ClockRange?)GetValue(PickedProperty); set => SetValue(PickedProperty, value); }
+
+    /// <summary>Given the stretch dragged across the plot, a <see cref="RangePick"/>,
+    /// as the drag goes and once more when it is let go.
+    /// Null: the chart cannot be dragged across (a floating panel's).</summary>
+    public ICommand? PickCommand { get => (ICommand?)GetValue(PickCommandProperty); set => SetValue(PickCommandProperty, value); }
+
+    /// <summary>A click outside the range: let it go.</summary>
+    public ICommand? ResetCommand { get => (ICommand?)GetValue(ResetCommandProperty); set => SetValue(ResetCommandProperty, value); }
+
+    /// <summary>A range's edges, and the light inside it.</summary>
+    public Brush Accent { get => Get(AccentProperty); set => SetValue(AccentProperty, value); }
+
     /// <summary>The rule at the right-hand edge while the session is counting.</summary>
     public Brush LiveInk { get => Get(LiveInkProperty); set => SetValue(LiveInkProperty, value); }
     /// <summary>The thin line from a marker to a name that was moved clear of its neighbours.</summary>
@@ -126,6 +189,7 @@ public sealed class LineChart : Chart
             Clear(back);
             Clear(axis);
             Clear(lines);
+            Clear(range);
             Clear(front);
             return;
         }
@@ -154,6 +218,7 @@ public sealed class LineChart : Chart
             {
                 Clear(axis);
                 Clear(lines);
+                Clear(range);
                 Clear(front);
                 using var e = back.RenderOpen();
                 DrawEmpty(e, w, h, "No damage yet");
@@ -164,6 +229,176 @@ public sealed class LineChart : Chart
         }
         DrawAxis(layout);
         DrawLines(layout, m, times);
+        DrawRange(layout);
+    }
+
+    // ------------------------------------------------------------- the range
+
+    /// <summary>The range over the lines: the drag under way, or the range
+    /// picked. Outside it the plot is dimmed in the chart's surface; inside,
+    /// a faint light in the accent between two accent rules. Placed by the
+    /// time axis, so it is drawn whenever the lines are.</summary>
+    void DrawRange(LineLayout l)
+    {
+        using var dc = range.RenderOpen();
+        var (from, to) = dragging is { } d && Dragged(l, d) is { } r ? (r.From, r.To)
+                       : Picked is { } p ? (p.From, p.To) : (double.NaN, double.NaN);
+        if (double.IsNaN(from) || l.Empty) return;
+        var plot = l.Plot;
+        double x0 = Math.Clamp(SnapLine(l.Px(from)), plot.X, plot.Right);
+        double x1 = Math.Clamp(SnapLine(l.Px(to)), plot.X, plot.Right);
+        var outside = Faint(Surface, OutsideStrength, 12);
+        if (x0 > plot.X) dc.DrawRectangle(outside, null, new Rect(plot.X, plot.Y, x0 - plot.X, plot.H));
+        if (x1 < plot.Right) dc.DrawRectangle(outside, null, new Rect(x1, plot.Y, plot.Right - x1, plot.H));
+        if (x1 > x0) dc.DrawRectangle(Faint(Accent, InsideStrength, 13), null, new Rect(x0, plot.Y, x1 - x0, plot.H));
+        var rule = CachedPen(Accent, 14, () => new Pen(Accent, RangeEdge));
+        dc.DrawLine(rule, new Point(x0, plot.Y), new Point(x0, plot.Bottom));
+        dc.DrawLine(rule, new Point(x1, plot.Y), new Point(x1, plot.Bottom));
+    }
+
+    /// <summary>A brush at a strength, kept with the pens (its kind a pen
+    /// kind no pen uses), so a theme change makes it again.</summary>
+    Brush Faint(Brush ink, double strength, int kind) => CachedPen(ink, kind, () =>
+    {
+        var faint = ink.Clone();
+        faint.Opacity *= strength;
+        faint.Freeze();
+        return new Pen(faint, 0);
+    }).Brush;
+
+    /// <summary>A time on the session clock at a point across the plot,
+    /// inside its span, to the tenth of a second.</summary>
+    double TimeAt(LineLayout l, double x)
+    {
+        double t = l.T0 + (x - l.Plot.X) / l.Plot.W * (l.T1 - l.T0);
+        return Math.Clamp(Math.Round(t / 100) * 100, l.T0, l.T1);
+    }
+
+    /// <summary>The range a drag has made so far: from where it was pressed
+    /// to where it is, or, carried by its middle, the range it began with
+    /// moved as far as the pointer has, never past either end of the plot.</summary>
+    static ClockRange? Dragged(LineLayout l, (Grip Hold, double At, double X, double To, bool Live, ClockRange? Before) d)
+    {
+        if (d.Hold != Grip.Middle || d.Before is not { } b) return ClockRange.Of(d.At, d.To);
+        double from = Math.Clamp(b.From + d.To - d.At, l.T0, Math.Max(l.T0, l.T1 - b.Length));
+        return new ClockRange(from, from + b.Length);
+    }
+
+    /// <summary>The range picked, carried by its middle at a point across the
+    /// plot: inside it, clear of its edges, and short of the whole plot,
+    /// which has nowhere to be carried (a press there starts a new range).</summary>
+    bool MiddleAt(LineLayout l, double x) =>
+        Picked is { } p && x > l.Px(p.From) && x < l.Px(p.To) && (p.From > l.T0 || p.To < l.T1);
+
+    /// <summary>The edge of the range picked within reach of a point across
+    /// the plot, the nearer if both are: the edge in hand, and the other.</summary>
+    (double Held, double Other)? EdgeAt(LineLayout l, double x)
+    {
+        if (Picked is not { } p) return null;
+        double from = Math.Abs(l.Px(p.From) - x), to = Math.Abs(l.Px(p.To) - x);
+        if (Math.Min(from, to) > Reach) return null;
+        return to <= from ? (p.To, p.From) : (p.From, p.To);
+    }
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        if (PickCommand == null || layout is not { Empty: false } l) return;
+        var p = e.GetPosition(this);
+        var plot = l.Plot;
+        if (p.X < plot.X || p.X > plot.Right || p.Y < plot.Y || p.Y > plot.Bottom + LineLayout.TickLength) return;
+        double at = TimeAt(l, p.X);
+        // Marked before the capture: capturing raises a move before it returns.
+        dragging = EdgeAt(l, p.X) is { } edge ? (Grip.Edge, edge.Other, p.X, edge.Held, false, Picked)
+                 : MiddleAt(l, p.X) ? (Grip.Middle, at, p.X, at, false, Picked)
+                 : (Grip.New, at, p.X, at, false, Picked);
+        HoverAt(null);
+        if (!CaptureMouse())
+        {
+            dragging = null;
+            return;
+        }
+        e.Handled = true;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        if (dragging is not { } d || layout is not { } l)
+        {
+            // The pointer says what a press would take: an edge, or the range.
+            double px = e.GetPosition(this).X;
+            var cursor = PickCommand == null || layout is not { Empty: false } at ? Cursors.Cross
+                       : EdgeAt(at, px) != null ? Cursors.SizeWE
+                       : MiddleAt(at, px) ? Cursors.SizeAll : Cursors.Cross;
+            if (Cursor != cursor) Cursor = cursor;
+            base.OnMouseMove(e);
+            return;
+        }
+        double x = e.GetPosition(this).X;
+        var to = TimeAt(l, x);
+        bool live = d.Live || Math.Abs(x - d.X) >= DragSlop;
+        if (to == d.To && live == d.Live) return;
+        dragging = d = d with { To = to, Live = live };
+        DrawRange(l);
+        // Handed on as it goes: the section counts it while it moves.
+        if (live && Dragged(l, d) is { Length: > 0 } picked) Pick(picked, settled: false);
+    }
+
+    void Pick(ClockRange range, bool settled)
+    {
+        var pick = new RangePick(range, settled);
+        if (PickCommand is { } command && command.CanExecute(pick)) command.Execute(pick);
+    }
+
+    void Reset()
+    {
+        if (ResetCommand is { } reset && reset.CanExecute(null)) reset.Execute(null);
+    }
+
+    /// <summary>A drag called off: the range it began with, back.</summary>
+    void PutBack(ClockRange? before)
+    {
+        if (before is { } b) Pick(b, settled: true);
+        else Reset();
+    }
+
+    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonUp(e);
+        if (dragging is not { } d) return;
+        dragging = null;
+        // Let go of the capture after the drag is over, so losing it does
+        // not call the drag off.
+        ReleaseMouseCapture();
+        e.Handled = true;
+        double x = e.GetPosition(this).X;
+        var picked = layout is { } held ? Dragged(held, d) : ClockRange.Of(d.At, d.To);
+        bool moved = d.Live || Math.Abs(x - d.X) >= DragSlop;
+        if (moved && picked is { Length: > 0 }) Pick(picked, settled: true);
+        // Dragged back onto itself: nothing picked, the range as it was.
+        else if (moved) PutBack(d.Before);
+        // A click outside the range lets it go; inside it, or on an edge,
+        // it leaves the range as it was.
+        else if (d.Hold == Grip.New && Picked is { } p && !p.Holds(d.At)) Reset();
+        if (layout is { } l) DrawRange(l);
+        HoverAt(e.GetPosition(this));
+    }
+
+    /// <summary>The capture taken away mid-drag (another window, Esc): the
+    /// drag is called off, and the range is as it was before it.</summary>
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        if (dragging is not { } d) return;
+        dragging = null;
+        if (d.Live) PutBack(d.Before);
+        if (layout is { } l) DrawRange(l);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Key.Escape && dragging != null) ReleaseMouseCapture();
     }
 
     /// <summary>The model's grid, with its last time at the edge when the

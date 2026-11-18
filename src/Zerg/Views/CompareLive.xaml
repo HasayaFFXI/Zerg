@@ -1,0 +1,109 @@
+<UserControl x:Class="Zerg.Views.CompareLive"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:v="clr-namespace:Zerg.Views"
+             Focusable="False">
+
+  <!-- The live compare: the Compare section's only card that floats, shown
+       while a side is live (CompareViewModel.Live opens and docks it). The
+       live run's rates so far against the other's final ones, B against A
+       whichever side is live: a header (LIVE, the clock, the party's rate,
+       its change, and the other run's name and rate), then a row per
+       character, shaded in run B's band to their share of the leader's
+       rate, with A's tick where A's final rate would end it.
+
+       A panel's rules: it is dark whatever the theme (Themes/Panel.xaml);
+       nothing in it takes the keyboard; the bars do not ease (Views/Grow);
+       the halo is on what does not move with the clock, each such text
+       its own (PanelWindow puts none on this card's body). The data
+       context is the CompareViewModel. -->
+  <UserControl.Resources>
+    <sys:String x:Key="LiveColumns">1*110,72,66</sys:String>
+
+    <Style x:Key="Still" TargetType="TextBlock">
+      <Setter Property="Effect" Value="{StaticResource PanelHalo}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="LiveFig" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="Padding" Value="4,0,4,0"/>
+      <Setter Property="TextAlignment" Value="Right"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
+    </Style>
+    <!-- A change in its tone: the data context is a Cell. -->
+    <Style x:Key="LiveChange" TargetType="TextBlock" BasedOn="{StaticResource LiveFig}">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Change.Tone}" Value="Better">
+          <Setter Property="Foreground" Value="{DynamicResource LiveBrush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Change.Tone}" Value="Worse">
+          <Setter Property="Foreground" Value="{DynamicResource CritBrush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Change.Tone}" Value="None">
+          <Setter Property="FontWeight" Value="Normal"/>
+          <Setter Property="Foreground" Value="{DynamicResource Text4Brush}"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+  </UserControl.Resources>
+
+  <v:Pane Title="Live compare" v:Shading.Characters="{Binding ShadeCharacters}">
+    <StackPanel Margin="3,0,3,0">
+      <!-- LIVE 4:12.6   Party 742.1 +4.5%   Previous Run 710.3 -->
+      <DockPanel Height="24" Margin="7,0,6,2" LastChildFill="False">
+        <Border CornerRadius="8" BorderThickness="1" Padding="6,0" Height="16" VerticalAlignment="Center"
+                BorderBrush="{DynamicResource LiveBrush}" SnapsToDevicePixels="True">
+          <TextBlock Text="LIVE" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource LiveBrush}"
+                     Style="{StaticResource Still}"/>
+        </Border>
+        <TextBlock Text="{Binding LiveClock}" Style="{StaticResource LiveFig}" Margin="4,0,8,0"/>
+        <TextBlock Text="Party" FontSize="11.5" Foreground="{DynamicResource Text2Brush}" Style="{StaticResource Still}"/>
+        <TextBlock Text="{Binding LiveParty.B}" Style="{StaticResource LiveFig}" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding Change.Main}" DataContext="{Binding LiveParty}" Style="{StaticResource LiveChange}"/>
+        <TextBlock Text="{Binding LiveParty.A}" Style="{StaticResource LiveFig}" DockPanel.Dock="Right"
+                   Foreground="{DynamicResource RunATextBrush}"/>
+        <TextBlock Text="{Binding LiveAgainst}" FontSize="11" DockPanel.Dock="Right" Margin="8,0,0,0"
+                   Foreground="{DynamicResource RunATextBrush}" TextTrimming="CharacterEllipsis" MaxWidth="140"
+                   Style="{StaticResource Still}"/>
+      </DockPanel>
+      <v:Cells Widths="{StaticResource LiveColumns}" Height="{StaticResource HitRowHeight}">
+        <v:Caps Text="CHARACTER" Style="{StaticResource GroupCaps}" HorizontalAlignment="Left" Margin="10,0,4,0"/>
+        <v:Caps Text="{Binding RateWord}" Style="{StaticResource GroupCaps}" HorizontalAlignment="Right" Margin="4,0,4,0"/>
+        <v:Caps Text="&#x394;" Style="{StaticResource GroupCaps}" HorizontalAlignment="Right" Margin="4,0,4,0"/>
+      </v:Cells>
+      <ItemsControl ItemsSource="{Binding LiveRows}" Focusable="False">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Grid Height="{StaticResource HitRowHeight}" Margin="0,0,0,1" Background="Transparent">
+              <Rectangle Style="{StaticResource RowShade}" Fill="{DynamicResource RunBBandBrush}" v:Grow.Share="{Binding Fraction}"/>
+              <Rectangle Width="3" HorizontalAlignment="Left" RadiusX="1.5" RadiusY="1.5" Fill="{Binding Swatch}"
+                         IsHitTestVisible="False"/>
+              <v:TickMark At="{Binding TickA}"/>
+              <v:Cells Widths="{StaticResource LiveColumns}">
+                <DockPanel LastChildFill="False" Margin="10,0,4,0">
+                  <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" Style="{StaticResource Still}"/>
+                  <TextBlock x:Name="Tag" Text="{Binding Tag}" FontSize="9.5" FontWeight="SemiBold" Margin="6,0,0,0"
+                             Foreground="{DynamicResource RunBTextBrush}" Style="{StaticResource Still}"/>
+                </DockPanel>
+                <TextBlock Text="{Binding Rate.B}" Style="{StaticResource LiveFig}" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding Change.Main}" DataContext="{Binding Rate}" Style="{StaticResource LiveChange}"/>
+              </v:Cells>
+            </Grid>
+            <DataTemplate.Triggers>
+              <DataTrigger Binding="{Binding TagA}" Value="True">
+                <Setter TargetName="Tag" Property="Foreground" Value="{DynamicResource RunATextBrush}"/>
+              </DataTrigger>
+              <DataTrigger Binding="{Binding Tag}" Value="">
+                <Setter TargetName="Tag" Property="Visibility" Value="Collapsed"/>
+              </DataTrigger>
+            </DataTemplate.Triggers>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </v:Pane>
+</UserControl>

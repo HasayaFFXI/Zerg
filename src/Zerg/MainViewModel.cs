@@ -48,7 +48,8 @@ public sealed partial class MainViewModel : ObservableObject
     /// drill-downs (a heal one for each of the Heals table's three ways) and the
     /// characters, healers, targets, types and fight isolated in it.</summary>
     sealed record Looking(DrillOn? Drill, DrillOn? HealDrill, DrillOn? PersonDrill, DrillOn? HealedDrill, string[] Characters,
-                          string[] Healers, string[] Targets, string[] Types, Fight? Fight);
+                          string[] Healers, string[] Targets, string[] Types, Fight? Fight,
+                          ClockRange? DamageRange, ClockRange? HealingRange, Session? RangedOf);
 
     /// <summary>
     /// What each parse that is not on screen was left being looked into
@@ -71,7 +72,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDamage), nameof(IsHealing), nameof(IsView), nameof(IsCompare), nameof(ShowsParse),
-                              nameof(FillsPage), nameof(HideNamesTip), nameof(IsSettings))]
+                              nameof(FillsPage), nameof(HideNamesTip), nameof(IsSettings), nameof(ShowsSkillchains))]
     private string section;
 
     public const string DamageSection = "Damage", HealingSection = "Healing", ViewSection = "View", CompareSection = "Compare";
@@ -89,6 +90,17 @@ public sealed partial class MainViewModel : ObservableObject
     /// four, or Compare's. The Settings page, and the View section with
     /// nothing open, are as tall as they are.</summary>
     public bool FillsPage => ShowsParse || IsCompare;
+
+    /// <summary>Include Skillchains is offered: over damage, and in Compare,
+    /// whose runs it counts as the live sections do.</summary>
+    public bool ShowsSkillchains => IsDamage || IsCompare;
+
+    /// <summary>Ctrl+Shift+S: Compare's runs change places. Nothing elsewhere.</summary>
+    [RelayCommand]
+    void SwapRuns()
+    {
+        if (IsCompare && Compare.SwapCommand.CanExecute(null)) Compare.SwapCommand.Execute(null);
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SkillchainsTip))]
@@ -672,7 +684,8 @@ public sealed partial class MainViewModel : ObservableObject
         {
             if (drawn != null)
                 looking[drawn] = new(drill, healDrill, personDrill, healedDrill, [.. CharacterFilter.Picked],
-                                     [.. HealerFilter.Picked], [.. TargetFilter.Picked], [.. TypeFilter.Picked], fight);
+                                     [.. HealerFilter.Picked], [.. TargetFilter.Picked], [.. TypeFilter.Picked], fight,
+                                     DamageRange, HealingRange, rangedOf);
             drawn = Shown;
             looking.Remove(drawn, out var back);
             (drill, healDrill, personDrill, healedDrill) = (back?.Drill, back?.HealDrill, back?.PersonDrill, back?.HealedDrill);
@@ -681,14 +694,16 @@ public sealed partial class MainViewModel : ObservableObject
             TargetFilter.Set(back?.Targets ?? []);
             TypeFilter.Set(back?.Types ?? []);
             fight = back?.Fight;
+            (DamageRange, HealingRange, rangedOf) = (back?.DamageRange, back?.HealingRange, back?.RangedOf);
         }
+        KeepRanges();
         var c = snapshot = Shown.Count(CharacterFilter.Only, Skillchains, now, TargetFilter.Only, TypeFilter.Only, fight,
-                                       HealerFilter.Only);
+                                       HealerFilter.Only, DamageRange, HealingRange);
         if (c.Latched) LogSession("started");
         // A drill-down into an action never used on what is isolated closes,
         // as it does when its character is not among those isolated; one set
         // beside it goes.
-        if (c.Scope.Count > 0 || c.IsolatedTypes.Count > 0 || c.IsolatedCharacters.Count > 0)
+        if (c.Scope.Count > 0 || c.IsolatedTypes.Count > 0 || c.IsolatedCharacters.Count > 0 || DamageRange != null)
             drill = Still(drill, (actor, action) => c.Totals.Actors.Any(a => a.Name == actor && a.Actions.ContainsKey(action)));
         View = SessionView.Of(Shown.Session, Viewing, live.Asking, replay: Viewing && Shown.Replayed);
         DescribeParse();
@@ -735,22 +750,28 @@ public sealed partial class MainViewModel : ObservableObject
     void Tick(double now, bool damage, bool healing)
     {
         var s = Shown.Session;
-        double ms = s.Elapsed(now), secs = ms / 1000;
+        double ms = s.Elapsed(now);
+        // A section with a range picked is over the range's clock, which
+        // time does not move: its figures stand still on the beat.
+        double secs = (DamageRange != null ? snapshot?.Elapsed ?? 0 : ms) / 1000;
+        double healSecs = (HealingRange != null ? snapshot?.HealElapsed ?? 0 : ms) / 1000;
         var agg = snapshot?.Totals;
 
         // The word beside the clock, and the clock's colour. A change only
         // when the session's state changes: on every other beat this is the
         // value it already had, and nothing is told or redrawn.
         Tag = View.Tag;
-        ClockText = SessionText.Stopwatch(s, now);
-        ClockTenths = SessionText.Tenths(s, now);
-        ClockNote = SessionText.ClockNote(s);
+        (ClockLabel, ClockText, ClockTenths, ClockNote) = BandClock(DamageRange, secs * 1000, s, now);
+        (HealClockLabel, HealClockText, HealClockTenths, HealClockNote) = BandClock(HealingRange, healSecs * 1000, s, now);
         bool replay = Viewing && Shown.Replayed;
-        TotalNote = totalShare + SessionText.TotalNote(s, agg is { Actors.Count: > 0 }, Viewing, replay: replay);
+        TotalNote = totalShare + (DamageRange != null ? InRange
+            : SessionText.TotalNote(s, agg is { Actors.Count: > 0 }, Viewing, replay: replay));
         var heals = snapshot?.Healing;
-        HealTotalNote = healTotalShare + SessionText.TotalNote(s, heals is { Actors.Count: > 0 }, Viewing, what: "healing", replay: replay);
-        // In both sections' bands, so on either beat.
-        if (damage || healing) KillsNote = KillRate(secs);
+        HealTotalNote = healTotalShare + (HealingRange != null ? InRange
+            : SessionText.TotalNote(s, heals is { Actors.Count: > 0 }, Viewing, what: "healing", replay: replay));
+        // In both sections' bands, so on either beat: over the range of the
+        // section on screen, if it has one.
+        if (damage || healing) KillsNote = IsHealing ? HealKillRate(healSecs) : KillRate(secs);
 
         if (damage)
         {
@@ -768,9 +789,10 @@ public sealed partial class MainViewModel : ObservableObject
         }
         if (healing)
         {
-            // Healing per second is over the same clock as the damage's.
-            HpsText = Format.Num(Counting.PerSecond(heals?.Total ?? 0, secs) ?? double.NaN, 1);
-            foreach (var row in Healers) row.Hps = Format.Num(Counting.PerSecond(row.Total, secs) ?? double.NaN, 1);
+            // Healing per second is over the session clock, as damage's is,
+            // or over the Healing section's range.
+            HpsText = Format.Num(Counting.PerSecond(heals?.Total ?? 0, healSecs) ?? double.NaN, 1);
+            foreach (var row in Healers) row.Hps = Format.Num(Counting.PerSecond(row.Total, healSecs) ?? double.NaN, 1);
             HealParty.Hps = HpsText;
         }
 

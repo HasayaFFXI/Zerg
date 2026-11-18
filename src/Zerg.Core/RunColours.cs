@@ -81,4 +81,30 @@ public static class RunColours
     public static int Band((byte R, byte G, byte B) colour, (byte R, byte G, byte B) surface,
                            (byte R, byte G, byte B) crit, (byte R, byte G, byte B) live) =>
         RowShade.RunBand(colour, surface, crit, live);
+
+    /// <summary>The contrast a run's figures are written at, at least (see <see cref="Text"/>).</summary>
+    public const double Legible = 7;
+
+    /// <summary>
+    /// A run's colour as text on <paramref name="surface"/>: the colour itself
+    /// if it reads at 7:1 there, else the least step of it towards
+    /// <paramref name="toward"/> (the theme's own ink) that does. Run A's
+    /// figures in Compare are written in it, small, under B's, so a colour
+    /// the player picked too dark (or too pale) for text still leaves them
+    /// legible; 7:1 because they are small (the installed blue on the dark
+    /// surface is lifted to about #7DB2F0).
+    /// </summary>
+    public static (byte R, byte G, byte B) Text((byte R, byte G, byte B) colour, (byte R, byte G, byte B) surface,
+                                                (byte R, byte G, byte B) toward)
+    {
+        for (int step = 0; step <= 20; step++)
+        {
+            double t = step / 20.0;
+            (byte, byte, byte) c = ((byte)Math.Round(colour.R + (toward.R - colour.R) * t),
+                                    (byte)Math.Round(colour.G + (toward.G - colour.G) * t),
+                                    (byte)Math.Round(colour.B + (toward.B - colour.B) * t));
+            if (RowShade.Contrast(c, surface) >= Legible) return c;
+        }
+        return toward;
+    }
 }

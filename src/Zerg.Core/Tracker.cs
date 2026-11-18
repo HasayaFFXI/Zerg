@@ -137,9 +137,54 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
 
     /// <summary>The kills of what is isolated: the fight's and those of
     /// the targets picked, every kill with neither.</summary>
-    public IReadOnlyList<Fight> Killed =>
-        Isolated.Count == 0 && IsolatedFight == null ? Kills.Fights
-        : Kills.Fights.Where(k => Isolated.Contains(k.Target) || k.Through == IsolatedFight?.Through).ToList();
+    public IReadOnlyList<Fight> Killed => KilledOf(Kills);
+
+    /// <summary>The same of the whole session, for the Timelines (<see cref="TimelineKills"/>).</summary>
+    public IReadOnlyList<Fight> TimelineKilled => KilledOf(TimelineKills);
+
+    /// <summary>The same of the Healing section's range (<see cref="HealKills"/>).</summary>
+    public IReadOnlyList<Fight> HealKilled => KilledOf(HealKills);
+
+    IReadOnlyList<Fight> KilledOf(KillTotals kills) =>
+        Isolated.Count == 0 && IsolatedFight == null ? kills.Fights
+        : kills.Fights.Where(k => Isolated.Contains(k.Target) || k.Through == IsolatedFight?.Through).ToList();
+
+    // ------------------------------------------------------------ ranges
+
+    /// <summary>The session clock at this count, whatever range is picked:
+    /// where the Timelines end.</summary>
+    public double Clock { get; init; }
+
+    /// <summary>The Damage section's range as measured (<see cref="ClockRange.Measure"/>):
+    /// null with none picked, or with one no row fell in.</summary>
+    public ClockRange? DamageRange { get; init; }
+
+    /// <summary>The Healing section's range as measured, likewise.</summary>
+    public ClockRange? HealRange { get; init; }
+
+    /// <summary>The healing figures' clock: the Healing section's range's
+    /// length, or the session's with none (<see cref="Elapsed"/> is damage's).</summary>
+    public double HealElapsed { get; init; }
+
+    /// <summary>The rows the damage Timeline is drawn from: <see cref="Events"/>
+    /// with no range cut, so the lines stay whole while a range is picked.</summary>
+    public IReadOnlyList<CombatEvent> Timeline { get; init; } = [];
+
+    /// <summary>The heals the healing Timeline is drawn from: <see cref="Heals"/>
+    /// with no range cut.</summary>
+    public IReadOnlyList<HealEvent> HealTimeline { get; init; } = [];
+
+    /// <summary>The kills and deaths the Timelines mark: <see cref="Kills"/>
+    /// with no range cut.</summary>
+    public KillTotals TimelineKills { get; init; } = KillTotals.None;
+
+    /// <summary>The kills and deaths in the Healing section's range, for its
+    /// band: <see cref="Kills"/> is the Damage section's.</summary>
+    public KillTotals HealKills { get; init; } = KillTotals.None;
+
+    /// <summary><see cref="KillRate"/> over the Healing section's range.</summary>
+    public double? HealKillRate(double seconds) =>
+        IsolatedFight != null && Isolated.Count == 0 ? null : Zerg.Core.Kills.PerHour(HealKilled.Count, seconds);
 
     /// <summary>
     /// Kills an hour of the session clock, of what is isolated. Unlike a
@@ -470,7 +515,46 @@ public sealed class Tracker
     public string? Export(double? now = null)
     {
         if (!CanExport) return null;
-        var ended = Snap(Session.Clone());
+        return Write(Snap(Session.Clone()), now);
+    }
+
+    /// <summary>
+    /// A range picked on a Timeline as the text of an export, with the time
+    /// of day it starts at (for its name), or null when no row the session
+    /// counts falls in it. The range is in the past, so
+    /// it can be saved while the session still runs.
+    ///
+    /// <para>Cut as a replay's range is (<see cref="Replay.Crop"/>): the
+    /// parse starts at the first row the range is measured from
+    /// (<see cref="ClockRange.Measure"/>) and is paused at the last, with
+    /// the session's pauses between them. Everything in that stretch goes
+    /// in, heals and deaths too, whatever is isolated; so its clock is the
+    /// range's, and opened it reads as the range did.</para>
+    /// </summary>
+    public (string Text, double StartedAt)? ExportRange(ClockRange range, bool skillchains, double? now = null)
+    {
+        if (ClockRange.Measure(range, Scoped(skillchains)) is not { } cut) return null;
+        // The rows are kept on the session's clock; their times of day are
+        // the reader's, found by reading its rows on that clock again.
+        double first = double.PositiveInfinity, last = double.NegativeInfinity;
+        foreach (var e in Counting.Filter(Reader.Events, new FilterOptions { Roster = Reader.Roster, Skillchains = skillchains }))
+            if (Session.At(e.T) is double at && cut.Holds(at))
+            {
+                first = Math.Min(first, e.T);
+                last = Math.Max(last, e.T);
+            }
+        if (!double.IsFinite(first)) return null;
+        var crop = new Session
+        {
+            ArmedAt = first, StartedAt = first, PausedAt = last,
+            Spans = [.. Session.Spans.Where(s => s.From >= first && s.From < last)],
+        };
+        return (Write(crop.Snap(last), now), first);
+    }
+
+    /// <summary>An ended session's rows as the text of an export.</summary>
+    string Write(Session ended, double? now)
+    {
         // A kill goes with its killing blow, as it is counted: its death line
         // comes about a second later, often after the end.
         var kills = Kills.Count(Reader, ended).Fights.Select(f => f.Through).ToHashSet();
@@ -501,9 +585,16 @@ public sealed class Tracker
     /// <param name="healers">Characters to isolate healing to, by name: only
     /// their heals and support are counted. The Healing section's own; it
     /// moves no damage figure. Null or empty: everyone.</param>
+    /// <param name="range">The Damage section's range (<see cref="ClockRange"/>):
+    /// only damage, kills, deaths and delay inside it are counted, over its
+    /// own clock. Null: the whole session. The Timeline's rows are not cut.</param>
+    /// <param name="healRange">The Healing section's range: heals and support
+    /// likewise. It moves no damage figure, as <paramref name="range"/> moves
+    /// no healing figure.</param>
     public Snapshot Count(IReadOnlySet<string>? characters, bool skillchains, double? now = null,
                           IReadOnlySet<string>? targets = null, IReadOnlySet<string>? types = null,
-                          Fight? fight = null, IReadOnlySet<string>? healers = null)
+                          Fight? fight = null, IReadOnlySet<string>? healers = null,
+                          ClockRange? range = null, ClockRange? healRange = null)
     {
         var all = Reader.Events;
         var roster = Reader.Roster;
@@ -520,7 +611,14 @@ public sealed class Tracker
 
         // The one call that knows the time of day: it drops what the session
         // does not cover and puts the rest on its clock.
-        var scoped = Scoped(skillchains);
+        var session = Scoped(skillchains);
+
+        // A range picked on a Timeline is measured over every row the
+        // session counts, whoever is isolated, as the session's own zero
+        // is; each section's cuts only its own figures.
+        var cut = range is null ? null : ClockRange.Measure(range, session);
+        var healCut = healRange is null ? null : ClockRange.Measure(healRange, session);
+        var scoped = range is null ? session : ClockRange.Within(session, cut);
 
         // What each character dealt, each target took and each type came
         // to, each before its own filter and after the others': a list goes
@@ -549,8 +647,18 @@ public sealed class Tracker
 
         // The session clock is what every DPS is divided by, read once so the
         // party's figure and each character's cannot differ by a moment.
-        var elapsed = Session.Elapsed(now);
+        // A range has its own: from its first row to its last.
+        var clock = Session.Elapsed(now);
+        var elapsed = range is null ? clock : cut?.Length ?? 0;
+        var healElapsed = healRange is null ? clock : healCut?.Length ?? 0;
         var totals = Counting.Aggregate(shown, elapsed / 1000);
+        // The Timeline's rows: what is shown, but over the whole session.
+        IReadOnlyList<CombatEvent> timeline = shown;
+        if (range is not null)
+        {
+            var wide = Counting.Filter(session, new FilterOptions { Targets = only, Types = onlyTypes, Fight = fight });
+            timeline = who != null ? Counting.Filter(wide, new FilterOptions { Characters = who }) : wide;
+        }
         var byCharacter = who != null ? Counting.Aggregate(everyone, elapsed / 1000) : totals;
 
         // Healing, over the same window, of the healers isolated. Heals are
@@ -558,25 +666,30 @@ public sealed class Tracker
         // none of them can start the clock: only a counted hit does that, and
         // a cure cast before the first swing falls before the zero.
         var healWho = Targets.Only(healers);
-        var healScoped = HealScoped();
+        var healSession = HealScoped();
+        var healScoped = healRange is null ? healSession : ClockRange.Within(healSession, healCut);
         var healShown = Healing.Filter(healScoped, new FilterOptions { Characters = healWho });
         var healing = Healing.Totals(healShown);
         var byHealer = healWho != null ? Healing.Totals(healScoped) : healing;
+        var healTimeline = healRange is null ? healShown
+            : Healing.Filter(healSession, new FilterOptions { Characters = healWho });
         // Support likewise: kept apart from the damage rows, so a Protect
         // before the pull neither starts the clock nor is counted, since it
         // falls before the zero.
+        List<CombatEvent> HealRanged(List<CombatEvent> rows) => healRange is null ? rows : ClockRange.Within(rows, healCut);
         var support = Zerg.Core.Support.Totals(
-            Zerg.Core.Support.Filter(SupportScoped(supportKept), new FilterOptions { Characters = healWho }));
+            Zerg.Core.Support.Filter(HealRanged(SupportScoped(supportKept)), new FilterOptions { Characters = healWho }));
         // And enfeebles: a Sleepga before the pull is as far outside the
         // session as that Protect.
         var enfeebles = Zerg.Core.Support.Totals(
-            Zerg.Core.Support.Filter(SupportScoped(enfeeblesKept), new FilterOptions { Characters = healWho }));
+            Zerg.Core.Support.Filter(HealRanged(SupportScoped(enfeeblesKept)), new FilterOptions { Characters = healWho }));
 
-        var (kills, everyonesKills) = KillsNow(who, skillchains);
+        var (wholeKills, everyonesKills) = KillsNow(who, skillchains);
+        var kills = wholeKills.Within(cut, whole: range is null);
 
         // Delay: each character's own, of the targets, fight and types
-        // isolated, whoever else is isolated.
-        var delays = DelaysNow();
+        // isolated, whoever else is isolated; of the samples in the range.
+        var delays = range is null ? DelaysNow() : DelaysNow().Within(Session, cut);
         foreach (var a in byCharacter.Actors) a.Delay = delays.Mean(a.Name, only, onlyTypes, fight);
         if (who != null)
             foreach (var a in totals.Actors) a.Delay = delays.Mean(a.Name, only, onlyTypes, fight);
@@ -600,7 +713,15 @@ public sealed class Tracker
             // The fight as this count has it: its damage follows who counts.
             IsolatedFight = fight is null ? null : kills.Fights.FirstOrDefault(f => f.Through == fight.Through) ?? fight,
             Kills = kills,
-            Died = everyonesKills.Deaths,
+            Died = everyonesKills.Within(cut, whole: range is null).Deaths,
+            Clock = clock,
+            DamageRange = cut,
+            HealRange = healCut,
+            HealElapsed = healElapsed,
+            Timeline = timeline,
+            HealTimeline = healTimeline,
+            TimelineKills = wholeKills,
+            HealKills = wholeKills.Within(healCut, whole: healRange is null),
         };
     }
 

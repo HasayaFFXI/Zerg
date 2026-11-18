@@ -62,6 +62,15 @@ public sealed record KillTotals(IReadOnlyList<Fight> Fights, IReadOnlyList<Party
 
     /// <summary>How many times one of the party died.</summary>
     public int DeathsOf(string name) => Deaths.Count(d => d.Name == name);
+
+    /// <summary>The kills whose killing blow, and the deaths whose time, are
+    /// inside a range of the session clock (<see cref="ClockRange"/>); all of
+    /// them with no range, none with a range nothing fell in.</summary>
+    public KillTotals Within(ClockRange? measured, bool whole) =>
+        whole ? this
+        : measured is null ? None
+        : new KillTotals(Fights.Where(f => measured.Holds(f.At)).ToList(),
+                         Deaths.Where(d => measured.Holds(d.At)).ToList());
 }
 
 /// <summary>

@@ -36,6 +36,27 @@ public static partial class SplitTree
         _ => null,
     };
 
+    /// <summary>The panes stacked over and under a pane in its column, in
+    /// reading order, itself left out: every pane of the highest split above
+    /// it that it reaches through splits one over the other alone. Empty
+    /// for a pane the tree has not got, or one beside others only.</summary>
+    public static IReadOnlyList<string> Stacked(SplitNode tree, string key)
+    {
+        if (PathTo(tree, key) is not { } path) return [];
+        string column = path;
+        while (column.Length > 0 && At(tree, column[..^1]) is { Way: SplitWay.Rows }) column = column[..^1];
+        var node = column.Length == 0 ? tree : column.Length == path.Length ? null : NodeAt(tree, column);
+        return node is null ? [] : [.. Keys(node).Where(k => k != key)];
+
+        static SplitNode? NodeAt(SplitNode tree, string path)
+        {
+            var node = tree;
+            foreach (char step in path)
+                node = node is PaneSplit split ? step == '0' ? split.First : split.Second : null!;
+            return node;
+        }
+    }
+
     /// <summary>Every node replaced by what <paramref name="change"/> makes
     /// of it, from the leaves up; a node it returns null for is taken out,
     /// and the split it was a half of becomes its other half.</summary>

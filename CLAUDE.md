@@ -166,6 +166,7 @@ src/Zerg.Core/          net10.0, no UI: everything testable
   Counting, Totals, Healing            filter, credit, aggregate; the Party line
   Targets, DamageTypes                 isolating targets and damage types
   Compare, CompareSheet                A/B runs, and everything Compare prints
+                                       (Change, Cell, CompareLine, Deltas, the Battle Log)
   Tracker                              the live session (or an opened parse: Tracker.Of);
                                        Count() is the whole pipeline in one call
   ParseFile                            .zerg export / import
@@ -173,17 +174,22 @@ src/Zerg.Core/          net10.0, no UI: everything testable
   Format                               numbers and clocks: one rounding rule, US grouping
   LenientJson                          settings.json read so one bad value costs only itself
   Charts/                              where a chart puts things, no drawing
+                                       (GapLayout: Compare's Gap view)
   Layout/                              SplitTree (panes' arrangement, pure functions),
                                        PaneDrops, Columns (table columns), PanelFit
   RowShade, RunColours, Hsv, Cast, Shades, LowMark, RowMarks   colour and mark rules
   SessionView, PanelOpacities, DrawRate, KeyChord
+  ClockRange                           a range picked on a Timeline, and its clock
 src/Zerg/               net10.0-windows WPF exe
   App.xaml(.cs)         fonts, measures, type styles; startup, single instance, crash dialog
   MainWindow            title bar, command bar, bands, the page, status line; tray, hot key
-  MainViewModel(.Damage/.Healing/.Layout/.Parse/.Settings/.Pairs/.Replay)   one partial per concern
+  MainViewModel(.Damage/.Healing/.Layout/.Parse/.Settings/.Pairs/.Replay/.Timeline)   one partial per concern
                         (.Pairs: a drill-down's second action, B, set beside it;
-                        .Replay: an event file read into a View tab, cropped)
-  CompareViewModel      the Compare section
+                        .Replay: an event file read into a View tab, cropped;
+                        .Timeline: each section's range picked on its Timeline)
+  CompareViewModel(.Tables)   the Compare section: its runs and switches;
+                        (.Tables) every pane's rows, the drill-down, the live panel
+  CompareRows           CompareRow, DeltaRow, LiveRow, BandItem: what Compare's rows bind to
   PickFilter            target / type / character filters and their tables
   PairPick              what one side of a pair is set to (Views/PairPicker draws it)
   ReplayRange, ReplayMenu   a replay tab's range (Views/RangeBand, Charts/RangeStrip);
@@ -191,8 +197,10 @@ src/Zerg/               net10.0-windows WPF exe
   Rows, DrillView, ViewedParse, Panels, PanelWindow, TrayMenu, EventFeed, Settings,
   AppTheme, Inks, Debouncer, Log
   Views/                one UserControl per card, plus the panels Zerg lays out with
-                        (Pane, SplitPanel, PageStack, FigureBand, TabStrip, ...)
-  Charts/               chart elements that only paint
+                        (Pane, SplitPanel, PageStack, FigureBand, TabStrip, ...);
+                        CompareSection (runs band, figures), ComparePanes (its seven panes),
+                        CompareLive (the live panel), CompareMarks (DeltaCell, DeltaBar, TickMark)
+  Charts/               chart elements that only paint (GapChart: Compare's Gap view)
   Themes/               Dark.xaml, Light.xaml (tokens), Panel.xaml, Controls.xaml (every control's look)
   Native/               Win32: TaskDialog, WindowPlacement, Overlay, SingleInstance,
                         FileAssociation, HotKey, TrayIcon, Metronome, WindowFrame, InFront
@@ -271,6 +279,18 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   (the shedding style goes on it); each table's order is a `ColumnSort`
   (saved in `settings.sorts`), rows listed through `Zerg.Core/TableOrder`'s
   `Ordering`; a press redraws from the last count, never counts.
+- **Timeline ranges.** The cumulative charts are the Timelines (keys `line`,
+  `hline`). A drag across one (`LineChart.PickCommand`) picks a `ClockRange`,
+  the Damage section's (`MainViewModel.DamageRange`) or the Healing
+  section's (`HealingRange`): `Tracker.Count` cuts that section's figures to
+  it and gives the uncut rows for the Timeline (`Snapshot.Timeline`,
+  `HealTimeline`, `TimelineKills`). It is handed on as it is dragged
+  (`RangePick`, not `Settled`: `RecountSoon`), settled when let go. An
+  edge is dragged alone, the range carried by its middle; a click
+  outside the range raises `LineChart.ResetCommand` (Reset range). Export
+  range is `Tracker.ExportRange` (cut as `Replay.Crop` cuts). Kept per
+  parse in `Looking`, dropped when the session changes (`KeepRanges`).
+  Never saved. `RULES.md`, "A range on the Timeline".
 - **Filters.** Target, Type and Character (`PickFilter`) cut together;
   each list shows what the others leave. Characters are isolated by the
   Overview's tick boxes (`ActorRow.Ticked`, which set the character and
@@ -292,15 +312,27 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   rules in `Zerg.Core/OverviewTicks` (`MainViewModel.SetPairs`).
   Floating, it is the characters' strip either way.
 - **Compare.** `CompareViewModel` over a `CompareSheet`; redraws only on a
-  change and only while on screen. A pair the player made (A's action
-  against another of B's) is a `CrossPair`, a row before its row's actions.
+  change and only while on screen (a live side is counted again each
+  second). `RULES.md`, "Compare", has its rules. The section is the runs
+  band and figures (`Views/CompareSection`) over seven panes in a
+  `SplitPanel` (`Views/ComparePanes`, keys `cbars`, `cactions`,
+  `cdeltas`, `cpace`, `cfights`, `cfilters`, `cdrill`; older keys are read
+  as these by `SplitTree.Repair`). A compared cell is a `Views/DeltaCell`
+  over a `Core.Cell` (B's figure, the change in its `ChangeTone`, A's
+  figure under it while `ShowA`); a row's band is run B's, A's figure a
+  `TickMark`. Runs are named by `RunSide.Called` everywhere (the
+  inherited `DeltaCell.NameA`/`NameB` for hover cards). A pair the player
+  made (any action against any other) is a `CrossPair`, pinned atop
+  Actions. The live panel (`PanelSet.CompareLive`, `Views/CompareLive`) is
+  the only Compare card that floats; its run brushes are made for the
+  dark panel (`AppTheme.PanelRuns`).
 - **Pairs in the drill-down.** A drill-down is a `DrillOn`: an action, and
   while two are side by side the other (B). `CompareSheet.Sides` gives the
   figures, `Compare.Shared` the bins, the same as Compare's. Run colours are settings; `AppTheme` makes
   six frozen brushes from them, swapped in one step.
 - **Charts.** `Zerg.Core/Charts` decides where everything goes; `src/Zerg/Charts`
   paints. Give a chart a new immutable model per draw; rebuild models on
-  `AppTheme.Changed`. The cumulative chart is five layers; the value axis and
+  `AppTheme.Changed`. The cumulative chart (the Timeline) is six layers; the value axis and
   line ends stand between counts, so anything they depend on must join the
   list in `LineChart.Paint`. To UI Automation a chart is one image with a
   one-line summary.

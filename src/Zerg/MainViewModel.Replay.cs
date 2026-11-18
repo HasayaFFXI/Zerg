@@ -66,6 +66,15 @@ public sealed partial class MainViewModel
             Section = ViewSection;
     }
 
+    /// <summary>Replays an event file for Compare: in a View tab of its own,
+    /// as Replay does, without leaving the section on screen. The tab, once
+    /// read; null if the file was refused.</summary>
+    internal async Task<ViewedParse?> ReplayQuietly(string path)
+    {
+        await Read(() => ParseDialog.Read(path));
+        return Parses.FirstOrDefault(p => p.IsFile(path));
+    }
+
     /// <summary>
     /// Reads an event file into a tab of its own. The tab opens at once and
     /// shows how far the read has got; the file is read off the UI thread,

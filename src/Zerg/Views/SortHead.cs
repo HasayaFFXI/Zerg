@@ -1,9 +1,11 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using Zerg.Core;
@@ -30,6 +32,13 @@ namespace Zerg.Views;
 ///
 /// <para>It takes the keyboard, as a button does (Enter or Space), except
 /// in a floating panel, which never does; a click there still orders.</para>
+///
+/// <para>A heading of Compare's compared figures (<see cref="Change"/>) has a
+/// second order: by the change, B − A, rather than by B's figure. A small Δ at
+/// the heading's right end says so and is pressed for it (as is the heading
+/// with Shift held, or Shift+Enter); the column's key is then the column's own
+/// with ".delta" after it. The Δ stands in the heading's right padding, which
+/// such a heading keeps for it.</para>
 /// </summary>
 public sealed class SortHead : Decorator
 {
@@ -44,6 +53,13 @@ public sealed class SortHead : Decorator
     public static readonly DependencyProperty ColumnProperty = DependencyProperty.Register(nameof(Column), typeof(string),
         typeof(SortHead), new FrameworkPropertyMetadata("", FrameworkPropertyMetadataOptions.AffectsRender));
 
+    /// <summary>A compared figure: it can also be ordered by its change, under the key <c>Column + ".delta"</c>.</summary>
+    public static readonly DependencyProperty ChangeProperty = DependencyProperty.Register(nameof(Change), typeof(bool),
+        typeof(SortHead), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>What a column ordered by its change is called.</summary>
+    public const string DeltaSuffix = ".delta";
+
     /// <summary>A column of words, which goes A to Z first.</summary>
     public static readonly DependencyProperty WordsProperty = DependencyProperty.Register(nameof(Words), typeof(bool),
         typeof(SortHead), new FrameworkPropertyMetadata(false));
@@ -56,11 +72,18 @@ public sealed class SortHead : Decorator
     /// <summary>The caret's ink and the heading's under the pointer: the theme's, kept as resource references.</summary>
     static readonly DependencyProperty CaretBrushProperty = DependencyProperty.Register("CaretBrush", typeof(Brush),
         typeof(SortHead), new FrameworkPropertyMetadata(Brushes.Gray, FrameworkPropertyMetadataOptions.AffectsRender));
+    static readonly DependencyProperty AccentBrushProperty = DependencyProperty.Register("AccentBrush", typeof(Brush),
+        typeof(SortHead), new FrameworkPropertyMetadata(Brushes.Orange, FrameworkPropertyMetadataOptions.AffectsRender));
+    static readonly DependencyProperty QuietBrushProperty = DependencyProperty.Register("QuietBrush", typeof(Brush),
+        typeof(SortHead), new FrameworkPropertyMetadata(Brushes.Gray, FrameworkPropertyMetadataOptions.AffectsRender));
     static readonly DependencyProperty HoverBrushProperty = DependencyProperty.Register("HoverBrush", typeof(Brush),
         typeof(SortHead), new FrameworkPropertyMetadata(Brushes.Transparent, FrameworkPropertyMetadataOptions.AffectsRender));
 
     /// <summary>The caret: this wide and half as tall, and this far from the words.</summary>
     const double CaretWidth = 7, Gap = 3;
+
+    /// <summary>The Δ's box: this wide, and this far in from the heading's right end.</summary>
+    const double DeltaWide = 14, DeltaInset = 4;
 
     static SortHead()
     {
@@ -74,14 +97,20 @@ public sealed class SortHead : Decorator
         SetBinding(ByProperty, new Binding { Path = new PropertyPath("(0).By", SortProperty), RelativeSource = RelativeSource.Self });
         SetResourceReference(CaretBrushProperty, "Text1Brush");
         SetResourceReference(HoverBrushProperty, "RowHoverBrush");
+        SetResourceReference(AccentBrushProperty, "AccentBrush");
+        SetResourceReference(QuietBrushProperty, "Text4Brush");
         SetResourceReference(FocusVisualStyleProperty, "ZFocusInset");
     }
 
     public string Column { get => (string)GetValue(ColumnProperty); set => SetValue(ColumnProperty, value); }
     public bool Words { get => (bool)GetValue(WordsProperty); set => SetValue(WordsProperty, value); }
+    public bool Change { get => (bool)GetValue(ChangeProperty); set => SetValue(ChangeProperty, value); }
 
     /// <summary>Which way this column orders the table now; null while it does not.</summary>
-    bool? Way => GetValue(ByProperty) is TableOrder by && by.Column == Column ? by.Descending : null;
+    bool? Way => GetValue(ByProperty) is TableOrder by && (by.Column == Column || ByChange) ? by.Descending : null;
+
+    /// <summary>The table is ordered by this column's change.</summary>
+    bool ByChange => Change && GetValue(ByProperty) is TableOrder by && by.Column == Column + DeltaSuffix;
 
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
@@ -89,7 +118,12 @@ public sealed class SortHead : Decorator
         if (e.Property == Float.OnProperty) Focusable = !(bool)e.NewValue;
     }
 
-    void Press() => GetSort(this)?.Press(Column, Words);
+    void Press() => Press(false);
+
+    void Press(bool change) => GetSort(this)?.Press(change && Change ? Column + DeltaSuffix : Column, Words && !change);
+
+    /// <summary>Where the Δ is drawn, and pressed.</summary>
+    Rect DeltaBox => new(Math.Max(0, RenderSize.Width - DeltaInset - DeltaWide), 0, DeltaWide, RenderSize.Height);
 
     // ---------------------------------------------------------------- input
 
@@ -108,7 +142,8 @@ public sealed class SortHead : Decorator
         if (!pressed) return;
         pressed = false;
         e.Handled = true;
-        Press();
+        bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+        Press(Change && (shift || DeltaBox.Contains(e.GetPosition(this))));
     }
 
     protected override void OnMouseEnter(MouseEventArgs e)
@@ -129,7 +164,7 @@ public sealed class SortHead : Decorator
         if (e.Key is Key.Enter or Key.Space)
         {
             e.Handled = true;
-            Press();
+            Press((Keyboard.Modifiers & ModifierKeys.Shift) != 0);
             return;
         }
         base.OnKeyDown(e);
@@ -141,6 +176,7 @@ public sealed class SortHead : Decorator
     {
         // Ink over the whole heading, so all of it can be pressed.
         dc.DrawRectangle(IsMouseOver ? (Brush)GetValue(HoverBrushProperty) : Brushes.Transparent, null, new Rect(RenderSize));
+        if (Change) DrawDelta(dc);
         if (Way is not bool descending || Child is not FrameworkElement words) return;
 
         // Where the words are: a TextBlock is as wide as its words and its
@@ -165,6 +201,26 @@ public sealed class SortHead : Decorator
         dc.DrawGeometry((Brush)GetValue(CaretBrushProperty), null, caret);
     }
 
+    /// <summary>The Δ: quiet, or in the accent on a tint of it while the table is ordered by the change.</summary>
+    void DrawDelta(DrawingContext dc)
+    {
+        var box = DeltaBox;
+        if (box.Width <= 0) return;
+        bool on = ByChange;
+        var ink = (Brush)GetValue(on ? AccentBrushProperty : QuietBrushProperty);
+        double mid = RenderSize.Height / 2;
+        if (on && ink is SolidColorBrush accent)
+        {
+            var tint = new SolidColorBrush(Color.FromArgb(36, accent.Color.R, accent.Color.G, accent.Color.B));
+            tint.Freeze();
+            dc.DrawRoundedRectangle(tint, null, new Rect(box.X, mid - 8, box.Width, 16), 3, 3);
+        }
+        var text = new FormattedText("Δ", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                                     new Typeface(TextElement.GetFontFamily(this), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+                                     10.5, ink, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        dc.DrawText(text, new Point(box.X + (box.Width - text.Width) / 2, mid - text.Height / 2));
+    }
+
     // ------------------------------------------------------- UI Automation
 
     /// <summary>A reader that is listening hears that the order changed.</summary>
@@ -177,8 +233,8 @@ public sealed class SortHead : Decorator
     /// <summary>What a reader is told of the order: "sorted, largest first", or "".</summary>
     string Status => Way switch
     {
-        true => Words ? "sorted, Z to A" : "sorted, largest first",
-        false => Words ? "sorted, A to Z" : "sorted, smallest first",
+        true => ByChange ? "sorted by change, largest first" : Words ? "sorted, Z to A" : "sorted, largest first",
+        false => ByChange ? "sorted by change, smallest first" : Words ? "sorted, A to Z" : "sorted, smallest first",
         null => "",
     };
 

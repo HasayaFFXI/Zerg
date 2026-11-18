@@ -123,7 +123,7 @@ public partial class SplitPanel : Panel
 
     /// <summary>On a child and everything in it: what the pane is called
     /// wherever a name that does not change is wanted (a rule's name, the
-    /// fold mark's, "Cumulative damage is being moved"). A drill-down's
+    /// fold mark's, "Timeline is being moved"). A drill-down's
     /// heading reads the action it is open on; its name is "Drill-down".
     /// Without one, the title of the <see cref="Pane"/> the child is.</summary>
     public static readonly DependencyProperty TitleProperty = DependencyProperty.RegisterAttached("Title", typeof(string),

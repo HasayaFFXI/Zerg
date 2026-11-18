@@ -60,13 +60,30 @@ public class SplitEditsTests
     // ------------------------------------------------------------- finding
 
     [Fact]
+    public void Stacked_gives_the_panes_over_and_under_a_pane_in_its_column()
+    {
+        var c = PaneLayouts.Compare;
+        Assert.Equal([PaneLayouts.CompareDeltas, PaneLayouts.ComparePace, PaneLayouts.CompareFights, PaneLayouts.CompareFilters],
+                     SplitTree.Stacked(c, PaneLayouts.CompareDrill));
+        Assert.Equal([PaneLayouts.CompareActions], SplitTree.Stacked(c, PaneLayouts.CompareBars));
+
+        // Beside another only, in a column of its own, or not there at all: none.
+        var pair = Columns(0.5, Pane("a"), Rows(0.5, Pane("b"), Columns(0.5, Pane("c"), Pane("d"))));
+        Assert.Empty(SplitTree.Stacked(pair, "a"));
+        Assert.Empty(SplitTree.Stacked(pair, "c"));
+        Assert.Equal(["c", "d"], SplitTree.Stacked(pair, "b"));
+        Assert.Empty(SplitTree.Stacked(pair, "e"));
+        Assert.Empty(SplitTree.Stacked(Pane("a"), "a"));
+    }
+
+    [Fact]
     public void A_pane_is_found_by_its_key_and_by_its_path()
     {
         Assert.Equal(Pane("line"), SplitTree.Leaf(Four, "line"));
         Assert.Null(SplitTree.Leaf(Four, "hline"));
         Assert.Equal("00", SplitTree.PathTo(Four, "bars"));
         Assert.Equal("11", SplitTree.PathTo(Four, "drill"));
-        Assert.Equal("111", SplitTree.PathTo(PaneLayouts.Compare, "ctargets"));
+        Assert.Equal("111", SplitTree.PathTo(Trees.OldCompare, "ctargets"));
         Assert.Equal("", SplitTree.PathTo(Pane("only"), "only"));
         Assert.Null(SplitTree.PathTo(Four, "nobody"));
     }
@@ -338,7 +355,7 @@ public class SplitEditsTests
     [InlineData("cpace", PaneSide.Above, null)]
     public void And_so_it_is_in_Compares_three_in_a_column(string key, PaneSide side, string? neighbour)
     {
-        Assert.Equal(neighbour, SplitTree.Neighbour(PaneLayouts.Compare, key, side));
+        Assert.Equal(neighbour, SplitTree.Neighbour(Trees.OldCompare, key, side));
     }
 
     [Fact]
@@ -658,7 +675,7 @@ public class SplitEditsTests
     [Fact]
     public void A_tree_is_written_as_shares_of_the_room()
     {
-        var tree = SplitTree.Fold(PaneLayouts.Compare, "ckinds", true);
+        var tree = SplitTree.Fold(Trees.OldCompare, "ckinds", true);
 
         Assert.Equal(
             """{"split":"columns","share":0.653,"first":{"pane":"cactors"},"second":{"split":"rows","share":0.3136,"first":""" +

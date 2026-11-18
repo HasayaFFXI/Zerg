@@ -98,4 +98,88 @@ public static class Tables
         new("hitRate", "Hit %"),
         new("end", "", Fixed: true),
     ]);
+
+    // ------------------------------------------------------------- Compare
+
+    /// <summary>Compare's Overview: the same columns as the Damage section's
+    /// (<see cref="CharacterColumns.Table"/>), its own key, and fewer shown
+    /// as installed: Damage %, Ranged, Skillchain, Pet and all but the
+    /// weaponskills' average are in the Columns menu.</summary>
+    public static ColumnTable CompareBars { get; } = new("cbars", CharacterColumns.Table.All,
+        new Dictionary<string, string>
+        {
+            [CharacterColumns.Ranged] = "Ranged",
+            [CharacterColumns.Weaponskill] = "Weaponskill",
+            [CharacterColumns.Skillchain] = "Skillchain",
+            [CharacterColumns.Pet] = "Pet",
+        },
+        ["share", "rangedAccuracy", "rangedCrit", "wsDamage", "wsShare", "wsAccuracy", "scDamage", "scShare",
+         "petDamage", "petAccuracy"]);
+
+    /// <summary>The columns of Compare's Overview that go first when it is
+    /// narrow, in the order they go.</summary>
+    public static IReadOnlyList<string> CompareShed { get; } = ["crit", "delay", "wsAvg", "accuracy", "deaths", "job"];
+
+    /// <summary>Compare's Healing by character.</summary>
+    public static ColumnTable CompareHealers { get; } = new("chbars",
+    [
+        new("name", "Character", Fixed: true),
+        new("job", "Job"),
+        new("healing", "Healing"),
+        new("share", "Healing %"),
+        new("hps", "HPS"),
+        new("casts", "Casts"),
+        new("avg", "Avg / cast"),
+        new("deaths", "Deaths"),
+    ]);
+
+    /// <summary>Compare's Actions.</summary>
+    public static ColumnTable CompareActions { get; } = new("cactions",
+    [
+        new("name", "Action", Fixed: true),
+        new("hits", "Hits"),
+        new("accuracy", "Acc"),
+        new("total", "Total"),
+        new("avg", "Avg"),
+        new("max", "Max"),
+        new("share", "Share"),
+        new("end", "", Fixed: true),
+    ]);
+
+    /// <summary>Compare's Heals.</summary>
+    public static ColumnTable CompareHeals { get; } = new("cheals",
+    [
+        new("name", "Heal", Fixed: true),
+        new("casts", "Casts"),
+        new("total", "Total"),
+        new("avg", "Avg"),
+        new("max", "Max"),
+        new("share", "Share"),
+        new("end", "", Fixed: true),
+    ]);
+
+    /// <summary>Compare's Battle Log: a line per kind of monster.</summary>
+    public static ColumnTable CompareFights { get; } = new("cfights",
+    [
+        new("name", "Monster", Fixed: true),
+        new("kills", "Kills"),
+        new("dps", "DPS"),
+        new("killTime", "Kill time"),
+    ]);
+
+    /// <summary>Compare's Filters, By target.</summary>
+    public static ColumnTable CompareTargets { get; } = new("cfilterTargets",
+    [
+        new("name", "Target", Fixed: true),
+        new("damage", "Damage"),
+        new("share", "Share"),
+    ]);
+
+    /// <summary>Compare's Filters, By damage type.</summary>
+    public static ColumnTable CompareTypes { get; } = new("cfilterTypes",
+    [
+        new("name", "Type", Fixed: true),
+        new("damage", "Damage"),
+        new("share", "Share"),
+    ]);
 }

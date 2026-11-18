@@ -25,7 +25,7 @@ public sealed partial class TableColumns : ObservableObject
         Table = table;
         this.settings = settings;
         settings.Columns.TryGetValue(table.Key, out var kept);
-        layout = table.Lay(kept?.Order, kept?.Hidden);
+        layout = kept is null ? table.Default : table.Lay(kept.Order, kept.Hidden);
     }
 
     public ColumnTable Table { get; }

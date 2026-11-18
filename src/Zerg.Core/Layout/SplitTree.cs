@@ -387,6 +387,11 @@ public static partial class PaneLayouts
     {
         ["types"] = Filters,
         ["targets"] = Filters,
+        // Compare's before its redesign (2026-11-17): the characters are
+        // Overview, By damage type and By target are Filters.
+        ["cactors"] = "cbars",
+        ["ckinds"] = "cfilters",
+        ["ctargets"] = "cfilters",
     };
     /// <summary>The Healing section's four, each the twin of a Damage pane.</summary>
     public const string HealBars = "hbars", HealActions = "hactions", HealLine = "hline", HealDrill = "hdrill";
@@ -437,21 +442,28 @@ public static partial class PaneLayouts
             new PaneSplit(SplitWay.Rows, 0.42, new PaneLeaf(HealSupport),
                 new PaneSplit(SplitWay.Rows, 0.5, new PaneLeaf(HealLine), new PaneLeaf(HealDrill))));
 
-    /// <summary>The Compare section's four: who (by character or by job;
-    /// comparing healing, by healer), both runs on one clock, what kind (by
-    /// damage type; by heal), and at whom (by target). None can float.</summary>
-    public const string CompareActors = "cactors", ComparePace = "cpace", CompareKinds = "ckinds",
-                        CompareTargets = "ctargets";
+    /// <summary>The Compare section's seven, each serving its Damage and its
+    /// Healing mode: Overview (Healing by character), Actions (Heals),
+    /// Deltas, the cumulative chart, the Battle Log, Filters and the
+    /// drill-down. None floats: a live run has a panel of its own.</summary>
+    public const string CompareBars = "cbars", CompareActions = "cactions", CompareDeltas = "cdeltas",
+                        ComparePace = "cpace", CompareFights = "cfights", CompareFilters = "cfilters",
+                        CompareDrill = "cdrill";
 
     /// <summary>
-    /// Compare, as sheet 03 draws it under its bands, in a body 1440 by
-    /// 728: the table of characters alone in a column 940 wide; in the 499
-    /// that are left, the chart 228 tall, then By damage type 306 tall over
-    /// By target. One arrangement serves its Damage and its Healing mode.
+    /// Compare, as the owner's round-three mockup draws it in 1600 by 950:
+    /// Overview over Actions in a column 64% wide; beside them Deltas,
+    /// the cumulative chart and the Battle Log, with Filters and the
+    /// drill-down folded under them. Opening a drill-down folds Deltas and
+    /// the chart (opened from Deltas, the panes stacked with it but Deltas),
+    /// and closing it gives them back.
     /// </summary>
     public static SplitNode Compare { get; } =
-        new PaneSplit(SplitWay.Columns, 0.653,
-            new PaneLeaf(CompareActors),
-            new PaneSplit(SplitWay.Rows, 0.3136, new PaneLeaf(ComparePace),
-                new PaneSplit(SplitWay.Rows, 0.6145, new PaneLeaf(CompareKinds), new PaneLeaf(CompareTargets))));
+        new PaneSplit(SplitWay.Columns, 0.64,
+            new PaneSplit(SplitWay.Rows, 0.38, new PaneLeaf(CompareBars), new PaneLeaf(CompareActions)),
+            new PaneSplit(SplitWay.Rows, 0.44, new PaneLeaf(CompareDeltas),
+                new PaneSplit(SplitWay.Rows, 0.375, new PaneLeaf(ComparePace),
+                    new PaneSplit(SplitWay.Rows, 0.771, new PaneLeaf(CompareFights),
+                        new PaneSplit(SplitWay.Rows, 0.5, new PaneLeaf(CompareFilters, Folded: true),
+                            new PaneLeaf(CompareDrill, Folded: true))))));
 }

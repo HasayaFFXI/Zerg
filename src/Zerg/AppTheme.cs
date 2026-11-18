@@ -151,6 +151,10 @@ static class AppTheme
     //   RunABandBrush, RunBBandBrush  the same colour at the strength a band
     //                                 behind a row may have (RunColours.Band)
     //   RunAInkBrush, RunBInkBrush    the letter on the run's badge
+    //   RunATextBrush, RunBTextBrush  the colour as text on the pane: a run's
+    //                                 figures, lifted towards the ink until
+    //                                 they read (RunColours.Text)
+    //   RunATagBrush, RunBTagBrush    the colour at 14%: an "A only" tag's fill
     //
     // They are not in the theme files, which hold only the installed
     // colours (the Colors RunA and RunB): they are made here, frozen, and
@@ -207,7 +211,7 @@ static class AppTheme
         // The pale ink a badge's letter may take: the dark theme's own text
         // colour; white under the light theme, whose text is near-black.
         var next = RunBrushes(Run(true), Run(false), Token("Bg1", IsDark), Token("Crit", IsDark), Token("Live", IsDark),
-                              IsDark ? Token("Text1", true) : Colors.White);
+                              IsDark ? Token("Text1", true) : Colors.White, Token("Text1", IsDark));
         var merged = Application.Current.Resources.MergedDictionaries;
         // The new six in the place of the old six, in one step: no key is
         // ever without a value, and every window is told once, not twice
@@ -218,6 +222,24 @@ static class AppTheme
         if (at >= 0) merged[at] = next;
         else merged.Add(next);
         runs = next;
+        RunsChanged?.Invoke();
+    }
+
+    /// <summary>The runs' brushes were made again: a colour or the theme changed.</summary>
+    public static event Action? RunsChanged;
+
+    /// <summary>
+    /// The run brushes as a floating panel has them: the same colours (the
+    /// installed ones being the dark theme's), worked out against the dark
+    /// surface and the panel's own ink, since a panel is dark whatever the
+    /// theme. A panel merges these over <c>Themes/Panel.xaml</c>.
+    /// </summary>
+    public static ResourceDictionary PanelRuns()
+    {
+        Color Of(bool a) => Core.RunColours.TryParse(a ? runA : runB, out var c) ? Color.FromRgb(c.R, c.G, c.B)
+                            : Token(a ? "RunA" : "RunB", true);
+        return RunBrushes(Of(true), Of(false), Token("Bg1", true), Token("Crit", true), Token("Live", true),
+                          Token("Text1", true), Token("Text1", true));
     }
 
     /// <summary>
@@ -226,7 +248,7 @@ static class AppTheme
     /// ink a badge's letter may take. All frozen. A band's strength is its brush's own, so whatever
     /// is filled with it needs no opacity of its own.
     /// </summary>
-    public static ResourceDictionary RunBrushes(Color a, Color b, Color surface, Color crit, Color live, Color pale)
+    public static ResourceDictionary RunBrushes(Color a, Color b, Color surface, Color crit, Color live, Color pale, Color text)
     {
         var set = new ResourceDictionary();
         void Put(string run, Color c)
@@ -236,6 +258,10 @@ static class AppTheme
             set["Run" + run + "BandBrush"] =
                 Frozen(new SolidColorBrush(c) { Opacity = Core.RunColours.Band(Rgb(c), Rgb(surface), Rgb(crit), Rgb(live)) / 100.0 });
             set["Run" + run + "InkBrush"] = Frozen(new SolidColorBrush(Color.FromRgb(ink.R, ink.G, ink.B)));
+            var lifted = Core.RunColours.Text(Rgb(c), Rgb(surface), Rgb(text));
+            set["Run" + run + "TextBrush"] = Frozen(new SolidColorBrush(Color.FromRgb(lifted.R, lifted.G, lifted.B)));
+            set["Run" + run + "TagBrush"] = Frozen(new SolidColorBrush(c) { Opacity = 0.14 });
+            set["Run" + run + "TagEdgeBrush"] = Frozen(new SolidColorBrush(c) { Opacity = 0.45 });
         }
         Put("A", a);
         Put("B", b);

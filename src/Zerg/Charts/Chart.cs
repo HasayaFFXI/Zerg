@@ -32,7 +32,7 @@ public sealed record Readout(object Key, string Head, Brush? HeadSwatch, IReadOn
 /// only paint it.</para>
 ///
 /// <para><b>To UI Automation a chart is one picture</b>: its name (given
-/// in XAML: "Cumulative damage chart") and one line about what it shows
+/// in XAML: "Damage timeline chart") and one line about what it shows
 /// now (<see cref="Summary"/>, as its help text), with nothing inside it.
 /// The line is made when a reader asks for it and at no other time: no
 /// count and no beat does any work for it, and nothing is said when it

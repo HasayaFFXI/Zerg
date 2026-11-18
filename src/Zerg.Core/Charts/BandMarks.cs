@@ -73,8 +73,13 @@ public static class BandMarks
     /// <para>The span is the clock, or the newest row if that is later: rows
     /// played in from a file can be dated ahead of the clock.</para>
     /// </summary>
-    public static Pulse? Pulse(IReadOnlyList<CombatEvent> events, double elapsed)
+    /// <param name="from">Where the stretch measured starts on that clock: 0
+    /// for the session, a range's first row for a range picked on a
+    /// Timeline (<see cref="ClockRange"/>), whose clock is
+    /// <paramref name="elapsed"/> long from there.</param>
+    public static Pulse? Pulse(IReadOnlyList<CombatEvent> events, double elapsed, double from = 0)
     {
+        if (from != 0) events = events.Select(e => e with { T = e.T - from }).ToList();
         double span = double.IsNaN(elapsed) ? 0 : Math.Max(0, elapsed);
         bool any = false;
         foreach (var e in events)

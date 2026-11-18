@@ -49,6 +49,18 @@ public sealed class DelayTotals(IReadOnlyDictionary<string, List<DelaySample>> b
         }
     }
 
+    /// <summary>The samples whose two rounds are both inside a range of
+    /// <paramref name="session"/>'s clock; none with a range nothing fell in.</summary>
+    public DelayTotals Within(Session session, ClockRange? measured)
+    {
+        if (measured is null) return None;
+        bool In(CombatEvent e) => session.At(e.T) is double t && measured.Holds(t);
+        var cut = new Dictionary<string, List<DelaySample>>(StringComparer.Ordinal);
+        foreach (var (actor, list) in ByActor)
+            if (list.Where(s => In(s.From) && In(s.To)).ToList() is { Count: > 0 } kept) cut[actor] = kept;
+        return new DelayTotals(cut);
+    }
+
     /// <summary>A character's delay, in milliseconds: the average of their
     /// samples the switches leave; null with none.</summary>
     public double? Mean(string actor, IReadOnlySet<string>? targets = null,

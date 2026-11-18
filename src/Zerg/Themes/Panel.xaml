@@ -18,7 +18,9 @@
        table row asks for since phase 6). Bg0Brush is not here: a panel has
        no window surface of its own. Nor are the tags or the other
        overlays: nothing in a panel asks for them yet, and what does will
-       get the application's until they are added here. -->
+       get the application's until they are added here. The runs' brushes
+       (RunABrush and the rest) are made from the colours set, for the dark
+       surface, and merged over this by PanelWindow (AppTheme.PanelRuns). -->
 
   <!-- The pane surface is the tint itself, so it is nothing: what a control
        fills "in the surface's colour" (the inside of a slider's ring) lets

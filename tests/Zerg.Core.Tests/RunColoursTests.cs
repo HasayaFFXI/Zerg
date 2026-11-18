@@ -187,4 +187,15 @@ public class RunColoursTests
         Assert.True(RunColours.TryParse(RunColours.Hex((1, 171, 255)), out var back));
         Assert.Equal(((byte)1, (byte)171, (byte)255), back);
     }
+
+    [Fact]
+    public void A_runs_text_colour_is_lifted_until_it_reads()
+    {
+        (byte, byte, byte) bg1 = (0x0F, 0x12, 0x17), ink = (0xE9, 0xEC, 0xF2);
+        var lifted = RunColours.Text((0x39, 0x87, 0xE5), bg1, ink);
+        Assert.True(RowShade.Contrast(lifted, bg1) >= RunColours.Legible);
+        Assert.NotEqual(((byte)0x39, (byte)0x87, (byte)0xE5), lifted);
+        // One that reads already is left as it is.
+        Assert.Equal(((byte)0xE9, (byte)0xEC, (byte)0xF2), RunColours.Text(ink, bg1, ink));
+    }
 }

@@ -8,7 +8,7 @@ namespace Zerg.Views;
 /// at the opacity set, four rows shaded as set, six rates marked as they
 /// would be, a Compare row in the two runs' colours. It is made of the
 /// tables' own parts (the row styles, <see cref="LowMark"/>,
-/// <see cref="SmallBar"/>, <see cref="RunPair"/>), so it cannot draw
+/// <see cref="SmallBar"/>, <see cref="DeltaCell"/>), so it cannot draw
 /// anything the tables would not.
 ///
 /// <para>The hot key's keycaps are one too, named by the chord as it is

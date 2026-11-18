@@ -233,8 +233,8 @@ public class DamageTypesTests
                       new TargetTotal("pet", 130)], DamageTypes.Listed(c.Types));
         Assert.Equal(c.AllTypes, DamageTypes.Listed(c.Types).Sum(t => t.Total));
         // The very order of the sheet's own table of the same fight.
-        var sheet = CompareSheet.Of(Fight(), Fight(), false, true, false);
-        Assert.Equal(sheet.Kinds.Select(k => k.Key), DamageTypes.Listed(c.Types).Select(t => t.Name));
+        var sheet = CompareSheet.Of(Fight(), Fight());
+        Assert.Equal(sheet.TypeLines.Select(k => k.Key), DamageTypes.Listed(c.Types).Select(t => t.Name));
     }
 
     [Fact]
@@ -267,24 +267,22 @@ public class DamageTypesTests
     [Fact]
     public void The_compare_sheet_says_which_types_are_isolated_and_keeps_its_rates()
     {
-        var s = CompareSheet.Of(Fight(), Fight(2), byJob: false, skillchains: true, hideNames: false, types: Only("melee"));
+        var s = CompareSheet.Of(Fight(), Fight(2), new CompareOptions { Types = Only("melee") });
         Assert.Equal(["melee"], s.IsolatedTypes);
 
-        var total = s.DamageTiles[0];
-        Assert.Equal(("Melee damage", "160", "320"), (total.Label, total.A, total.B));
-        Assert.Equal("Only Melee damage", total.Tip);
+        var total = s.DamageBand[1];
+        Assert.Equal(("Melee damage", "160", "320"), (total.Label, total.Cell.A, total.Cell.B));
 
-        var dps = s.DamageTiles.Single(t => t.Label == "Party DPS");
+        var dps = s.DamageBand.Single(t => t.Label == "Party DPS").Cell;
         Assert.Equal(("8.0", "16.0"), (dps.A, dps.B));
-        Assert.Null(dps.Tip);
-        Assert.Equal(new AB("8.0", "16.0"), s.Actors.Single().Dps);
+        Assert.Equal(("8.0", "16.0"), (s.Characters.Single()["dps"].A, s.Characters.Single()["dps"].B));
 
         // By damage type lists them all, in the table's own order, each with
         // its share of every type's damage; the list to pick from is by name.
-        Assert.Equal(["Melee", "Weaponskills", "Magic", "Pet"], s.Kinds.Select(k => k.Label));
-        Assert.Equal(["melee", "ws", "magic", "pet"], s.Kinds.Select(k => k.Key));
-        Assert.Equal(new AB("16.2%", "16.2%"), s.Kinds[0].Share);
-        Assert.Equal(new AB("40.4%", "40.4%"), s.Kinds[1].Share);
+        Assert.Equal(["Melee", "Weaponskills", "Magic", "Pet"], s.TypeLines.Select(k => k.Label));
+        Assert.Equal(["melee", "ws", "magic", "pet"], s.TypeLines.Select(k => k.Key));
+        Assert.Equal(("16.2%", "16.2%"), (s.TypeLines[0]["share"].A, s.TypeLines[0]["share"].B));
+        Assert.Equal(("40.4%", "40.4%"), (s.TypeLines[1]["share"].A, s.TypeLines[1]["share"].B));
         Assert.Equal([new PairTotal("magic", 300, 600), new PairTotal("melee", 160, 320), new PairTotal("pet", 130, 260),
                       new PairTotal("ws", 400, 800)], s.TypeList);
     }
@@ -329,12 +327,11 @@ public class DamageTypesTests
     [Fact]
     public void With_both_isolated_the_sheet_says_both_and_gives_no_rate()
     {
-        var s = CompareSheet.Of(Fight(), Fight(2), byJob: false, skillchains: true, hideNames: false,
-                                targets: Only("Kirin"), types: Only("ws"));
-        Assert.Equal(("Weaponskills damage to Kirin", "400", "800"), (s.DamageTiles[0].Label, s.DamageTiles[0].A, s.DamageTiles[0].B));
-        Assert.Equal(CompareSheet.Dash, s.DamageTiles.Single(t => t.Label == "Party DPS").A);
+        var s = CompareSheet.Of(Fight(), Fight(2), new CompareOptions { Targets = Only("Kirin"), Types = Only("ws") });
+        Assert.Equal(("Weaponskills damage to Kirin", "400", "800"), (s.DamageBand[1].Label, s.DamageBand[1].Cell.A, s.DamageBand[1].Cell.B));
+        Assert.Equal(CompareSheet.Dash, s.DamageBand.Single(t => t.Label == "Party DPS").Cell.A);
         // The targets are of weaponskills alone, and the types of Kirin alone.
-        Assert.Equal(["Kirin"], s.Targets.Select(t => t.Name));
-        Assert.Equal(["Melee", "Weaponskills", "Pet"], s.Kinds.Select(k => k.Label));
+        Assert.Equal(["Kirin"], s.TargetLines.Select(t => t.Label));
+        Assert.Equal(["Melee", "Weaponskills", "Pet"], s.TypeLines.Select(k => k.Label));
     }
 }

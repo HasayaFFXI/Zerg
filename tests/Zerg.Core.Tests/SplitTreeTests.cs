@@ -85,7 +85,7 @@ public class SplitTreeTests
         Assert.DoesNotContain(PaneLayouts.Filters, SplitTree.Keys(PaneLayouts.Healing));
         var all = SplitTree.Keys(PaneLayouts.Damage).Concat(SplitTree.Keys(PaneLayouts.Healing))
                            .Concat(SplitTree.Keys(PaneLayouts.Compare)).ToList();
-        Assert.Equal(15, all.Count);
+        Assert.Equal(18, all.Count);
         Assert.Equal(all.Count, all.Distinct().Count());
         // No pane of this build has a former key of another.
         Assert.DoesNotContain(all, PaneLayouts.Former.ContainsKey);
@@ -121,7 +121,7 @@ public class SplitTreeTests
         // Sheet 03 is 1000 tall and its bands take 172: the panes have 728.
         // Rules at x 940.5, y 476.5 and y 783.5 in a window whose panes
         // begin at y 248.
-        var a = SplitTree.Arrange(PaneLayouts.Compare, W, 728, Limits);
+        var a = SplitTree.Arrange(Trees.OldCompare, W, 728, Limits);
 
         Assert.Equal(new Box(0, 0, 940, 728), a.Panes["cactors"]);
         Assert.Equal(new Box(941, 0, 499, 228), a.Panes["cpace"]);
@@ -134,8 +134,8 @@ public class SplitTreeTests
     [Fact]
     public void Compare_needs_three_least_panes_down_its_second_column()
     {
-        Assert.Equal((641.0, 398.0), SplitTree.Least(PaneLayouts.Compare, Limits));
-        Assert.Equal(new[] { "cactors", "cpace", "ckinds", "ctargets" }, SplitTree.Keys(PaneLayouts.Compare));
+        Assert.Equal((641.0, 398.0), SplitTree.Least(Trees.OldCompare, Limits));
+        Assert.Equal(new[] { "cactors", "cpace", "ckinds", "ctargets" }, SplitTree.Keys(Trees.OldCompare));
     }
 
     [Fact]
@@ -436,13 +436,13 @@ public class SplitTreeTests
     public void Compares_table_of_characters_folds_to_a_rail()
     {
         // The one pane of the installed arrangements that is alone in its column.
-        var a = SplitTree.Arrange(SplitTree.Fold(PaneLayouts.Compare, "cactors", true), W, 728, Limits);
+        var a = SplitTree.Arrange(SplitTree.Fold(Trees.OldCompare, "cactors", true), W, 728, Limits);
 
         Assert.Equal(new Box(0, 0, 30, 728), a.Panes["cactors"]);
         Assert.Equal(new Box(31, 0, 1409, 228), a.Panes["cpace"]);
         Assert.Equal(new[] { "cactors" }, a.Rails);
         // And in a column it shares, a pane folds to its heading as before.
-        var b = SplitTree.Arrange(SplitTree.Fold(PaneLayouts.Compare, "cpace", true), W, 728, Limits);
+        var b = SplitTree.Arrange(SplitTree.Fold(Trees.OldCompare, "cpace", true), W, 728, Limits);
         Assert.Equal(new Box(941, 0, 499, 30), b.Panes["cpace"]);
         Assert.Empty(b.Rails);
     }
@@ -535,4 +535,15 @@ public class SplitTreeTests
         // Within a pixel of where the shares put them.
         Assert.InRange(a.Panes["bars"].Width, 939, 941);
     }
+}
+
+/// <summary>Compare's arrangement before its redesign (2026-11-17): the
+/// tests of how a tree is arranged, edited and written were made on it.</summary>
+static class Trees
+{
+    public static readonly SplitNode OldCompare =
+        new PaneSplit(SplitWay.Columns, 0.653,
+            new PaneLeaf("cactors"),
+            new PaneSplit(SplitWay.Rows, 0.3136, new PaneLeaf("cpace"),
+                new PaneSplit(SplitWay.Rows, 0.6145, new PaneLeaf("ckinds"), new PaneLeaf("ctargets"))));
 }

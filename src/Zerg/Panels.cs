@@ -70,6 +70,10 @@ public sealed partial class PanelSet : ObservableObject
     public const string HealLine = "hline", HealBars = "hbars", HealActions = "hactions";
     /// <summary>The Healing section's Support table: casts by character and action.</summary>
     public const string HealSupport = "hsupport";
+    /// <summary>Compare's live run: each character's rate so far against
+    /// the other run's final one. Out while a side is live, and only then;
+    /// never reopened at start.</summary>
+    public const string CompareLive = "clive";
 
     /// <summary>Whether a panel holds one of the Healing section's cards.</summary>
     public static bool IsHealing(string key) => key is HealLine or HealBars or HealActions or HealSupport;
@@ -97,15 +101,16 @@ public sealed partial class PanelSet : ObservableObject
         opacities = new PanelOpacities(settings.PanelOpacity, settings.PanelOpacities);
         defaultOpacity = opacities.Default;
 
-        Add(Line, "Cumulative damage");
+        Add(Line, "Timeline");
         Add(Bars, "Overview");
         Add(Actions, "Actions");
         Add(Filters, "Filters");
         Add(Fights, "Battle Log");
-        Add(HealLine, "Cumulative healing");
+        Add(HealLine, "Healing timeline");
         Add(HealBars, "Healing by character");
         Add(HealActions, "Heals");
         Add(HealSupport, "Support");
+        Add(CompareLive, "Live compare");
 
         // A slider reports every step of a drag; the file is written once it settles.
         saver = new Debouncer(Save);
@@ -191,7 +196,7 @@ public sealed partial class PanelSet : ObservableObject
     {
         keeping = true;
         foreach (var key in settings.OpenPanels)
-            if (panels.TryGetValue(key, out var panel)) Open(panel);
+            if (key != CompareLive && panels.TryGetValue(key, out var panel)) Open(panel);
         keeping = false;
         if (open.Count > 0) Log.Write("panels reopened: " + string.Join(", ", open.Keys));
     }

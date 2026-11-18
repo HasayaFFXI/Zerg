@@ -4,21 +4,47 @@
              xmlns:c="clr-namespace:Zerg.Charts"
              xmlns:v="clr-namespace:Zerg.Views">
 
-  <!-- Cumulative healing: a line per healer, each named at its end. The
-       cumulative damage pane over the heals, less the grouping switch: a
-       party's healers are few enough for a line each.
+  <!-- The Healing section's Timeline: a line per healer, each named at its
+       end. The Damage section's Timeline over the heals, less the grouping
+       switch: a party's healers are few enough for a line each. Its range
+       is its own, and moves only the Healing section's figures.
 
        Floating, as that card: the chart fills the panel. -->
-  <v:Pane Title="Cumulative healing" Note="Running total per healer"
-          Hint="Running total per healer. Hover for every healer at one instant. Pet heals are their owner's."
+  <v:Pane Title="Timeline" Note="Running total per healer · drag to pick a range"
+          Hint="Running total per healer. Hover for every healer at one instant. Pet heals are their owner's. Drag across it to count only that stretch of the session; drag an edge of the range to move that edge alone. Reset range, or a click outside the range, counts all of it again."
           PopOutCommand="{Binding Panels[hline].PopOutCommand}">
-    <c:LineChart Edge="{Binding Edge}" EmptyText="{Binding HealEmptyText}" EndLabels="True"
-                 AutomationProperties.Name="Cumulative healing chart">
+    <v:Pane.Tools>
+      <StackPanel Orientation="Horizontal">
+        <StackPanel.Style>
+          <Style TargetType="StackPanel">
+            <Setter Property="Visibility" Value="{Binding HasHealingRange, Converter={StaticResource Visible}}"/>
+            <Style.Triggers>
+              <Trigger Property="v:Float.On" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </StackPanel.Style>
+        <TextBlock Text="{Binding HealingRangeText}" Style="{StaticResource Label}" FontSize="11" Margin="0,0,8,0"
+                   VerticalAlignment="Center" Typography.NumeralAlignment="Tabular"
+                   ToolTip="The stretch of the session the Healing section is counting"/>
+        <Button Style="{StaticResource AccentButton}" Height="22" Padding="10,0" FontSize="11" Content="Reset range"
+                Command="{Binding WholeHealCommand}" AutomationProperties.Name="Reset range"
+                ToolTip="Let the range go: count the whole session again"/>
+        <Button Style="{StaticResource GhostButton}" Height="22" Padding="10,0" FontSize="11" Margin="6,0,0,0"
+                Content="Export range…" Command="{Binding ExportHealRangeCommand}" AutomationProperties.Name="Export range"
+                ToolTip="Save the range picked to a parse file another copy of Zerg can open with Import or in Compare"/>
+      </StackPanel>
+    </v:Pane.Tools>
+    <c:LineChart Edge="{Binding Edge}" EmptyText="{Binding HealEmptyText}" EndLabels="True" Picked="{Binding HealingRange}"
+                 AutomationProperties.Name="Healing timeline chart">
       <c:LineChart.Style>
         <Style TargetType="c:LineChart">
           <!-- In a pane: as tall as the pane leaves it. -->
           <Setter Property="MinHeight" Value="80"/>
           <Setter Property="Model" Value="{Binding HealLine}"/>
+          <Setter Property="PickCommand" Value="{Binding PickHealCommand}"/>
+          <Setter Property="ResetCommand" Value="{Binding WholeHealCommand}"/>
           <Style.Triggers>
             <!-- One column of panes in a narrow window: the height it had
                  as a card on a page. -->
@@ -32,6 +58,8 @@
               <Setter Property="MinHeight" Value="120"/>
               <Setter Property="Margin" Value="0,2,0,0"/>
               <Setter Property="Model" Value="{Binding PanelHealLine}"/>
+              <Setter Property="PickCommand" Value="{x:Null}"/>
+              <Setter Property="ResetCommand" Value="{x:Null}"/>
               <Setter Property="Compact" Value="True"/>
               <!-- No effect lies over this chart (its lines are drawn at
                    the draw frequency): it outlines its own labels. -->

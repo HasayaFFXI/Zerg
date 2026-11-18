@@ -24,8 +24,7 @@ public partial class SettingsPage : UserControl
     {
         InitializeComponent();
         // The picture of a Compare row: one made-up character in two runs.
-        PairAmount.Content = new BarPair(0.863, 1, "40,659", "47,112");
-        PairChange.Value = new Change("+15.9%", "+6,453", ChangeTone.Better);
+        PairCell.Cell = new Cell("47,112", "40,659", new Change("+15.9%", "+6,453", ChangeTone.Better), 47112, 40659);
 
         Picker.Picked += OnPicked;
         DataContextChanged += (_, e) =>

@@ -7,6 +7,55 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- The cumulative charts are now the Timeline, in the Damage and Healing
+  sections both. Drag across one to pick a stretch of the session, and
+  that section counts it alone: its band (the clock reads "Range", its
+  length, with the stretch under it), the Overview, Actions, Filters, the
+  Battle Log, the drill-down, Healing by character, Heals and Support. Its
+  clock runs from the first hit in it to the last, as a replay's range
+  does. The lines stay whole with the range lit over them; another drag
+  picks another, and Reset range in the Timeline's heading counts the
+  whole session again. Each section has its own range, and each View tab its
+  own; a new session drops them. The floating panels are "Timeline" and
+  "Healing timeline".
+- Replay's range strip is drawn as the Timeline draws a range: dimmed
+  outside, a faint amber light inside between two amber rules, no grips
+  (the pointer turns to a resize arrow at a handle). The party's damage
+  over the file is a smoothed area under a line instead of thin bars.
+- The Timeline's range is easier to change: drag an edge of it to move
+  that edge alone, drag it by its middle to carry it along as long as it
+  is, or click outside it to let it go. The band and the
+  tables follow the range while it is dragged, as a replay's do; Esc
+  mid-drag puts the old range back. Its heading's All is
+  now Reset range, outlined in amber while a range is picked, and beside
+  it Export range saves the range alone as a `.zerg` parse, as a replay's
+  range is saved: from its first hit to its last, heals, kills and deaths
+  included. It can be saved while the session still runs. A click outside
+  a replay's range gives the whole file back too.
+- A press inside a replay's range while it held the whole file (as it
+  does when the file opens) stopped Zerg with an error; it now starts a
+  new range there.
+- Compare is redesigned. The runs are named "Previous Run" (A) and "This
+  Run" (B) everywhere, renamed in place (the name field, ✎ or F2) for the
+  session; each run's chip opens its picker (a file, a View tab, a replay,
+  the live session, the whole party or one character), and ⇄ Swap (or
+  Ctrl+Shift+S) changes them over. Under the band of eight figures, seven
+  panes, arranged as the other sections' are: the Overview (By character,
+  By target, By job, every column of the Damage section's), Actions,
+  Deltas (each character's total damage in each run and the change, opening
+  to each action's change, average and uses; an action pressed opens the
+  drill-down on it beside Deltas), the cumulative chart (both
+  lines with each run's kills, or the gap between them), the Battle Log
+  (kills, rate and kill time by kind of monster, a row pressed to isolate
+  it), Filters (By target and By damage type) and the drill-down (any
+  action of either run against any other, picked per side). Every
+  compared cell is B's figure with its change on one line, A's under it
+  when the Columns menu says so, and a change is coloured only by which
+  way it went: no noise markers, grey when it prints as nothing, never on
+  counts, Length, Max or healing amounts. Character and target filters
+  and Include Skillchains are in the command bar for both runs at once.
+  A live run floats as the Live compare panel while it is live. Healing
+  is compared in the same panes; Support is not compared.
 - The mouse wheel scrolls a wide table under the pointer (the Overview,
   Actions, Healing by character, Heals, Compare's tables). The sideways
   scroller round the table took the wheel and handed it to the page, so

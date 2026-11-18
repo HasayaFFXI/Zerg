@@ -30,8 +30,8 @@ public sealed partial class MainViewModel
     /// <summary>The Healing section's panes: hbars, hactions, hsupport, hline, hdrill.</summary>
     [ObservableProperty] private SplitNode healingLayout = PaneLayouts.Healing;
 
-    /// <summary>The Compare section's panes, under its bands: cactors, cpace,
-    /// ckinds, ctargets. One arrangement for its Damage and its Healing
+    /// <summary>The Compare section's panes, under its bands: cbars, cactions,
+    /// cdeltas, cpace, cfights, cfilters, cdrill. One arrangement for its Damage and its Healing
     /// mode. The section's view model hands it on (CompareViewModel.Layout),
     /// since the section's data context is that and not this.</summary>
     [ObservableProperty] private SplitNode compareLayout = PaneLayouts.Compare;

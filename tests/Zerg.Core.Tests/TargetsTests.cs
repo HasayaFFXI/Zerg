@@ -429,24 +429,22 @@ public class TargetsTests
     public void The_compare_sheet_says_what_is_isolated_and_gives_no_rate()
     {
         var (a, b) = Runs();
-        var s = CompareSheet.Of(a, b, byJob: false, skillchains: true, hideNames: false, targets: Only("Kirin"));
+        var s = CompareSheet.Of(a, b, new CompareOptions { Targets = Only("Kirin") });
         Assert.Equal(["Kirin"], s.Isolated);
 
-        var total = s.DamageTiles[0];
-        Assert.Equal(("Damage to Kirin", "100", "150"), (total.Label, total.A, total.B));
-        Assert.Equal("+50.0%", total.Change.Main);
+        var total = s.DamageBand[1];
+        Assert.Equal(("Damage to Kirin", "100", "150"), (total.Label, total.Cell.A, total.Cell.B));
+        Assert.Equal("+50.0%", total.Cell.Change.Main);
 
-        var dps = s.DamageTiles.Single(t => t.Label == "Party DPS");
+        var dps = s.DamageBand.Single(t => t.Label == "Party DPS").Cell;
         Assert.Equal((CompareSheet.Dash, CompareSheet.Dash, Change.Nothing), (dps.A, dps.B, dps.Change));
-        Assert.Equal(CompareSheet.NoRate, dps.Tip);
 
-        var row = s.Actors.Single();
-        Assert.Equal(new AB(CompareSheet.Dash, CompareSheet.Dash), row.Dps);
-        Assert.Equal(Change.Nothing, row.DpsChange);
-        Assert.Equal(("100", "150"), (row.Damage.TextA, row.Damage.TextB));
+        var row = s.Characters.Single();
+        Assert.Equal((CompareSheet.Dash, CompareSheet.Dash, Change.Nothing), (row["dps"].A, row["dps"].B, row["dps"].Change));
+        Assert.Equal(("100", "150"), (row["damage"].A, row["damage"].B));
 
         // By target lists them all, largest first, as it did; the list to pick from is by name.
-        Assert.Equal(["Suzaku", "Genbu", "Kirin"], s.Targets.Select(t => t.Name));
+        Assert.Equal(["Suzaku", "Genbu", "Kirin"], s.TargetLines.Select(t => t.Label));
         Assert.Equal([new PairTotal("Genbu", 200, 0), new PairTotal("Kirin", 100, 150), new PairTotal("Suzaku", 0, 500)],
                      s.TargetList);
     }
@@ -455,13 +453,11 @@ public class TargetsTests
     public void A_compare_sheet_of_every_target_is_as_it_was()
     {
         var (a, b) = Runs();
-        var s = CompareSheet.Of(a, b, byJob: false, skillchains: true, hideNames: false);
+        var s = CompareSheet.Of(a, b);
         Assert.Empty(s.Isolated);
-        Assert.Equal("Total damage", s.DamageTiles[0].Label);
-        Assert.Null(s.DamageTiles[0].Tip);
-        var dps = s.DamageTiles.Single(t => t.Label == "Party DPS");
+        Assert.Equal("Total damage", s.DamageBand[1].Label);
+        var dps = s.DamageBand.Single(t => t.Label == "Party DPS").Cell;
         Assert.Equal(("15.0", "16.3"), (dps.A, dps.B));
-        Assert.Null(dps.Tip);
-        Assert.Equal(new AB("15.0", "16.3"), s.Actors.Single().Dps);
+        Assert.Equal(("15.0", "16.3"), (s.Characters.Single()["dps"].A, s.Characters.Single()["dps"].B));
     }
 }

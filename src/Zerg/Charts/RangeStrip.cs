@@ -9,15 +9,20 @@ namespace Zerg.Charts;
 
 /// <summary>
 /// The whole of a replayed file, first line to last, and the range picked
-/// over it: the party's damage as a bar per few units of width, the time
-/// of day along the bottom, and two amber handles. Everything outside the
-/// range is dimmed. Under the bars, a short tick at each kill, and at each
-/// of the party's deaths in Crit: where the fights were.
+/// over it: the party's damage as a filled area under a line, smoothed a
+/// little, the time of day along the bottom, and the range drawn as a
+/// Timeline draws one (<see cref="LineChart"/>): outside it dimmed, inside a
+/// faint light in the accent between two accent rules, its handles. Under
+/// the area, a short tick at each kill, and at each of the party's deaths
+/// in Crit: where the fights were.
 ///
 /// <para><b>Dragged and keyed.</b> A handle is dragged by itself, the range
-/// between them by its middle, and a press anywhere else starts a new range
-/// there. With the keyboard, Left and Right move the handle in hand a
-/// second (ten with Shift), and Up and Down change hands. Each move goes to
+/// between them by its middle, and a drag anywhere else is a new range; the
+/// pointer says which (a resize arrow at a handle, a move inside). A click
+/// outside the range, not a drag, lets it go: the whole file again.
+/// With the keyboard, Left and Right move the handle in hand a second (ten
+/// with Shift), and Up and Down change hands; the handle in hand has a short
+/// cap of the accent while the strip has the keyboard. Each move goes to
 /// the <see cref="ReplayRange"/>, which says when it has settled.</para>
 ///
 /// <para>Painted whole when the range, the file, the size or an ink
@@ -25,13 +30,19 @@ namespace Zerg.Charts;
 /// </summary>
 public sealed class RangeStrip : FrameworkElement
 {
-    /// <summary>The bars' height and the time labels' baseline, from the
-    /// top, in units.</summary>
-    const double BarsTall = 58, LabelsAt = 76;
-    /// <summary>From one bar to the next, and a bar's width.</summary>
-    const double Pitch = 4, BarWide = 3;
-    /// <summary>A handle's line, its grip, and how near the pointer must be to take it.</summary>
-    const double HandleLine = 2, GripWide = 8, GripTall = 20, Reach = 7;
+    /// <summary>The area's height and the time labels' baseline, from the
+    /// top, in units; and room left over the area's highest point.</summary>
+    const double BarsTall = 58, LabelsAt = 76, Headroom = 6;
+    /// <summary>How wide a stretch of the file each point of the area
+    /// stands for, and how many points either side are averaged into it.</summary>
+    const double Pitch = 4;
+    const int Smooth = 2;
+    /// <summary>The area's fill, the dimming outside the range and the light
+    /// inside it, as strengths of their inks.</summary>
+    const double AreaStrength = 0.22, OutsideStrength = 0.6, InsideStrength = 0.08;
+    /// <summary>The area's line, a handle's rule, the cap on the handle in
+    /// hand, and how near the pointer must be to take a handle.</summary>
+    const double LineWide = 1.5, HandleLine = 1.5, CapWide = 7, CapTall = 3, Reach = 7;
     /// <summary>The least room between two time labels.</summary>
     const double LabelRoom = 64;
     /// <summary>How far a kill's or a death's tick hangs under the bars.</summary>
@@ -43,10 +54,9 @@ public sealed class RangeStrip : FrameworkElement
         typeof(ReplayRange), typeof(RangeStrip), new PropertyMetadata(null, (d, e) => ((RangeStrip)d).Follow(e)));
 
     static DependencyProperty Ink(string name) => DependencyProperty.Register(name, typeof(Brush), typeof(RangeStrip),
-        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, (d, _) => ((RangeStrip)d).tint = null));
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, (d, _) => ((RangeStrip)d).inks = null));
 
     public static readonly DependencyProperty OnInkProperty = Ink(nameof(OnInk));
-    public static readonly DependencyProperty OffInkProperty = Ink(nameof(OffInk));
     public static readonly DependencyProperty AccentProperty = Ink(nameof(Accent));
     public static readonly DependencyProperty RuleProperty = Ink(nameof(Rule));
     public static readonly DependencyProperty LabelInkProperty = Ink(nameof(LabelInk));
@@ -54,13 +64,12 @@ public sealed class RangeStrip : FrameworkElement
     public static readonly DependencyProperty DeathInkProperty = Ink(nameof(DeathInk));
 
     public ReplayRange? Range { get => (ReplayRange?)GetValue(RangeProperty); set => SetValue(RangeProperty, value); }
-    /// <summary>A bar inside the range, and outside it.</summary>
+    /// <summary>The area: its line, and its fill at a strength of it.</summary>
     public Brush? OnInk { get => (Brush?)GetValue(OnInkProperty); set => SetValue(OnInkProperty, value); }
-    public Brush? OffInk { get => (Brush?)GetValue(OffInkProperty); set => SetValue(OffInkProperty, value); }
     public Brush? Accent { get => (Brush?)GetValue(AccentProperty); set => SetValue(AccentProperty, value); }
     public Brush? Rule { get => (Brush?)GetValue(RuleProperty); set => SetValue(RuleProperty, value); }
     public Brush? LabelInk { get => (Brush?)GetValue(LabelInkProperty); set => SetValue(LabelInkProperty, value); }
-    /// <summary>What the grips are ringed with, so they stand off the bars.</summary>
+    /// <summary>The strip's background: outside the range, laid over the area at a strength.</summary>
     public Brush? Surface { get => (Brush?)GetValue(SurfaceProperty); set => SetValue(SurfaceProperty, value); }
     /// <summary>A death's tick.</summary>
     public Brush? DeathInk { get => (Brush?)GetValue(DeathInkProperty); set => SetValue(DeathInkProperty, value); }
@@ -70,17 +79,24 @@ public sealed class RangeStrip : FrameworkElement
     Hold held;
     /// <summary>Where a drag of the whole range was taken, and the range then.</summary>
     double grabbedAt, grabbedFrom, grabbedTo;
+    /// <summary>A new range is begun only once the pointer has gone this far:
+    /// a click outside the range lets it go instead.</summary>
+    const double DragSlop = 4;
+    /// <summary>Where a new range was pressed for, across the strip; whether
+    /// the press was outside the range; and whether it has become a drag.</summary>
+    double pressedX;
+    bool pressedOutside, begun;
     /// <summary>The handle the keyboard moves.</summary>
     bool toInHand;
     /// <summary>The bars, kept for the replay and the count they were made for.</summary>
     (Replay Replay, int Count, double[] Bins)? bins;
     readonly Dictionary<string, DrawnText> labels = [];
-    Brush? tint;
+    /// <summary>The fainter inks, made from the inks given when first asked.</summary>
+    (Brush? Area, Brush? Outside, Brush? Inside, Pen Line, Pen Rule)? inks;
 
     public RangeStrip()
     {
         SetResourceReference(OnInkProperty, "Text2Brush");
-        SetResourceReference(OffInkProperty, "Text4Brush");
         SetResourceReference(AccentProperty, "AccentBrush");
         SetResourceReference(RuleProperty, "Line2Brush");
         SetResourceReference(LabelInkProperty, "Text3Brush");
@@ -138,64 +154,94 @@ public sealed class RangeStrip : FrameworkElement
         if (w < 1 || Range is not { Replay: { } r } range || !(r.Span > 0)) return;
 
         double from = Snap(XOf(r, range.From, w)), to = Snap(XOf(r, range.To, w));
-        tint ??= Faint(Accent, 0.08);
+        var (area, outside, inside, line, rule) = inks ??= (Faint(OnInk, AreaStrength), Faint(Surface, OutsideStrength),
+            Faint(Accent, InsideStrength), Frozen(new Pen(OnInk, LineWide) { LineJoin = PenLineJoin.Round }),
+            Frozen(new Pen(Accent, HandleLine)));
 
-        // The range's own stretch, under its bars.
-        if (to > from) dc.DrawRectangle(tint, null, new Rect(from, 0, to - from, BarsTall));
-
-        int count = Math.Max(1, (int)Math.Floor(w / Pitch));
+        // The party's damage: a point per few units, each the average of its
+        // neighbours, so the eye reads where the fighting was, not each swing.
+        int count = Math.Max(2, (int)Math.Floor(w / Pitch));
         if (bins is not { } kept || !ReferenceEquals(kept.Replay, r) || kept.Count != count)
-            bins = kept = (r, count, r.Bins(count));
+            bins = kept = (r, count, Smoothed(r.Bins(count)));
         double most = kept.Bins.Max();
-        double pitch = w / count;
-        double scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
-        double wide = Math.Max(1, Math.Round(Math.Min(BarWide, pitch - 1 / scale) * scale)) / scale;
-        for (int i = 0; i < count; i++)
+        if (most > 0)
         {
-            double v = kept.Bins[i];
-            if (!(v > 0) || !(most > 0)) continue;
-            double x = Snap(i * pitch);
-            double tall = Math.Max(1, Math.Round(v / most * BarsTall * scale)) / scale;
-            // In the range if its middle is.
-            double mid = r.First + (i + 0.5) / count * r.Span;
-            bool on = mid >= range.From && mid < range.To;
-            dc.DrawRectangle(on ? OnInk : OffInk, null, new Rect(x, BarsTall - tall, wide, tall));
+            double pitch = w / count, room = BarsTall - Headroom;
+            Point At(int i) => new((i + 0.5) * pitch, BarsTall - kept.Bins[i] / most * room);
+            var fill = new StreamGeometry();
+            var top = new StreamGeometry();
+            using (var f = fill.Open())
+            using (var t = top.Open())
+            {
+                f.BeginFigure(new Point(0, BarsTall), true, true);
+                f.LineTo(new Point(0, At(0).Y), false, false);
+                t.BeginFigure(new Point(0, At(0).Y), false, false);
+                for (int i = 0; i < count; i++)
+                {
+                    f.LineTo(At(i), false, false);
+                    t.LineTo(At(i), true, true);
+                }
+                f.LineTo(new Point(w, At(count - 1).Y), false, false);
+                f.LineTo(new Point(w, BarsTall), false, false);
+                t.LineTo(new Point(w, At(count - 1).Y), true, true);
+            }
+            fill.Freeze();
+            top.Freeze();
+            dc.DrawGeometry(area, null, fill);
+            dc.DrawGeometry(null, line, top);
         }
-        double line = 1 / scale;
-        dc.DrawRectangle(Rule, null, new Rect(0, BarsTall, w, line));
+
+        // The range, as a Timeline draws one: the rest dimmed, a light inside.
+        if (from > 0) dc.DrawRectangle(outside, null, new Rect(0, 0, from, BarsTall));
+        if (to < w) dc.DrawRectangle(outside, null, new Rect(to, 0, w - to, BarsTall));
+        if (to > from) dc.DrawRectangle(inside, null, new Rect(from, 0, to - from, BarsTall));
+
+        double scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        double hair = 1 / scale;
+        dc.DrawRectangle(Rule, null, new Rect(0, BarsTall, w, hair));
 
         // The kills, then the deaths over them, hung from the rule.
         void Ticks(IReadOnlyList<double> at, Brush? ink, double wide)
         {
             foreach (var t in at)
                 if (t >= r.First && t <= r.Last)
-                    dc.DrawRectangle(ink, null, new Rect(Snap(XOf(r, t, w)) - wide / 2, BarsTall + line, wide, MarkTick));
+                    dc.DrawRectangle(ink, null, new Rect(Snap(XOf(r, t, w)) - wide / 2, BarsTall + hair, wide, MarkTick));
         }
-        Ticks(r.Kills, LabelInk, line);
-        Ticks(r.Deaths, DeathInk, Math.Max(line, Math.Round(1.5 * scale) / scale));
+        Ticks(r.Kills, LabelInk, hair);
+        Ticks(r.Deaths, DeathInk, Math.Max(hair, Math.Round(1.5 * scale) / scale));
 
         Labels(dc, r, w);
 
-        // The handles last, over everything; the one in hand ringed while
+        // The handles last, over everything; the one in hand capped while
         // the strip has the keyboard.
-        Handle(dc, from, !toInHand && IsKeyboardFocused);
-        Handle(dc, to, toInHand && IsKeyboardFocused);
+        Handle(dc, rule, from, !toInHand && IsKeyboardFocused);
+        Handle(dc, rule, to, toInHand && IsKeyboardFocused);
     }
 
-    void Handle(DrawingContext dc, double x, bool inHand)
+    void Handle(DrawingContext dc, Pen rule, double x, bool inHand)
     {
-        dc.DrawRectangle(Accent, null, new Rect(x - HandleLine / 2, -2, HandleLine, BarsTall + 4));
-        var grip = new Rect(x - GripWide / 2, (BarsTall - GripTall) / 2, GripWide, GripTall);
-        var ring = new Pen(Surface, 2);
-        ring.Freeze();
-        dc.DrawRoundedRectangle(Accent, ring, grip, 2.5, 2.5);
-        if (inHand)
+        dc.DrawLine(rule, new Point(x, 0), new Point(x, BarsTall));
+        if (inHand) dc.DrawRoundedRectangle(Accent, null, new Rect(x - CapWide / 2, 0, CapWide, CapTall), 1, 1);
+    }
+
+    /// <summary>Each bin the average of itself and <see cref="Smooth"/> either side.</summary>
+    static double[] Smoothed(double[] bins)
+    {
+        var smooth = new double[bins.Length];
+        for (int i = 0; i < bins.Length; i++)
         {
-            var focus = new Pen(LabelInk, 1);
-            focus.Freeze();
-            grip.Inflate(3, 3);
-            dc.DrawRoundedRectangle(null, focus, grip, 4, 4);
+            double sum = 0;
+            int n = 0;
+            for (int j = Math.Max(0, i - Smooth); j <= Math.Min(bins.Length - 1, i + Smooth); j++, n++) sum += bins[j];
+            smooth[i] = sum / n;
         }
+        return smooth;
+    }
+
+    static Pen Frozen(Pen pen)
+    {
+        pen.Freeze();
+        return pen;
     }
 
     /// <summary>Times of day along the bottom, on a round step that leaves
@@ -266,18 +312,21 @@ public sealed class RangeStrip : FrameworkElement
         Focus();
         double w = RenderSize.Width, x = e.GetPosition(this).X;
         double from = XOf(r, range.From, w), to = XOf(r, range.To, w);
-        // The nearer handle, if either is in reach; then the middle.
+        // The nearer handle, if either is in reach; then the middle, unless
+        // the range is the whole file, which has nowhere to be carried: a
+        // press there starts a new range, as one outside a range does.
         held = Math.Abs(x - from) <= Reach && Math.Abs(x - from) <= Math.Abs(x - to) ? Hold.From
              : Math.Abs(x - to) <= Reach ? Hold.To
-             : x > from && x < to ? Hold.Both
+             : x > from && x < to && !Whole(range, r) ? Hold.Both
              : Hold.New;
         grabbedAt = TimeAt(r, x, w);
         (grabbedFrom, grabbedTo) = (range.From, range.To);
+        (pressedX, pressedOutside, begun) = (x, x < from || x > to, held != Hold.New);
         toInHand = held == Hold.To || held == Hold.New;
         // Marked before the capture, which moves the mouse before it returns.
         if (!CaptureMouse()) held = Hold.None;
         e.Handled = true;
-        Move(e.GetPosition(this).X, settled: false);
+        Move(x, settled: false);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -291,14 +340,21 @@ public sealed class RangeStrip : FrameworkElement
         if (Range is not { Replay: { } r } range) return;
         double w = RenderSize.Width, x = e.GetPosition(this).X;
         bool near = Math.Abs(x - XOf(r, range.From, w)) <= Reach || Math.Abs(x - XOf(r, range.To, w)) <= Reach;
-        Cursor = near ? Cursors.SizeWE : x > XOf(r, range.From, w) && x < XOf(r, range.To, w) ? Cursors.SizeAll : Cursors.Cross;
+        Cursor = near ? Cursors.SizeWE
+               : x > XOf(r, range.From, w) && x < XOf(r, range.To, w) && !Whole(range, r) ? Cursors.SizeAll
+               : Cursors.Cross;
     }
+
+    /// <summary>The range holds every line of the file.</summary>
+    static bool Whole(ReplayRange range, Replay r) => range.From <= r.First && range.To >= r.Last;
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
         if (held == Hold.None) return;
-        Move(e.GetPosition(this).X, settled: true);
+        // A click outside the range, not a drag, lets it go: the whole file.
+        if (!begun && pressedOutside && Range is { Replay: { } r } range) range.Set(r.First, r.Last, settled: true);
+        else Move(e.GetPosition(this).X, settled: true);
         held = Hold.None;
         ReleaseMouseCapture();
         e.Handled = true;
@@ -316,6 +372,12 @@ public sealed class RangeStrip : FrameworkElement
     void Move(double x, bool settled)
     {
         if (Range is not { Replay: { } r } range) return;
+        // A new range waits until the press has become a drag.
+        if (!begun)
+        {
+            if (Math.Abs(x - pressedX) < DragSlop) return;
+            begun = true;
+        }
         double t = TimeAt(r, x, RenderSize.Width);
         switch (held)
         {
@@ -324,7 +386,9 @@ public sealed class RangeStrip : FrameworkElement
             case Hold.New: range.Set(grabbedAt, t, settled); break;
             case Hold.Both:
                 double d = t - grabbedAt, length = grabbedTo - grabbedFrom;
-                double a = Math.Clamp(grabbedFrom + d, r.First, r.Last - length);
+                // Never past either end; a range longer than the file (its
+                // handles stand on whole seconds) stays where it was.
+                double a = Math.Clamp(grabbedFrom + d, r.First, Math.Max(r.First, r.Last - length));
                 range.Set(a, a + length, settled);
                 break;
         }

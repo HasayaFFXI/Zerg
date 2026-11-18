@@ -833,10 +833,9 @@ the people a buff reached.
   cast it 0 times.
 - **Kills per hour, Avg kill time and Deaths** are each run's own (see
   "Kills and deaths"), the change in deaths a count ("+1"); fewer seconds
-  and fewer deaths are the good way. By target names each run's kills of a
-  name, "Tiger (9 · 10)", with each run's average kill time. A run with
-  no kill reads 0 kills; its average kill time, with nothing to average,
-  is a dash.
+  and fewer deaths are the good way. The Battle Log counts each run's
+  kills of a kind of monster (see "Compare"). A run with no kill reads 0
+  kills; its average kill time, with nothing to average, is a dash.
 
 ## Replay
 
@@ -874,6 +873,57 @@ An addon event file read whole, cropped to a range and exported (`Replay`,
   like any other: only the rows the range covers, the roster, and the range
   as a paused session.
 
+## A range on the Timeline
+
+A stretch of the session dragged across a section's Timeline (its
+cumulative chart), and that section counted over it alone (`ClockRange`,
+`Tracker.Count`'s `range` and `healRange`).
+
+- **Each section has its own.** The Damage section's range cuts its damage,
+  kills, deaths and delay, and nothing of healing; the Healing section's
+  cuts heals and support, and nothing of damage. The Kills / Deaths cell is
+  in both bands, and is of the range of the section on screen. Each View tab
+  has its own pair, kept with its filters. Never saved.
+- **Measured as a replay's range is**: its clock runs from the first row the
+  session counts at or after its start to the last at or before its end
+  (`ClockRange.Measure`), so the quiet either side of a drag is no time
+  anyone fought and no rate is divided by it. A row at either end is in it.
+  Every DPS and HPS of that section is over that clock, which time does not
+  move, so it stands still on the beat while the session runs on.
+- **Asked over everyone.** The ends are of every row the session counts,
+  whoever is isolated, as the session's zero is; skillchains as the switch
+  has them, as the live zero has them. A healing range is measured by the
+  party's damage rows too: a heal after its last is after its end, as a heal
+  after a session's end is.
+- **A range with no row in it counts nothing**, and its clock is 0.
+- **Times stay on the session clock.** A row in a range keeps its time, so a
+  time in the Battle Log or a drill-down is the time on the Timeline above.
+  A kill is in a range when its killing blow is, a death when its time is,
+  a delay sample when both its rounds are.
+- **The Timeline stays whole**: every line, kill and death of the session,
+  the range lit over them, so another can be picked from them. Its lines
+  are the characters of the whole session, not of the range.
+- **It goes with its session.** A Start, a new event file or a replay's range
+  moved makes another clock, and the ranges on the old one go.
+- **Export is not cut by it**: a parse is the session's, or a replay's range.
+  **Export range**, in the Timeline's heading, saves the range alone, cut as
+  a replay's range is (`Tracker.ExportRange`): the parse starts at the first
+  row the range is measured from and is paused at the last, with the
+  session's pauses between, and holds everything in that stretch (heals,
+  kills and deaths too) whatever is isolated, so it opens reading what the
+  range read. A range is in the past, so it can be saved while the session
+  still runs; a range with no row in it saves nothing.
+- **Counted as it is dragged**, as a replay's range is: the section is
+  counted again at most every 250 ms while the drag goes on, and once more
+  when it is let go. Esc, or the pointer taken away mid-drag, puts back the
+  range there was before it.
+- **Picking it again.** An edge of the range is dragged alone, the other
+  where it was; the range is carried by its middle, as long as it was,
+  never past either end of the Timeline (a range holding all of it starts
+  a new one there instead). A click outside the range, not a drag, lets it go; Reset
+  range does too. A replay's range strip is the same: a click outside its
+  range gives the whole file back.
+
 ## Two actions side by side
 
 - **A pair is two sides, each a character and an action** (in Compare,
@@ -898,13 +948,73 @@ An addon event file read whole, cropped to a range and exported (`Replay`,
   the drill-down closes; on B, B goes); with targets or types isolated, a
   B never used on them goes and A stays. Kept per parse with the
   drill-down, never saved.
-- **In Compare a pair the player made is a row of its own**, under A's
-  row, before that row's own actions, and nothing is hidden for it: the
-  same-name rows stay. A's side is always the row's (a pair with another
-  character's action as A is made under that character); B's can be any
-  row's. Swap takes each pair with its runs (B's action is A's now, under
-  the other row). A new file in a slot, or Character | Job, drops them
-  with the opened rows.
+- **In Compare a pair the player made is a row of its own**, pinned atop
+  Actions (or Heals), before every character's rows, and nothing is hidden
+  for it: the same-name rows stay. Either side can be any character's
+  action in its run ("Compare with…" on an action's row, or the
+  drill-down's pickers). Its × clears it. Swap takes each pair with its
+  runs (its sides change places). A new run on a side drops them with the
+  opened rows.
+
+## Compare
+
+Two runs, A (by default "Previous Run") and B ("This Run"), measured by
+the one pipeline (`Compare.Measure`) and set side by side (`CompareSheet`).
+
+- **Every change is against A's final, whole-run figures**: B − A, a
+  percentage over A. A live run is measured again each second; its figures
+  are its averages so far, against the other run's final ones.
+- **Colour says which way, nothing else** (`Change.Of`). Better is green,
+  worse red, by the column's good way (`CompareSheet.Better`): more is
+  better, except Delay, kill time and Deaths, where less is. There is no
+  test of noise: a run of two kills is coloured as one of two hundred, and
+  the figures beside the change say how much there is behind it.
+- **A change that prints as nothing is grey.** Which way it went is read
+  off what is printed ("±0.0%"), so a colour never says better or worse
+  over two figures that read the same.
+- **Totals are coloured** (a party's damage, a character's): with the
+  clock beside them, a bigger total is the run that did more.
+- **Never coloured**: counts (hits, casts, kills), Length, Max, and every
+  healing amount. A count's change is the run's length as much as its
+  play; a Max is one hit; how much healing a party needed is the
+  monsters', not the healers'. Their changes are printed, in grey.
+- **One clock for the cumulative chart**: both runs from their own zero,
+  each line ending where its run ends, with each run's kills on it. Gap
+  is B − A on that clock, even about zero.
+- **Deltas are totals: who did more, and with what.** Each character's
+  damage (or healing) in each run and the change, coloured by which way it
+  went; under them each action's change in total, B's average with its
+  change over A's, and B's uses with how many more or fewer. Totals, never
+  rates: the question is how much more or less each did, and the band
+  beside it has both runs' lengths. A split of a change into "more uses"
+  and "bigger uses" was tried and read badly; the uses and the average
+  beside the change say the same plainly.
+- **An action of one run only counts as nothing in the other**, so a
+  character's change is their actions' changes summed exactly, printed
+  figures included (totals are whole numbers). A character in one run
+  only, or on another job, has no actions under them: theirs are not one
+  set of actions done more or less. Uses are a count and never coloured;
+  in healing nothing is.
+- **Pressing an action in Deltas opens the drill-down on it**, the same
+  action of the same character in both runs, with the accent down its
+  row; pressed again it closes. Deltas stays open beside it, so one action
+  after another can be looked at, and the other panes stacked with the
+  drill-down fold so the distribution has room; closing it unfolds them,
+  unless the panes were rearranged meanwhile.
+- **The Battle Log is a tally by kind of monster**: each run's kills of
+  it, the party's rate on it (its kills' damage over their lengths) and
+  the average kill time, with an "All monsters" line. A kind one run never
+  killed reads 0 kills there, and dashes. Pressing a row isolates that kind
+  as a target, in both runs; pressing it again lets it go.
+- **Characters are matched by name.** One in one run only is listed with
+  "A only" or "B only" and no change. "Match with…" pairs them with
+  someone in the other run only (a renamed character), for the session.
+  A job changed between the runs reads "DRK → SAM" after a dot, and is
+  compared as a whole.
+- **Support is not compared.** Buffs and enfeebles have no figure that is
+  better or worse in itself.
+- **Run names are the session's.** Renamed in place (the name field, ✎ or
+  F2), used everywhere a run is named, never saved.
 
 ## Colours and names
 

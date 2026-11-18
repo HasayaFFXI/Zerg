@@ -95,6 +95,35 @@ public class KillTests
     }
 
     [Fact]
+    public void A_range_counts_the_kills_and_deaths_inside_it_and_the_Timeline_marks_them_all()
+    {
+        var t = Armed();
+        t.Feed([
+            Swing(1000, "Hasaya", 100, "Tiger", 2),
+            Died(1005, "Olivia"),
+            Kill(1011, "Tiger", 2),
+            Swing(1020, "Hasaya", 50, "Tiger", 5),
+            Swing(1100, "Hasaya", 300, "Tiger", 3),
+            Kill(1101, "Tiger", 3),
+            Swing(1130, "Hasaya", 300, "Tiger", 4),
+        ]);
+        // 60 to 120 s: the second kill, and not the first or the death.
+        var c = t.Count(Nobody, true, 1_200_000, range: new ClockRange(60_000, 120_000));
+        Assert.Equal([100_000.0], c.Kills.Fights.Select(f => f.At));
+        Assert.Empty(c.Kills.Deaths);
+        Assert.Empty(c.Died);
+        Assert.Equal(2, c.TimelineKills.Fights.Count);
+        Assert.Single(c.TimelineKills.Deaths);
+        // The Healing section's range is its own: none picked, all of them.
+        Assert.Equal(2, c.HealKilled.Count);
+
+        var h = t.Count(Nobody, true, 1_200_000, healRange: new ClockRange(0, 60_000));
+        Assert.Equal(2, h.Killed.Count);
+        Assert.Single(h.HealKilled);
+        Assert.Single(h.HealKills.Deaths);
+    }
+
+    [Fact]
     public void Two_of_one_name_fought_at_once_are_two_fights_by_their_ids()
     {
         var t = Armed();
@@ -248,15 +277,24 @@ public class KillTests
         var b = Run(Swing(1000, "Hasaya", 100, "Tiger", 2), Kill(1010, "Tiger", 2),
                     Swing(1012, "Hasaya", 100, "Tiger", 2), Died(1015, "Olivia"), Kill(1022, "Tiger", 2));
 
-        var s = CompareSheet.Of(a, b, byJob: false, skillchains: true, hideNames: false);
-        var tiles = s.DamageTiles.ToDictionary(t => t.Label);
+        var s = CompareSheet.Of(a, b);
+        var band = s.DamageBand.ToDictionary(t => t.Key, t => t.Cell);
 
-        Assert.Equal(("0:20.0", "0:10.0", "−10.0s"), (tiles["Avg kill time"].A, tiles["Avg kill time"].B, tiles["Avg kill time"].Change.Main));
-        Assert.Equal(ChangeTone.Better, tiles["Avg kill time"].Change.Tone);
+        // Kills are a count: never coloured. Deaths are, fewer being better.
+        Assert.Equal(("1", "2", "+1", ChangeTone.Flat),
+                     (band["kills"].A, band["kills"].B, band["kills"].Change.Main, band["kills"].Change.Tone));
         Assert.Equal(("0", "1", "+1", ChangeTone.Worse),
-                     (tiles["Deaths"].A, tiles["Deaths"].B, tiles["Deaths"].Change.Main, tiles["Deaths"].Change.Tone));
-        var tiger = Assert.Single(s.Targets);
-        Assert.Equal(("Tiger (1 · 2)", "0:20.0", "0:10.0"), (tiger.Name, tiger.KillTime!.A, tiger.KillTime.B));
+                     (band["deaths"].A, band["deaths"].B, band["deaths"].Change.Main, band["deaths"].Change.Tone));
+
+        // The Battle Log: a line per kind of monster, the rate on it over its
+        // kills' lengths, and the average kill time, shorter being better.
+        var tiger = Assert.Single(s.Tally);
+        Assert.Equal(("Tiger", "1", "2"), (tiger.Name, tiger.Kills.A, tiger.Kills.B));
+        Assert.Equal(("5.0", "10.0", "+100.0%", ChangeTone.Better),
+                     (tiger.Dps.A, tiger.Dps.B, tiger.Dps.Change.Main, tiger.Dps.Change.Tone));
+        Assert.Equal(("0:20.0", "0:10.0", "−10.0s", ChangeTone.Better),
+                     (tiger.KillTime.A, tiger.KillTime.B, tiger.KillTime.Change.Main, tiger.KillTime.Change.Tone));
+        Assert.Equal(("1", "2"), (s.AllMonsters.Kills.A, s.AllMonsters.Kills.B));
     }
 
     [Fact]

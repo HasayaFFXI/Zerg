@@ -38,10 +38,14 @@ public sealed class ColumnTable
     /// <param name="key">The table's key in settings.json.</param>
     /// <param name="columns">Every column, in the order the table is written.</param>
     /// <param name="groups">Each group's name, by its key.</param>
-    public ColumnTable(string key, IReadOnlyList<TableColumn> columns, IReadOnlyDictionary<string, string>? groups = null)
+    /// <param name="hidden">The columns hidden as installed, by key: the
+    /// player shows them from the Columns menu.</param>
+    public ColumnTable(string key, IReadOnlyList<TableColumn> columns, IReadOnlyDictionary<string, string>? groups = null,
+                       IReadOnlyList<string>? hidden = null)
     {
         Key = key;
         All = columns;
+        InstalledHidden = hidden ?? [];
         for (int i = 0; i < columns.Count; i++) place.Add(columns[i].Key, i);
 
         // The units, in the table's own order. A group's columns stand
@@ -71,7 +75,7 @@ public sealed class ColumnTable
         if (columns.Skip(first).Take(Math.Max(0, last - first)).Any(c => c.Fixed))
             throw new ArgumentException("A fixed column stands among the movable ones", nameof(columns));
         Lead = first;
-        Default = Lay(null, null);
+        Default = Lay(null, InstalledHidden);
     }
 
     /// <summary>The table's key in settings.json ("bars").</summary>
@@ -86,8 +90,12 @@ public sealed class ColumnTable
     /// <summary>How many fixed columns the table begins with.</summary>
     public int Lead { get; }
 
-    /// <summary>The table as installed: its own order, nothing hidden.</summary>
+    /// <summary>The table as installed: its own order, nothing hidden but
+    /// <see cref="InstalledHidden"/>.</summary>
     public ColumnLayout Default { get; }
+
+    /// <summary>The columns hidden as installed, by key.</summary>
+    public IReadOnlyList<string> InstalledHidden { get; }
 
     /// <summary>The unit of this key; null for a key the table has not got.</summary>
     public ColumnUnit? Unit(string key) => units.GetValueOrDefault(key);
@@ -242,8 +250,8 @@ public sealed class ColumnLayout
         }
     }
 
-    /// <summary>The same order as installed, and nothing hidden.</summary>
-    public bool IsDefault => Order.SequenceEqual(Table.Installed) && shown.All(s => s);
+    /// <summary>The same order as installed, and the same columns hidden.</summary>
+    public bool IsDefault => Order.SequenceEqual(Table.Installed) && Hidden.ToHashSet().SetEquals(Table.Default.Hidden);
 
     /// <summary>
     /// The widths <paramref name="widths"/> (written as <see cref="Layout.Columns"/>

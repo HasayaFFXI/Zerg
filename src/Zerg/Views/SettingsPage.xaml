@@ -129,33 +129,11 @@
       </Style.Triggers>
     </Style>
 
-    <!-- In the picture of a Compare row: a run's band, as the section
-         draws it (gone while characters are not shaded), and the amount's
-         cell, which is two figures over the bands or two small bars
-         without them. -->
-    <Style x:Key="BandA" TargetType="Rectangle" BasedOn="{StaticResource RowShade}">
-      <Setter Property="Fill" Value="{DynamicResource RunABandBrush}"/>
-      <Setter Property="VerticalAlignment" Value="Top"/>
-      <Setter Property="Height" Value="18"/>
-    </Style>
+    <!-- In the picture of a Compare row: run B's band, as the section
+         draws it (gone while characters are not shaded). -->
     <Style x:Key="BandB" TargetType="Rectangle" BasedOn="{StaticResource RowShade}">
       <Setter Property="Fill" Value="{DynamicResource RunBBandBrush}"/>
-      <Setter Property="Margin" Value="0,18,0,0"/>
-    </Style>
-    <DataTemplate x:Key="AmountFigures">
-      <v:RunPair A="{Binding TextA}" B="{Binding TextB}" FontWeight="SemiBold" Padding="2,0,8,0"/>
-    </DataTemplate>
-    <DataTemplate x:Key="AmountBars">
-      <v:RunBars Value="{Binding}"/>
-    </DataTemplate>
-    <Style x:Key="Amount" TargetType="ContentControl">
-      <Setter Property="Focusable" Value="False"/>
-      <Setter Property="ContentTemplate" Value="{StaticResource AmountFigures}"/>
-      <Style.Triggers>
-        <Trigger Property="v:Shading.Characters" Value="False">
-          <Setter Property="ContentTemplate" Value="{StaticResource AmountBars}"/>
-        </Trigger>
-      </Style.Triggers>
+      <Setter Property="Margin" Value="0,0,0,1"/>
     </Style>
 
   </UserControl.Resources>
@@ -412,7 +390,7 @@
         <v:SettingRow>
           <StackPanel>
             <TextBlock Text="Draw frequency" Style="{StaticResource Name}"/>
-            <TextBlock Text="How many times a second everything that moves with the clock is redrawn: the elapsed time, every DPS and HPS figure, and the right-hand edge of the Cumulative damage and Cumulative healing charts. Whatever an event changes is redrawn as soon as the event arrives. Higher is smoother and uses more processor time."
+            <TextBlock Text="How many times a second everything that moves with the clock is redrawn: the elapsed time, every DPS and HPS figure, and the right-hand edge of the damage and healing Timelines. Whatever an event changes is redrawn as soon as the event arrives. Higher is smoother and uses more processor time."
                        Style="{StaticResource Words}"/>
           </StackPanel>
           <StackPanel Margin="0,6,0,0">
@@ -637,7 +615,8 @@
       <!-- The colours of Compare's two runs: a well each, which opens the
            picker under it (one picker, under whichever well is open), and
            the way back to the installed pair. Beside them a Compare row in
-           the two colours, and how strong their bands come out.
+           the two colours (B's band, A's tick and A's figure on hover), and
+           how strong their bands come out.
 
            Everything that keeps the picker open is in Runs: a press, or
            the keyboard, anywhere else closes it (the code beside this). -->
@@ -679,20 +658,19 @@
               <v:Sample AutomationProperties.Name="A picture of a Compare row in these colours"
                         v:Shading.Characters="{Binding ShadeCharacters}">
                 <Border Style="{StaticResource Rows}">
-                  <Grid Height="36">
+                  <Grid Height="26">
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition/>
-                      <ColumnDefinition Width="96"/>
-                      <ColumnDefinition Width="74"/>
+                      <ColumnDefinition Width="132"/>
                     </Grid.ColumnDefinitions>
-                    <Rectangle Grid.ColumnSpan="3" Style="{StaticResource BandA}" v:Grow.Share="0.863"/>
-                    <Rectangle Grid.ColumnSpan="3" Style="{StaticResource BandB}" v:Grow.Share="1"/>
+                    <Rectangle Grid.ColumnSpan="2" Style="{StaticResource BandB}" v:Grow.Share="1"/>
+                    <v:TickMark Grid.ColumnSpan="2" At="0.863"/>
                     <DockPanel Margin="8,0,0,0" VerticalAlignment="Center">
                       <Rectangle Style="{StaticResource Swatch}" Fill="{Binding SampleSwatch1}" Margin="0,0,6,0"/>
                       <TextBlock Text="Hasaya" FontSize="12" VerticalAlignment="Center"/>
                     </DockPanel>
-                    <ContentControl x:Name="PairAmount" Grid.Column="1" Style="{StaticResource Amount}"/>
-                    <v:ChangeText x:Name="PairChange" Grid.Column="2" Padding="2,0,8,0"/>
+                    <v:DeltaCell x:Name="PairCell" Grid.Column="1" TextElement.FontSize="12" v:DeltaCell.NameA="Previous Run"
+                                 v:DeltaCell.NameB="This Run"/>
                   </Grid>
                 </Border>
               </v:Sample>

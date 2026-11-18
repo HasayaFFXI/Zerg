@@ -4,943 +4,920 @@
               xmlns:sys="clr-namespace:System;assembly=System.Runtime"
               xmlns:c="clr-namespace:Zerg.Charts"
               xmlns:v="clr-namespace:Zerg.Views"
-              v:Shading.Characters="{Binding ShadeCharacters}">
-  <!-- The Compare section's four panes, under its bands (Views/CompareSection):
-       who (by character or by job; comparing healing, by healer); both runs
-       on one clock; what kind (by damage type; by heal); at whom (by
-       target). This is the panel that arranges them itself, a v:SplitPanel
-       as the Damage and Healing sections' are, with its panes written into
-       it: where each goes is its tree's to say (PaneLayouts.Compare, which
-       the main window binds), not the order they are written in, and one
-       arrangement serves both modes. None can float, so none has a Pop out.
-       Only the mode on screen has rows. Its data context is the
-       CompareViewModel.
+              v:Shading.Characters="{Binding ShadeCharacters}"
+              v:DeltaCell.ShowA="{Binding ShowA}"
+              v:DeltaCell.NameA="{Binding A.Called}" v:DeltaCell.NameB="{Binding B.Called}">
+  <!-- The Compare section's seven panes, under its bands
+       (Views/CompareSection): Overview (or Healing by character), Actions
+       (or Heals), Deltas, the cumulative chart, the Battle Log, Filters and
+       the drill-down. A v:SplitPanel as the Damage and Healing sections'
+       are, with its panes written into it: where each goes is its tree's to
+       say (PaneLayouts.Compare). None pops out: the live panel
+       (Views/CompareLive) is Compare's only floating card. The data context
+       is the CompareViewModel.
 
-       How its rows are drawn is the live tables' way. A row is shaded
-       twice, run A's band across its top half and run B's across its
-       bottom half, each from the row's left edge to that run's amount out
-       of the largest in the table (a Rectangle under v:Grow, at the
-       strength its brush has). "Shade characters in their colour" governs
-       it, said once here (v:Shading.Characters) and inherited: off, the
-       bands go and the amount's cell has its two small bars back. A flip
-       is a trigger in each row; nothing is measured and no row is made
-       again. -->
+       Every compared cell is one line, B's figure and the change in its
+       tone (v:DeltaCell), with A's figure under it while the Columns menu's
+       "Show <A>'s figures" is ticked. A row is shaded in run B's band to
+       its share of B's leader, with A's tick where A's figure would end it.
+       Numbers only: no notes, no legends. -->
   <v:SplitPanel.Resources>
 
-    <!-- Each table's columns, shared by its heading and every row: the
-         widths the design draws them at (by character, in a pane 940
-         wide), as shares, each with the least it may be. The second of a
-         pair is the same table with "shade characters" off: the amount's
-         cell then holds two bars and their figures, and the name gives up
-         the room. A blank column ends a table. -->
-    <sys:String x:Key="ActorColumns">160*120,96*80,86*62,78*64,66*56,72*60,72*60,70*60,66*52,72*60,68*52,20*0</sys:String>
-    <sys:String x:Key="ActorBarColumns">110*60,96*80,136*124,78*64,66*56,72*60,72*60,70*60,66*52,72*60,68*52,20*0</sys:String>
-    <sys:String x:Key="ActionColumns">256*120,50*40,70*60,66*60,62*48,72*60,62*48,76*60,80*60,132*0</sys:String>
-    <sys:String x:Key="HealerColumns">256*150,86*62,78*64,66*50,72*56,72*60,76*56,76*56,144*0</sys:String>
-    <sys:String x:Key="HealerBarColumns">206*90,136*124,78*64,66*50,72*56,72*60,76*56,76*56,144*0</sys:String>
-    <sys:String x:Key="HealColumns">256*120,50*40,76*60,80*60,62*48,72*60,62*48,268*0</sys:String>
-    <sys:String x:Key="KindColumns">170*90,100*62,110*64,105*52</sys:String>
-    <sys:String x:Key="KindBarColumns">130*70,140*120,110*64,105*52</sys:String>
-    <sys:String x:Key="SpreadColumns">76*,54,54,64,58,8</sys:String>
-    <sys:String x:Key="PaceColumns">*,*,*,*</sys:String>
+    <!-- Each table's columns, shared by its heading and every row: a share
+         and the least it may be. A compared column holds a figure and its
+         change. -->
+    <sys:String x:Key="BarsColumns">190*120,100*60,120*104,100*90,114*96,108*96,102*90,108*96,100*90,100*90,120*104,108*96,100*90,100*90,120*104,100*90,120*104,100*90,90*72</sys:String>
+    <sys:String x:Key="BarsLess">190*120,100*60,120*104,100*90,114*96,108*96,0,0,0,0,0,0,0,0,0,0,0,0,90*72</sys:String>
+    <sys:String x:Key="HealerColumns">150*110,86*60,128*104,90*76,118*96,108*90,112*96,90*72</sys:String>
+    <sys:String x:Key="ActionColumns">250*140,96*80,112*96,128*104,116*96,100*84,70*56,28</sys:String>
+    <sys:String x:Key="HealColumns">236*140,104*80,128*104,116*96,100*84,70*56,28</sys:String>
+    <!-- Deltas: the name, the bar, A's total, B's total (an action's
+         average), the change, an action's uses. Previous goes first, then
+         Uses. -->
+    <sys:String x:Key="DeltaColumns">172*120,170*60,82*66,104*88,118*96,78*60</sys:String>
+    <sys:String x:Key="DeltaLess">172*120,170*60,0,104*88,118*96,78*60</sys:String>
+    <sys:String x:Key="FightColumns">150*100,104*80,124*100,122*100</sys:String>
+    <sys:String x:Key="FilterColumns">170*100,120*100,110*90</sys:String>
 
-    <Style x:Key="ActorCells" TargetType="v:Cells">
-      <Setter Property="Widths" Value="{StaticResource ActorColumns}"/>
-      <Style.Triggers>
-        <Trigger Property="v:Shading.Characters" Value="False">
-          <Setter Property="Widths" Value="{StaticResource ActorBarColumns}"/>
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-    <Style x:Key="HealerCells" TargetType="v:Cells">
-      <Setter Property="Widths" Value="{StaticResource HealerColumns}"/>
-      <Style.Triggers>
-        <Trigger Property="v:Shading.Characters" Value="False">
-          <Setter Property="Widths" Value="{StaticResource HealerBarColumns}"/>
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-    <Style x:Key="KindCells" TargetType="v:Cells">
-      <Setter Property="Widths" Value="{StaticResource KindColumns}"/>
-      <Style.Triggers>
-        <Trigger Property="v:Shading.Characters" Value="False">
-          <Setter Property="Widths" Value="{StaticResource KindBarColumns}"/>
-        </Trigger>
-      </Style.Triggers>
+    <!-- Run B's band behind a row, to its share of B's leader. Gone while
+         "shade characters" is off. -->
+    <Style x:Key="BandShade" TargetType="Rectangle" BasedOn="{StaticResource RowShade}">
+      <Setter Property="Fill" Value="{DynamicResource RunBBandBrush}"/>
+      <Setter Property="Margin" Value="0,0,0,1"/>
     </Style>
 
-    <sys:String x:Key="ChangeTip">The change from run A to run B: B &#x2212; A, and that as a share of A</sys:String>
-
-    <!-- A line of small print that is not there when it has nothing to say. -->
-    <Style x:Key="Quiet" TargetType="TextBlock" BasedOn="{StaticResource Label}">
-      <Setter Property="TextWrapping" Value="Wrap"/>
+    <!-- A row: the whole row is pressed. 24 units; a line under a heading
+         22; a pair 40; each taller by a line while A's figures show. -->
+    <Style x:Key="Row" TargetType="Button" BasedOn="{StaticResource RowPick}">
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="Command" Value="{Binding PressCommand}"/>
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name}"/>
       <Style.Triggers>
-        <Trigger Property="Text" Value="">
+        <DataTrigger Binding="{Binding Nested}" Value="True">
+          <Setter Property="Height" Value="22"/>
+        </DataTrigger>
+        <Trigger Property="v:DeltaCell.ShowA" Value="True">
+          <Setter Property="Height" Value="36"/>
+        </Trigger>
+        <DataTrigger Binding="{Binding IsCross}" Value="True">
+          <Setter Property="Height" Value="40"/>
+          <Setter Property="Background" Value="{DynamicResource Bg2Brush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Isolated}" Value="True">
+          <Setter Property="AutomationProperties.ItemStatus" Value="isolated"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- A compared heading: it sorts by B's figure, its Δ by the change. -->
+    <Style x:Key="DHead" TargetType="TextBlock" BasedOn="{StaticResource Head}">
+      <Setter Property="Padding" Value="2,0,22,0"/>
+    </Style>
+
+    <!-- "A only", "B only": the run's colour at 14%, its edge at 45%. -->
+    <Style x:Key="Tag" TargetType="Border">
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="5,0"/>
+      <Setter Property="Margin" Value="8,0,0,0"/>
+      <Setter Property="Height" Value="15"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="SnapsToDevicePixels" Value="True"/>
+      <Setter Property="Background" Value="{DynamicResource RunBTagBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource RunBTagEdgeBrush}"/>
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource RunBTextBrush}"/>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding TagA}" Value="True">
+          <Setter Property="Background" Value="{DynamicResource RunATagBrush}"/>
+          <Setter Property="BorderBrush" Value="{DynamicResource RunATagEdgeBrush}"/>
+          <Setter Property="TextElement.Foreground" Value="{DynamicResource RunATextBrush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Tag}" Value="">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- A row's name: the caret of a heading, the swatch, the name, the tag. -->
+    <DataTemplate x:Key="Name">
+      <DockPanel x:Name="Holder" Margin="10,0,8,0" LastChildFill="False">
+        <Path x:Name="Caret" Style="{StaticResource RowCaret}" Margin="0,0,6,0" Visibility="Collapsed"/>
+        <Rectangle Style="{StaticResource Swatch}" Fill="{Binding Swatch}" Margin="0,0,7,0"/>
+        <TextBlock x:Name="Words" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        <Border Style="{StaticResource Tag}">
+          <TextBlock Text="{Binding Tag}" FontSize="9" FontWeight="SemiBold" VerticalAlignment="Center"/>
+        </Border>
+      </DockPanel>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsHead}" Value="True">
+          <Setter TargetName="Caret" Property="Visibility" Value="Visible"/>
+          <Setter TargetName="Words" Property="FontWeight" Value="SemiBold"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Nested}" Value="True">
+          <Setter TargetName="Holder" Property="Margin" Value="30,0,8,0"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Isolated}" Value="True">
+          <Setter TargetName="Words" Property="FontWeight" Value="SemiBold"/>
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- The job, or "DRK → SAM" after the accent's dot. -->
+    <DataTemplate x:Key="Job">
+      <StackPanel Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center">
+        <Ellipse Width="6" Height="6" Fill="{DynamicResource AccentBrush}" Margin="0,0,6,0" VerticalAlignment="Center"
+                 Visibility="{Binding JobChanged, Converter={StaticResource Visible}}"/>
+        <TextBlock Text="{Binding Job}" FontSize="11" Foreground="{DynamicResource Text2Brush}" VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis"/>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- ============================================================ Overview -->
+
+    <DataTemplate x:Key="BarRow">
+      <Button Style="{StaticResource Row}" ContextMenuOpening="OnBarMenu">
+        <Grid>
+          <Rectangle Style="{StaticResource BandShade}" v:Grow.Share="{Binding Fraction}"/>
+          <v:TickMark At="{Binding TickA}"/>
+          <v:Cells Widths="{StaticResource BarsColumns}" Margin="0,0,14,1">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource Name}" Focusable="False"/>
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource Job}" Focusable="False" Style="{StaticResource ShedsLate}"/>
+            <v:DeltaCell Cell="{Binding Cells[damage]}" TextElement.FontWeight="SemiBold"/>
+            <v:DeltaCell Cell="{Binding Cells[share]}"/>
+            <v:DeltaCell Cell="{Binding Cells[dps]}"/>
+            <v:DeltaCell Cell="{Binding Cells[accuracy]}" Style="{StaticResource ShedsLate}"/>
+            <v:DeltaCell Cell="{Binding Cells[crit]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[delay]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[rangedAccuracy]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[rangedCrit]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[wsDamage]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[wsAvg]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[wsShare]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[wsAccuracy]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[scDamage]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[scShare]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[petDamage]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[petAccuracy]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[deaths]}" Style="{StaticResource ShedsLate}"/>
+          </v:Cells>
+        </Grid>
+      </Button>
+    </DataTemplate>
+
+    <DataTemplate x:Key="HealerRow">
+      <Button Style="{StaticResource Row}" ContextMenuOpening="OnBarMenu">
+        <Grid>
+          <Rectangle Style="{StaticResource BandShade}" v:Grow.Share="{Binding Fraction}"/>
+          <v:TickMark At="{Binding TickA}"/>
+          <v:Cells Widths="{StaticResource HealerColumns}" Margin="0,0,14,1">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource Name}" Focusable="False"/>
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource Job}" Focusable="False" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[healing]}" TextElement.FontWeight="SemiBold"/>
+            <v:DeltaCell Cell="{Binding Cells[share]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[hps]}"/>
+            <v:DeltaCell Cell="{Binding Cells[casts]}"/>
+            <v:DeltaCell Cell="{Binding Cells[avg]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[deaths]}" Style="{StaticResource Sheds}"/>
+          </v:Cells>
+        </Grid>
+      </Button>
+    </DataTemplate>
+
+    <!-- ============================================================= Actions -->
+
+    <!-- An action's name; a heading's (caret, swatch, name, job, tag); or a
+         pair's two ends, A over B. -->
+    <DataTemplate x:Key="ActionName">
+      <Grid>
+        <DockPanel x:Name="Plain" Margin="10,0,8,0" LastChildFill="False">
+          <Path x:Name="Caret" Style="{StaticResource RowCaret}" Margin="0,0,6,0" Visibility="Collapsed"/>
+          <Rectangle x:Name="Swatch" Style="{StaticResource Swatch}" Fill="{Binding Swatch}" Margin="0,0,7,0" Visibility="Collapsed"/>
+          <TextBlock x:Name="Words" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+          <StackPanel x:Name="JobOf" Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+            <Ellipse Width="6" Height="6" Fill="{DynamicResource AccentBrush}" Margin="0,0,5,0" VerticalAlignment="Center"
+                     Visibility="{Binding JobChanged, Converter={StaticResource Visible}}"/>
+            <TextBlock Text="{Binding Job}" FontSize="10.5" Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Center"/>
+          </StackPanel>
+          <Border Style="{StaticResource Tag}">
+            <TextBlock Text="{Binding Tag}" FontSize="9" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          </Border>
+        </DockPanel>
+        <StackPanel x:Name="Pair" Margin="22,0,8,0" VerticalAlignment="Center" Visibility="Collapsed">
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+            <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagA}" Margin="0,0,5,0"/>
+            <TextBlock Text="{Binding NameA}" FontSize="11.5" Foreground="{DynamicResource RunATextBrush}" TextTrimming="CharacterEllipsis"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal">
+            <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagB}" Margin="0,0,5,0"/>
+            <TextBlock Text="{Binding NameB}" FontSize="11.5" TextTrimming="CharacterEllipsis"/>
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsHead}" Value="True">
+          <Setter TargetName="Caret" Property="Visibility" Value="Visible"/>
+          <Setter TargetName="Swatch" Property="Visibility" Value="Visible"/>
+          <Setter TargetName="JobOf" Property="Visibility" Value="Visible"/>
+          <Setter TargetName="Words" Property="FontWeight" Value="SemiBold"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Nested}" Value="True">
+          <Setter TargetName="Plain" Property="Margin" Value="40,0,8,0"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsCross}" Value="True">
+          <Setter TargetName="Plain" Property="Visibility" Value="Collapsed"/>
+          <Setter TargetName="Pair" Property="Visibility" Value="Visible"/>
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- The × that clears a pair. -->
+    <DataTemplate x:Key="Clear">
+      <Button Style="{StaticResource IconButton}" Width="20" Height="20" Command="{Binding ClearCommand}"
+              ToolTip="Clear" AutomationProperties.Name="Clear the pair"
+              Visibility="{Binding IsCross, Converter={StaticResource Visible}}">
+        <TextBlock Text="&#x00D7;" FontSize="14" Foreground="{DynamicResource Text3Brush}"/>
+      </Button>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ActionRow">
+      <Button Style="{StaticResource Row}" ContextMenuOpening="OnActionMenu">
+        <Grid>
+          <Rectangle Style="{StaticResource BandShade}" v:Grow.Share="{Binding Fraction}"/>
+          <v:TickMark At="{Binding TickA}"/>
+          <v:Cells Widths="{StaticResource ActionColumns}" Margin="0,0,14,1">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActionName}" Focusable="False"/>
+            <v:DeltaCell Cell="{Binding Cells[hits]}"/>
+            <v:DeltaCell Cell="{Binding Cells[accuracy]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[total]}" TextElement.FontWeight="SemiBold"/>
+            <v:DeltaCell Cell="{Binding Cells[avg]}"/>
+            <v:DeltaCell Cell="{Binding Cells[max]}" Style="{StaticResource Sheds}"/>
+            <TextBlock Text="{Binding Cells[share].B}" Style="{StaticResource FigQuiet}" Padding="2,0,8,0"/>
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource Clear}" Focusable="False"/>
+          </v:Cells>
+        </Grid>
+      </Button>
+    </DataTemplate>
+
+    <DataTemplate x:Key="HealRow">
+      <Button Style="{StaticResource Row}" ContextMenuOpening="OnActionMenu">
+        <Grid>
+          <Rectangle Style="{StaticResource BandShade}" v:Grow.Share="{Binding Fraction}"/>
+          <v:TickMark At="{Binding TickA}"/>
+          <v:Cells Widths="{StaticResource HealColumns}" Margin="0,0,14,1">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActionName}" Focusable="False"/>
+            <v:DeltaCell Cell="{Binding Cells[casts]}"/>
+            <v:DeltaCell Cell="{Binding Cells[total]}" TextElement.FontWeight="SemiBold"/>
+            <v:DeltaCell Cell="{Binding Cells[avg]}"/>
+            <v:DeltaCell Cell="{Binding Cells[max]}" Style="{StaticResource Sheds}"/>
+            <TextBlock Text="{Binding Cells[share].B}" Style="{StaticResource FigQuiet}" Padding="2,0,8,0"/>
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource Clear}" Focusable="False"/>
+          </v:Cells>
+        </Grid>
+      </Button>
+    </DataTemplate>
+
+    <!-- ============================================================== Deltas -->
+
+    <!-- A's figure in A's ink; its dash stays a dash. -->
+    <Style x:Key="DeltaPrev" TargetType="TextBlock" BasedOn="{StaticResource FigSheds}">
+      <Setter Property="Foreground" Value="{DynamicResource RunATextBrush}"/>
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="Padding" Value="2,0,8,0"/>
+    </Style>
+    <Style x:Key="HeadShedsLate" TargetType="TextBlock" BasedOn="{StaticResource Head}">
+      <Style.Triggers>
+        <Trigger Property="v:Shed.Tight" Value="True">
           <Setter Property="Visibility" Value="Collapsed"/>
         </Trigger>
       </Style.Triggers>
     </Style>
-
-    <!-- A cell of two figures, A over B, and a cell with the change between
-         them: a figure's padding, set against the column's right-hand edge. -->
-    <Style TargetType="v:RunPair">
-      <Setter Property="Padding" Value="2,0,8,0"/>
+    <!-- A figure and the smaller part beside it: a change, a percentage. -->
+    <Style x:Key="DeltaFigs" TargetType="StackPanel">
+      <Setter Property="Orientation" Value="Horizontal"/>
+      <Setter Property="HorizontalAlignment" Value="Right"/>
+      <Setter Property="Margin" Value="2,0,8,0"/>
     </Style>
-    <Style TargetType="v:ChangeText">
-      <Setter Property="Padding" Value="2,0,8,0"/>
-    </Style>
-
-    <!-- A run's band behind a row: the run's colour at the strength that
-         leaves a worse change's red legible on it (AppTheme makes the
-         brush), from the row's left edge to the run's amount. A's lies
-         across the row's top half, B's across the bottom half down to the
-         row's rule. Gone while "shade characters" is off (RowShade). -->
-    <Style x:Key="BandA" TargetType="Rectangle" BasedOn="{StaticResource RowShade}">
-      <Setter Property="Fill" Value="{DynamicResource RunABandBrush}"/>
-      <Setter Property="VerticalAlignment" Value="Top"/>
-      <Setter Property="Height" Value="18"/>
-    </Style>
-    <Style x:Key="BandB" TargetType="Rectangle" BasedOn="{StaticResource RowShade}">
-      <Setter Property="Fill" Value="{DynamicResource RunBBandBrush}"/>
-      <Setter Property="Margin" Value="0,18,0,1"/>
-    </Style>
-    <!-- The same in a row 28 tall: 14 and 13. -->
-    <Style x:Key="SideBandA" TargetType="Rectangle" BasedOn="{StaticResource BandA}">
-      <Setter Property="Height" Value="14"/>
-    </Style>
-    <Style x:Key="SideBandB" TargetType="Rectangle" BasedOn="{StaticResource BandB}">
-      <Setter Property="Margin" Value="0,14,0,1"/>
-    </Style>
-
-    <!-- An amount for each run (damage, healing): two figures, A over B,
-         the row behind them being the bars; or, while "shade characters"
-         is off, two small bars with their figures. One or the other is
-         made, never both. Its content is the BarPair. -->
-    <DataTemplate x:Key="AmountFigures">
-      <v:RunPair A="{Binding TextA}" B="{Binding TextB}" FontWeight="SemiBold"/>
-    </DataTemplate>
-    <DataTemplate x:Key="AmountBars">
-      <v:RunBars Value="{Binding}"/>
-    </DataTemplate>
-    <Style x:Key="Amount" TargetType="ContentControl">
-      <Setter Property="Focusable" Value="False"/>
-      <Setter Property="ContentTemplate" Value="{StaticResource AmountFigures}"/>
+    <Style x:Key="DeltaFigsLate" TargetType="StackPanel" BasedOn="{StaticResource DeltaFigs}">
       <Style.Triggers>
-        <Trigger Property="v:Shading.Characters" Value="False">
-          <Setter Property="ContentTemplate" Value="{StaticResource AmountBars}"/>
+        <Trigger Property="v:Shed.Tight" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
         </Trigger>
       </Style.Triggers>
     </Style>
-
-    <!-- A row to press: a character, a job or a healer. 36 units, its rule
-         inside it; opened onto what is under it, it lies on the raised
-         surface. -->
-    <Style x:Key="PairPick" TargetType="Button" BasedOn="{StaticResource RowPick}">
-      <Setter Property="Height" Value="{StaticResource PairRowHeight}"/>
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding Open}" Value="True">
-          <Setter Property="Background" Value="{DynamicResource Bg2Brush}"/>
-        </DataTrigger>
-      </Style.Triggers>
-    </Style>
-    <!-- A row to press in the well under one: an action, a heal. 32 units,
-         on the well's surface, its rule set in from the left with its name. -->
-    <Style x:Key="WellPick" TargetType="Button" BasedOn="{StaticResource RowPick}">
-      <Setter Property="Height" Value="32"/>
-      <Setter Property="Background" Value="{DynamicResource Bg0Brush}"/>
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Grid>
-              <Border Background="{TemplateBinding Background}"/>
-              <Rectangle Style="{StaticResource RowRule}" Margin="28,0,0,0"/>
-              <ContentPresenter/>
-              <Border x:Name="Hover" Style="{StaticResource RowHover}"/>
-            </Grid>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Hover" Property="Visibility" Value="Visible"/>
-              </Trigger>
-              <Trigger Property="IsKeyboardFocused" Value="True">
-                <Setter TargetName="Hover" Property="Visibility" Value="Visible"/>
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-    <!-- The mark before an action's name: a row's caret, a step quieter. -->
-    <Style x:Key="WellCaret" TargetType="Path" BasedOn="{StaticResource RowCaret}">
-      <Setter Property="Stroke" Value="{DynamicResource Text3Brush}"/>
-    </Style>
-
-    <!-- The well under an opened row: the window's own surface, darker
-         than the pane, its headings 24 tall, and ruled off from the rows
-         that follow it. -->
-    <Style x:Key="Well" TargetType="Border">
-      <Setter Property="Background" Value="{DynamicResource Bg0Brush}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource Line2Brush}"/>
-      <Setter Property="BorderThickness" Value="0,0,0,1"/>
-      <Setter Property="Padding" Value="0,0,0,6"/>
-      <Setter Property="SnapsToDevicePixels" Value="True"/>
-    </Style>
-
-    <!-- A total under one name, both runs: a target, or a healing spell.
-         28 units, shaded twice. -->
-    <DataTemplate x:Key="TotalRow">
-      <Grid Height="28">
-        <Rectangle Style="{StaticResource SideBandA}" v:Grow.Share="{Binding Amount.A}"/>
-        <Rectangle Style="{StaticResource SideBandB}" v:Grow.Share="{Binding Amount.B}"/>
-        <v:Cells Style="{StaticResource KindCells}" Margin="0,0,14,1">
-          <TextBlock Text="{Binding Name}" Style="{StaticResource CellText}" Padding="14,0,8,0"/>
-          <ContentControl Content="{Binding Amount}" Style="{StaticResource Amount}"/>
-          <v:ChangeText Value="{Binding Change}"/>
-        </v:Cells>
-        <Rectangle Style="{StaticResource RowRule}"/>
-      </Grid>
-    </DataTemplate>
-    <!-- A row of a side table that is pressed to isolate it (a target, a
-         damage type) is drawn with four styles this section shares with
-         the Damage section's By target and By damage type tables
-         (Views/TallyCard): SidePick, PickEdge, PickCells and PickName, in
-         App.xaml. -->
-
-    <!-- One target while damage is compared: TotalRow's cells, to press. -->
-    <DataTemplate x:Key="TargetPick">
-      <Button Style="{StaticResource SidePick}">
-        <Grid>
-          <Grid Style="{StaticResource PickCells}">
-            <Rectangle Style="{StaticResource SideBandA}" v:Grow.Share="{Binding Line.Amount.A}"/>
-            <Rectangle Style="{StaticResource SideBandB}" v:Grow.Share="{Binding Line.Amount.B}"/>
-            <v:Cells Style="{StaticResource KindCells}" Margin="0,0,14,1">
-              <TextBlock Text="{Binding Name}" Style="{StaticResource PickName}"/>
-              <ContentControl Content="{Binding Line.Amount}" Style="{StaticResource Amount}"/>
-              <v:ChangeText Value="{Binding Line.Change}"/>
-              <v:RunPair Value="{Binding Line.KillTime}" Padding="2,0,5,0"/>
-            </v:Cells>
-          </Grid>
-          <Rectangle Style="{StaticResource PickEdge}"/>
-        </Grid>
-      </Button>
-    </DataTemplate>
-    <!-- One kind of damage, the same way: both runs and its share of each,
-         to press. The share is of every type's damage, isolated or not. -->
-    <DataTemplate x:Key="KindPick">
-      <Button Style="{StaticResource SidePick}">
-        <Grid>
-          <Grid Style="{StaticResource PickCells}">
-            <Rectangle Style="{StaticResource SideBandA}" v:Grow.Share="{Binding Line.Damage.A}"/>
-            <Rectangle Style="{StaticResource SideBandB}" v:Grow.Share="{Binding Line.Damage.B}"/>
-            <v:Cells Style="{StaticResource KindCells}" Margin="0,0,14,1">
-              <TextBlock Text="{Binding Name}" Style="{StaticResource PickName}"/>
-              <ContentControl Content="{Binding Line.Damage}" Style="{StaticResource Amount}"/>
-              <v:ChangeText Value="{Binding Line.Change}"/>
-              <v:RunPair Value="{Binding Line.Share}" Padding="2,0,5,0"/>
-            </v:Cells>
-          </Grid>
-          <Rectangle Style="{StaticResource PickEdge}"/>
-        </Grid>
-      </Button>
-    </DataTemplate>
-    <Style x:Key="ByName" TargetType="ContentPresenter">
-      <Setter Property="AutomationProperties.Name" Value="{Binding Name}"/>
-    </Style>
-    <Style x:Key="ByLabel" TargetType="ContentPresenter">
-      <Setter Property="AutomationProperties.Name" Value="{Binding Label}"/>
-    </Style>
-
-    <!-- The rows of a table scroll under its headings in what the pane
-         has left. In a narrow window, where a pane is as tall as it asks
-         to be, the list is as tall as it needs, up to a cap: a side
-         table's is SideList, in App.xaml; the main table's is taller. -->
-    <Style x:Key="MainList" TargetType="Grid">
-      <Style.Triggers>
-        <Trigger Property="v:SplitPanel.Stacked" Value="True">
-          <Setter Property="MaxHeight" Value="560"/>
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-
-    <!-- What is under a row is made when the row is opened and thrown away
-         when it is closed: eighteen characters' actions are a few thousand
-         cells, and a closed row's would be read out by a screen reader as
-         though they were there. -->
-    <DataTemplate x:Key="Nothing"/>
-    <DataTemplate x:Key="NoActions">
-      <Border Style="{StaticResource Well}" Padding="0">
-        <TextBlock Text="No actions." Style="{StaticResource Label}" Margin="44,8,8,8"/>
-      </Border>
-    </DataTemplate>
-    <DataTemplate x:Key="NoHeals">
-      <Border Style="{StaticResource Well}" Padding="0">
-        <TextBlock Text="No heals." Style="{StaticResource Label}" Margin="44,8,8,8"/>
-      </Border>
-    </DataTemplate>
-
-    <!-- A figure in the table beside a distribution: set against its
-         column's right-hand edge, with no padding of its own. -->
-    <Style x:Key="SpreadFig" TargetType="TextBlock">
+    <Style x:Key="DeltaFig" TargetType="TextBlock" BasedOn="{StaticResource Fig}">
       <Setter Property="FontSize" Value="11.5"/>
-      <Setter Property="TextAlignment" Value="Right"/>
+      <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style x:Key="DeltaChange" TargetType="TextBlock" BasedOn="{StaticResource DeltaFig}">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+    </Style>
+    <Style x:Key="DeltaAside" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="10.5"/>
+      <Setter Property="Margin" Value="4,0,0,0"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
-      <Style.Triggers>
-        <Trigger Property="Text" Value="&#x2014;">
-          <Setter Property="Foreground" Value="{DynamicResource Text4Brush}"/>
-        </Trigger>
-      </Style.Triggers>
+      <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+    </Style>
+    <Style x:Key="DeltaLine" TargetType="Button" BasedOn="{StaticResource RowPick}">
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="Command" Value="{Binding PressCommand}"/>
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name}"/>
     </Style>
 
-    <!-- An action's hits, or a heal's casts, both runs: how they are
-         spread, on bins the runs share, and the figures of each beside it,
-         a line 23 units tall for each, the change in two columns: as a
-         share of A, toned, and the plain difference, quiet. A box on the
-         pane's surface, set into the well under its action.
-
-         Over them, what each side is, each a pick button: A's action, of
-         this row in run A, and B's, of this row or any other in run B.
-         Picking another makes a pair of the two, a row of its own at the
-         top of the well ("Tachi: Shoha ⇄ Tachi: Jinpu"), which opens here
-         the same way; on that row Unpair takes it away. -->
-    <DataTemplate x:Key="SpreadDetail">
-      <Border Margin="28,4,14,8" Background="{DynamicResource Bg1Brush}" BorderBrush="{DynamicResource Line2Brush}"
-              BorderThickness="1" CornerRadius="4" SnapsToDevicePixels="True">
-        <DockPanel>
-          <DockPanel DockPanel.Dock="Top" Margin="10,7,9,0">
-            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Height="22" Padding="10,0" FontSize="11"
-                    Content="Unpair" Command="{Binding UnpairCommand}" ToolTip="Take this pair away"
-                    AutomationProperties.Name="{Binding Label, StringFormat='Unpair {0}'}"
-                    Visibility="{Binding IsCross, Converter={StaticResource Visible}}"/>
-            <WrapPanel VerticalAlignment="Center">
-              <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
-                <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagA}" Margin="0,0,6,0"/>
-                <v:PairPicker DataContext="{Binding PickA}"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Text="vs" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagB}" Margin="0,0,6,0"/>
-                <v:PairPicker DataContext="{Binding PickB}"/>
-              </StackPanel>
-            </WrapPanel>
-          </DockPanel>
+    <!-- A line of Deltas. A character: A's total, B's, the change and its
+         percentage. An action under them: B's average and its change, the
+         change in total, B's uses and how many more. Over a character's
+         actions, their headings. The action the drill-down is open on has
+         the accent down its edge. -->
+    <DataTemplate x:Key="DeltaRow">
+      <Grid>
+        <Button x:Name="Line" Style="{StaticResource DeltaLine}">
           <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="330"/>
-            </Grid.ColumnDefinitions>
-            <!-- The chart is as tall as the figures beside it, which are a row
-                 longer when either run has a crit. -->
-            <DockPanel Margin="10,8,8,8">
-              <TextBlock DockPanel.Dock="Bottom" Text="{Binding Spread.Caption}" Style="{StaticResource Quiet}"
-                         FontSize="10.5" Margin="0,4,0,0" HorizontalAlignment="Center" Typography.NumeralAlignment="Tabular"/>
-              <c:PairedHistogramChart MinHeight="150" Model="{Binding Histogram}" FillA="{DynamicResource RunABrush}"
-                                      FillB="{DynamicResource RunBBrush}"
-                                      AutomationProperties.Name="Distribution chart of both runs"/>
-            </DockPanel>
-            <Border Grid.Column="1" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0" Margin="0,9"
-                    Padding="5,0,9,0" SnapsToDevicePixels="True">
-              <StackPanel VerticalAlignment="Top">
-                <!-- The rows name themselves; over the figures, whose they are. -->
-                <Grid Height="21">
-                  <v:Cells Widths="{StaticResource SpreadColumns}" Margin="0,0,0,1">
-                    <Border/>
-                    <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagA}" HorizontalAlignment="Right"/>
-                    <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagB}" HorizontalAlignment="Right"/>
-                    <TextBlock Text="&#x394; %" Style="{StaticResource Head}" Padding="0" ToolTip="{StaticResource ChangeTip}"/>
-                    <TextBlock Text="&#x394;" Style="{StaticResource Head}" Padding="0" ToolTip="B &#x2212; A"/>
-                  </v:Cells>
-                  <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
-                </Grid>
-                <ItemsControl ItemsSource="{Binding Spread.Lines}" Focusable="False"
-                              ItemContainerStyle="{StaticResource ByLabel}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Grid Height="23" Background="Transparent" ToolTip="{Binding Tip}">
-                        <v:Cells Widths="{StaticResource SpreadColumns}" Margin="0,0,0,1">
-                          <TextBlock Text="{Binding Label}" FontSize="11.5" Padding="4,0,4,0" VerticalAlignment="Center"
-                                     TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Text2Brush}"/>
-                          <TextBlock Text="{Binding A}" Style="{StaticResource SpreadFig}"/>
-                          <TextBlock Text="{Binding B}" Style="{StaticResource SpreadFig}"/>
-                          <TextBlock Text="{Binding Change.Main}" Style="{StaticResource Tone}" FontSize="11.5"/>
-                          <TextBlock Text="{Binding Change.Sub}" Style="{StaticResource SpreadFig}" FontSize="10.5"
-                                     Foreground="{DynamicResource Text3Brush}"/>
-                        </v:Cells>
-                        <Rectangle Style="{StaticResource RowRule}"/>
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-            </Border>
-          </Grid>
-        </DockPanel>
-      </Border>
-    </DataTemplate>
-    <Style x:Key="UnderSpread" TargetType="ContentControl">
-      <Setter Property="Focusable" Value="False"/>
-      <Setter Property="ContentTemplate" Value="{StaticResource Nothing}"/>
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding Open}" Value="True">
-          <Setter Property="ContentTemplate" Value="{StaticResource SpreadDetail}"/>
-        </DataTrigger>
-      </Style.Triggers>
-    </Style>
-
-    <!-- A row's actions, paired: what a change of gear or job did. Each
-         opens in its turn, onto how its hits are spread; the one that is
-         open has an accent edge and its name in a heavier face. -->
-    <DataTemplate x:Key="ActorDetail">
-      <Border Style="{StaticResource Well}">
-        <StackPanel>
-          <v:Cells Widths="{StaticResource ActionColumns}" Height="{StaticResource ColumnHeadHeight}" Margin="0,0,14,0">
-            <TextBlock Text="Action" Style="{StaticResource HeadText}" Padding="44,0,8,0"/>
-            <TextBlock Text="Uses" Style="{StaticResource Head}"/>
-            <TextBlock Text="Accuracy" Style="{StaticResource Head}"/>
-            <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-            <TextBlock Text="Avg" Style="{StaticResource Head}"/>
-            <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-            <TextBlock Text="Max" Style="{StaticResource Head}"/>
-            <TextBlock Text="Total" Style="{StaticResource Head}"/>
-            <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-          </v:Cells>
-          <ItemsControl ItemsSource="{Binding Actions}" Focusable="False">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <StackPanel>
-                  <Button Style="{StaticResource WellPick}" Command="{Binding ToggleCommand}"
-                          AutomationProperties.Name="{Binding Label}"
-                          ToolTip="Compare how this action's hits are spread">
-                    <Grid>
-                      <Rectangle x:Name="Edge" Width="2" HorizontalAlignment="Left" SnapsToDevicePixels="True"
-                                 Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
-                      <v:Cells Widths="{StaticResource ActionColumns}" Margin="0,0,14,1">
-                        <DockPanel Margin="28,0,8,0" VerticalAlignment="Center">
-                          <Path Style="{StaticResource WellCaret}" Margin="0,0,8,0"/>
-                          <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis"
-                                     VerticalAlignment="Center"/>
-                        </DockPanel>
-                        <v:RunPair Value="{Binding Line.Uses}"/>
-                        <v:RunPair Value="{Binding Line.Accuracy}"/>
-                        <v:ChangeText Value="{Binding Line.AccuracyChange}"/>
-                        <v:RunPair Value="{Binding Line.Avg}"/>
-                        <v:ChangeText Value="{Binding Line.AvgChange}"/>
-                        <v:RunPair Value="{Binding Line.Max}" Foreground="{DynamicResource Text2Brush}"/>
-                        <v:RunPair Value="{Binding Line.Total}"/>
-                        <v:ChangeText Value="{Binding Line.TotalChange}"/>
-                      </v:Cells>
-                    </Grid>
-                  </Button>
-                  <ContentControl Content="{Binding}" Style="{StaticResource UnderSpread}"/>
-                </StackPanel>
-                <DataTemplate.Triggers>
-                  <DataTrigger Binding="{Binding Open}" Value="True">
-                    <Setter TargetName="Edge" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
-                  </DataTrigger>
-                </DataTemplate.Triggers>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-      </Border>
-    </DataTemplate>
-    <Style x:Key="UnderActor" TargetType="ContentControl">
-      <Setter Property="Focusable" Value="False"/>
-      <Setter Property="ContentTemplate" Value="{StaticResource Nothing}"/>
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding Open}" Value="True">
-          <Setter Property="ContentTemplate" Value="{StaticResource ActorDetail}"/>
-        </DataTrigger>
-        <!-- Open, with nothing that did damage in either run. -->
-        <DataTrigger Binding="{Binding NoActions}" Value="True">
-          <Setter Property="ContentTemplate" Value="{StaticResource NoActions}"/>
-        </DataTrigger>
-      </Style.Triggers>
-    </Style>
-
-    <!-- A healer's heals, paired. Each opens in its turn, onto how its casts are spread. -->
-    <DataTemplate x:Key="HealerDetail">
-      <Border Style="{StaticResource Well}">
-        <StackPanel>
-          <v:Cells Widths="{StaticResource HealColumns}" Height="{StaticResource ColumnHeadHeight}" Margin="0,0,14,0">
-            <TextBlock Text="Heal" Style="{StaticResource HeadText}" Padding="44,0,8,0"/>
-            <TextBlock Text="Casts" Style="{StaticResource Head}"/>
-            <TextBlock Text="Total" Style="{StaticResource Head}"/>
-            <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-            <TextBlock Text="Avg" Style="{StaticResource Head}"/>
-            <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-            <TextBlock Text="Max" Style="{StaticResource Head}"/>
-          </v:Cells>
-          <ItemsControl ItemsSource="{Binding Heals}" Focusable="False">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <StackPanel>
-                  <Button Style="{StaticResource WellPick}" Command="{Binding ToggleCommand}"
-                          AutomationProperties.Name="{Binding Label}"
-                          ToolTip="Compare how this heal's casts are spread">
-                    <Grid>
-                      <Rectangle x:Name="Edge" Width="2" HorizontalAlignment="Left" SnapsToDevicePixels="True"
-                                 Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
-                      <v:Cells Widths="{StaticResource HealColumns}" Margin="0,0,14,1">
-                        <DockPanel Margin="28,0,8,0" VerticalAlignment="Center">
-                          <Path Style="{StaticResource WellCaret}" Margin="0,0,8,0"/>
-                          <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis"
-                                     VerticalAlignment="Center"/>
-                        </DockPanel>
-                        <v:RunPair Value="{Binding Line.Casts}"/>
-                        <v:RunPair Value="{Binding Line.Total}"/>
-                        <v:ChangeText Value="{Binding Line.TotalChange}"/>
-                        <v:RunPair Value="{Binding Line.Avg}"/>
-                        <v:ChangeText Value="{Binding Line.AvgChange}"/>
-                        <v:RunPair Value="{Binding Line.Max}" Foreground="{DynamicResource Text2Brush}"/>
-                      </v:Cells>
-                    </Grid>
-                  </Button>
-                  <ContentControl Content="{Binding}" Style="{StaticResource UnderSpread}"/>
-                </StackPanel>
-                <DataTemplate.Triggers>
-                  <DataTrigger Binding="{Binding Open}" Value="True">
-                    <Setter TargetName="Edge" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
-                  </DataTrigger>
-                </DataTemplate.Triggers>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-      </Border>
-    </DataTemplate>
-    <Style x:Key="UnderHealer" TargetType="ContentControl">
-      <Setter Property="Focusable" Value="False"/>
-      <Setter Property="ContentTemplate" Value="{StaticResource Nothing}"/>
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding Open}" Value="True">
-          <Setter Property="ContentTemplate" Value="{StaticResource HealerDetail}"/>
-        </DataTrigger>
-        <DataTrigger Binding="{Binding NoHeals}" Value="True">
-          <Setter Property="ContentTemplate" Value="{StaticResource NoHeals}"/>
-        </DataTrigger>
-      </Style.Triggers>
-    </Style>
-
-    <!-- One character, or one job, of the damage table: who, the job in
-         each run with the runs' marks before it, then A over B and the
-         change between them, column by column. -->
-    <DataTemplate x:Key="ActorRow">
-      <StackPanel>
-        <Button Style="{StaticResource PairPick}" Command="{Binding ToggleCommand}"
-                AutomationProperties.Name="{Binding Name}" ToolTip="Compare the actions behind this row">
-          <Grid>
-            <Rectangle Style="{StaticResource BandA}" v:Grow.Share="{Binding Line.Damage.A}"/>
-            <Rectangle Style="{StaticResource BandB}" v:Grow.Share="{Binding Line.Damage.B}"/>
-            <v:Cells Style="{StaticResource ActorCells}" Margin="0,0,14,1">
-              <DockPanel Margin="12,0,8,0" VerticalAlignment="Center">
-                <Path Style="{StaticResource RowCaret}" Margin="0,0,8,0"/>
-                <Rectangle Style="{StaticResource Swatch}" Fill="{Binding Swatch}" Margin="0,0,6,0"/>
-                <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center"/>
+            <v:Cells Widths="{StaticResource DeltaColumns}" Margin="0,0,14,1">
+              <DockPanel x:Name="Holder" Margin="10,0,8,0" LastChildFill="False">
+                <Path x:Name="Caret" Style="{StaticResource RowCaret}" Margin="0,0,6,0" Visibility="Hidden"/>
+                <Rectangle x:Name="Swatch" Style="{StaticResource Swatch}" Fill="{Binding Swatch}" Margin="0,0,7,0"/>
+                <TextBlock x:Name="Words" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <Ellipse Width="6" Height="6" Fill="{DynamicResource AccentBrush}" Margin="6,0,0,0" VerticalAlignment="Center"
+                         Visibility="{Binding JobChanged, Converter={StaticResource Visible}}"/>
+                <TextBlock Text="{Binding Job}" FontSize="10.5" Foreground="{DynamicResource Text3Brush}"
+                           Margin="6,0,0,0" VerticalAlignment="Center"/>
+                <Border Style="{StaticResource Tag}">
+                  <TextBlock Text="{Binding Tag}" FontSize="9" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </Border>
               </DockPanel>
-              <!-- By character, the job in each run; by job, who was on it.
-                   One or the other is there, never an empty copy of both. -->
-              <Grid Background="Transparent" ToolTip="{Binding JobsTip}">
-                <v:RunMarks Visibility="{Binding Jobs, Converter={StaticResource Present}}">
-                  <v:RunPair Value="{Binding Jobs}" Words="True" FontSize="10.5" Padding="22,0,2,0"
-                             Foreground="{DynamicResource Text2Brush}"/>
-                </v:RunMarks>
-                <TextBlock Text="{Binding Members}" ToolTip="{Binding Members}" Style="{StaticResource Quiet}" FontSize="10.5"
-                           LineHeight="13" LineStackingStrategy="BlockLineHeight" MaxHeight="26"
-                           TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Text2Brush}"
-                           VerticalAlignment="Center" Margin="8,0,4,0"/>
-              </Grid>
-              <ContentControl Content="{Binding Line.Damage}" Style="{StaticResource Amount}"/>
-              <v:ChangeText Value="{Binding Line.DamageChange}"/>
-              <v:RunPair Value="{Binding Line.Dps}"/>
-              <v:ChangeText Value="{Binding Line.DpsChange}"/>
-              <v:RunPair Value="{Binding Line.Accuracy}"/>
-              <v:ChangeText Value="{Binding Line.AccuracyChange}"/>
-              <v:RunPair Value="{Binding Line.WsAvg}"/>
-              <v:ChangeText Value="{Binding Line.WsAvgChange}"/>
-              <v:RunPair Value="{Binding Line.Share}"/>
+              <v:DeltaBar Delta="{Binding Delta}" Scale="{Binding Scale}" Grey="{Binding Grey}"/>
+              <TextBlock Text="{Binding Previous}" Style="{StaticResource DeltaPrev}"/>
+              <StackPanel Style="{StaticResource DeltaFigs}">
+                <TextBlock x:Name="Figure" Text="{Binding Figure}" Style="{StaticResource DeltaFig}"/>
+                <TextBlock x:Name="FigureChange" Text="{Binding FigureChange}" Style="{StaticResource DeltaAside}"/>
+              </StackPanel>
+              <StackPanel Style="{StaticResource DeltaFigs}">
+                <TextBlock x:Name="Change" Text="{Binding Change}" Style="{StaticResource DeltaChange}"/>
+                <TextBlock x:Name="Percent" Text="{Binding ChangePercent}" Style="{StaticResource DeltaAside}"/>
+              </StackPanel>
+              <StackPanel Style="{StaticResource DeltaFigsLate}">
+                <TextBlock Text="{Binding Uses}" Style="{StaticResource DeltaFig}"/>
+                <TextBlock Text="{Binding UsesChange}" Style="{StaticResource DeltaAside}"/>
+              </StackPanel>
             </v:Cells>
+            <Rectangle Style="{StaticResource PickEdge}"/>
           </Grid>
         </Button>
-        <ContentControl Content="{Binding}" Style="{StaticResource UnderActor}"/>
-      </StackPanel>
-      <DataTemplate.Triggers>
-        <DataTrigger Binding="{Binding Open}" Value="True">
-          <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
-        </DataTrigger>
-      </DataTemplate.Triggers>
-    </DataTemplate>
-
-    <!-- The healing table's two kinds of row: the party, which leads it on
-         the raised surface and opens onto nothing; and a healer. -->
-    <DataTemplate x:Key="PartyRow">
-      <Grid Height="{StaticResource PairRowHeight}" Background="{DynamicResource Bg2Brush}">
-        <Rectangle Style="{StaticResource BandA}" v:Grow.Share="{Binding Line.Healing.A}"/>
-        <Rectangle Style="{StaticResource BandB}" v:Grow.Share="{Binding Line.Healing.B}"/>
-        <v:Cells Style="{StaticResource HealerCells}" Margin="0,0,14,1">
-          <TextBlock Text="{Binding Name}" Style="{StaticResource CellText}" FontWeight="SemiBold" Padding="42,0,8,0"/>
-          <ContentControl Content="{Binding Line.Healing}" Style="{StaticResource Amount}"/>
-          <v:ChangeText Value="{Binding Line.HealingChange}"/>
-          <v:RunPair Value="{Binding Line.Casts}"/>
-          <v:RunPair Value="{Binding Line.Avg}"/>
-          <v:ChangeText Value="{Binding Line.AvgChange}"/>
-          <v:RunPair Value="{Binding Line.Biggest}"/>
-          <v:RunPair Value="{Binding Line.Pet}"/>
-        </v:Cells>
-        <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
+        <!-- The headings over a character's actions. -->
+        <Grid x:Name="Caption" Height="20" Visibility="Collapsed" Background="{DynamicResource Bg0Brush}">
+          <v:Cells Widths="{StaticResource DeltaColumns}" Margin="0,0,14,1">
+            <TextBlock Text="{Binding DataContext.ActionWord, RelativeSource={RelativeSource AncestorType=v:ComparePanes}}"
+                       Style="{StaticResource HeadText}" FontSize="10.5" Padding="30,0,8,0"/>
+            <Border/>
+            <Border Style="{StaticResource Sheds}"/>
+            <TextBlock Text="Average" Style="{StaticResource Head}" FontSize="10.5" Padding="2,0,8,0"/>
+            <TextBlock Text="Change" Style="{StaticResource Head}" FontSize="10.5" Padding="2,0,8,0"/>
+            <TextBlock Text="{Binding DataContext.UsesWord, RelativeSource={RelativeSource AncestorType=v:ComparePanes}}"
+                       Style="{StaticResource HeadShedsLate}" FontSize="10.5" Padding="2,0,8,0"/>
+          </v:Cells>
+          <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource LineBrush}" SnapsToDevicePixels="True"/>
+        </Grid>
       </Grid>
-    </DataTemplate>
-    <DataTemplate x:Key="HealerRow">
-      <StackPanel>
-        <Button Style="{StaticResource PairPick}" Command="{Binding ToggleCommand}"
-                AutomationProperties.Name="{Binding Name}" ToolTip="Compare the heals behind this row">
-          <Grid>
-            <Rectangle Style="{StaticResource BandA}" v:Grow.Share="{Binding Line.Healing.A}"/>
-            <Rectangle Style="{StaticResource BandB}" v:Grow.Share="{Binding Line.Healing.B}"/>
-            <v:Cells Style="{StaticResource HealerCells}" Margin="0,0,14,1">
-              <DockPanel Margin="12,0,8,0" VerticalAlignment="Center">
-                <Path Style="{StaticResource RowCaret}" Margin="0,0,8,0"/>
-                <Rectangle Style="{StaticResource Swatch}" Fill="{Binding Swatch}" Margin="0,0,6,0"/>
-                <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center"/>
-              </DockPanel>
-              <ContentControl Content="{Binding Line.Healing}" Style="{StaticResource Amount}"/>
-              <v:ChangeText Value="{Binding Line.HealingChange}"/>
-              <v:RunPair Value="{Binding Line.Casts}"/>
-              <v:RunPair Value="{Binding Line.Avg}"/>
-              <v:ChangeText Value="{Binding Line.AvgChange}"/>
-              <v:RunPair Value="{Binding Line.Biggest}"/>
-              <v:RunPair Value="{Binding Line.Pet}"/>
-            </v:Cells>
-          </Grid>
-        </Button>
-        <ContentControl Content="{Binding}" Style="{StaticResource UnderHealer}"/>
-      </StackPanel>
       <DataTemplate.Triggers>
-        <DataTrigger Binding="{Binding Open}" Value="True">
-          <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
+        <DataTrigger Binding="{Binding CanOpen}" Value="True">
+          <Setter TargetName="Caret" Property="Visibility" Value="Visible"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Nested}" Value="True">
+          <Setter TargetName="Line" Property="Height" Value="22"/>
+          <Setter TargetName="Line" Property="Background" Value="{DynamicResource Bg0Brush}"/>
+          <Setter TargetName="Holder" Property="Margin" Value="30,0,8,0"/>
+          <Setter TargetName="Swatch" Property="Visibility" Value="Collapsed"/>
+          <Setter TargetName="Caret" Property="Visibility" Value="Collapsed"/>
+          <Setter TargetName="Words" Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+          <Setter TargetName="Words" Property="FontSize" Value="11.5"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsCaption}" Value="True">
+          <Setter TargetName="Line" Property="Visibility" Value="Collapsed"/>
+          <Setter TargetName="Caption" Property="Visibility" Value="Visible"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Isolated}" Value="True">
+          <Setter TargetName="Line" Property="Background" Value="{DynamicResource Bg3Brush}"/>
+          <Setter TargetName="Line" Property="AutomationProperties.ItemStatus" Value="isolated"/>
+          <Setter TargetName="Words" Property="Foreground" Value="{DynamicResource Text1Brush}"/>
+          <Setter TargetName="Words" Property="FontWeight" Value="SemiBold"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding FigureIsA}" Value="True">
+          <Setter TargetName="Figure" Property="Foreground" Value="{DynamicResource RunATextBrush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding FigureTone}" Value="Better">
+          <Setter TargetName="FigureChange" Property="Foreground" Value="{DynamicResource LiveBrush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding FigureTone}" Value="Worse">
+          <Setter TargetName="FigureChange" Property="Foreground" Value="{DynamicResource CritBrush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ChangeTone}" Value="Better">
+          <Setter TargetName="Change" Property="Foreground" Value="{DynamicResource LiveBrush}"/>
+          <Setter TargetName="Percent" Property="Foreground" Value="{DynamicResource LiveBrush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ChangeTone}" Value="Worse">
+          <Setter TargetName="Change" Property="Foreground" Value="{DynamicResource CritBrush}"/>
+          <Setter TargetName="Percent" Property="Foreground" Value="{DynamicResource CritBrush}"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ChangeTone}" Value="None">
+          <Setter TargetName="Change" Property="FontWeight" Value="Normal"/>
         </DataTrigger>
       </DataTemplate.Triggers>
     </DataTemplate>
-    <v:ActionRowTemplates x:Key="HealerRows" Heading="{StaticResource PartyRow}" Action="{StaticResource HealerRow}"/>
 
+    <!-- ========================================================== Battle Log -->
+
+    <DataTemplate x:Key="TallyRow">
+      <Button Style="{StaticResource Row}">
+        <Grid>
+          <Grid Style="{StaticResource PickCells}">
+            <v:Cells Widths="{StaticResource FightColumns}" Margin="0,0,14,1">
+              <ContentControl Content="{Binding}" ContentTemplate="{StaticResource Name}" Focusable="False"/>
+              <v:DeltaCell Cell="{Binding Cells[kills]}"/>
+              <v:DeltaCell Cell="{Binding Cells[dps]}" TextElement.FontWeight="SemiBold"/>
+              <v:DeltaCell Cell="{Binding Cells[killTime]}"/>
+            </v:Cells>
+          </Grid>
+          <Rectangle Style="{StaticResource PickEdge}"/>
+        </Grid>
+      </Button>
+    </DataTemplate>
+
+    <!-- ============================================================= Filters -->
+
+    <DataTemplate x:Key="FilterRow">
+      <Button Style="{StaticResource Row}">
+        <Grid>
+          <Grid Style="{StaticResource PickCells}">
+            <v:Cells Widths="{StaticResource FilterColumns}" Margin="0,0,14,1">
+              <ContentControl Content="{Binding}" ContentTemplate="{StaticResource Name}" Focusable="False"/>
+              <v:DeltaCell Cell="{Binding Cells[damage]}" TextElement.FontWeight="SemiBold"/>
+              <v:DeltaCell Cell="{Binding Cells[share]}"/>
+            </v:Cells>
+          </Grid>
+          <Rectangle Style="{StaticResource PickEdge}"/>
+        </Grid>
+      </Button>
+    </DataTemplate>
+
+    <!-- A figure of the drill-down: what it is, B's figure and the change,
+         A's figure under them. -->
+    <DataTemplate x:Key="DrillFigure">
+      <Grid Height="58" Background="Transparent" AutomationProperties.Name="{Binding Label}">
+        <Rectangle x:Name="Rule" Width="1" HorizontalAlignment="Left" Fill="{DynamicResource LineBrush}" SnapsToDevicePixels="True"/>
+        <StackPanel Margin="10,7,6,0">
+          <v:Caps Text="{Binding Label}" Style="{StaticResource Caps}" HorizontalAlignment="Left"/>
+          <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+            <TextBlock Text="{Binding Cell.B}" FontSize="15" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"/>
+            <TextBlock Text="{Binding Change.Main}" Style="{StaticResource Tone}" DataContext="{Binding Cell}"
+                       FontSize="10.5" Margin="5,0,0,0"/>
+          </StackPanel>
+          <TextBlock Text="{Binding Cell.A}" FontSize="10.5" Foreground="{DynamicResource RunATextBrush}"
+                     Typography.NumeralAlignment="Tabular"/>
+        </StackPanel>
+      </Grid>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}"
+                     Value="0">
+          <Setter TargetName="Rule" Property="Visibility" Value="Collapsed"/>
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <Style x:Key="Rule" TargetType="Rectangle">
+      <Setter Property="Height" Value="1"/>
+      <Setter Property="VerticalAlignment" Value="Bottom"/>
+      <Setter Property="Fill" Value="{DynamicResource Line2Brush}"/>
+      <Setter Property="SnapsToDevicePixels" Value="True"/>
+    </Style>
+    <Style x:Key="ToolButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="Padding" Value="9,0"/>
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
   </v:SplitPanel.Resources>
 
-    <!-- By character, by job, by healer: a row per one of them. Its
-         headings stand still and its rows scroll under them; sideways,
-         it scrolls only in a pane too narrow for its columns. -->
-    <v:Pane v:SplitPanel.Key="cactors" Title="{Binding RowsTitle}" Note="{Binding RowsNote}" Hint="{Binding RowsHint}">
-      <Grid>
-        <!-- Damage. -->
-        <ScrollViewer x:Name="ActorScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
-                      v:WheelChain.On="True" Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
-          <Grid MinWidth="744" Width="{Binding ViewportWidth, ElementName=ActorScroller}">
-            <Grid.Style>
-              <Style TargetType="Grid">
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding ComputedHorizontalScrollBarVisibility, ElementName=ActorScroller}" Value="Visible">
-                    <Setter Property="Margin" Value="0,0,0,12"/>
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </Grid.Style>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition/>
-            </Grid.RowDefinitions>
-            <Grid Height="{StaticResource ColumnHeadHeight}">
-              <v:Cells Style="{StaticResource ActorCells}" Margin="0,0,14,1">
-                <TextBlock Text="{Binding NameHead}" Style="{StaticResource HeadText}" Padding="28,0,8,0"/>
-                <TextBlock Text="{Binding JobHead}" Style="{StaticResource HeadText}" Padding="22,0,2,0"/>
-                <TextBlock Text="Damage" Style="{StaticResource Head}"/>
-                <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-                <TextBlock Text="DPS" Style="{StaticResource Head}" ToolTip="Damage divided by that run's session clock"/>
-                <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-                <!-- The longest words over the narrowest columns: as a
-                     figure, they have the column less 2 units, not less 8. -->
-                <TextBlock Text="Accuracy" Style="{StaticResource Head}" Padding="2,0,8,0"
-                           ToolTip="Auto-attacks (Attack and Offhand Attack) that connected, out of all attempted. Ranged attacks are not included"/>
-                <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-                <TextBlock Text="WS Avg" Style="{StaticResource Head}" Padding="2,0,8,0"
-                           ToolTip="Average damage of the weaponskills that dealt damage"/>
-                <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-                <TextBlock Text="Share" Style="{StaticResource Head}" ToolTip="Share of that run's party damage"/>
-              </v:Cells>
-              <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
-            </Grid>
-            <Grid Grid.Row="1" Style="{StaticResource MainList}">
-              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                            v:WheelChain.On="True">
-                <ItemsControl ItemsSource="{Binding Actors}" ItemTemplate="{StaticResource ActorRow}" Focusable="False"/>
-              </ScrollViewer>
-            </Grid>
-          </Grid>
-        </ScrollViewer>
-
-        <!-- Healing. -->
-        <DockPanel Visibility="{Binding IsHealing, Converter={StaticResource Visible}}">
-          <!-- Why a side is dashes, or that nobody healed: over the
-               table, where it is read before the dashes are. -->
-          <TextBlock DockPanel.Dock="Top" Text="{Binding HealNote}" Style="{StaticResource Quiet}" FontSize="11.5"
-                     Margin="12,8,14,8"/>
-          <ScrollViewer x:Name="HealerScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
-                        v:WheelChain.On="True" Visibility="{Binding Healers.Count, Converter={StaticResource Present}}">
-            <Grid MinWidth="620" Width="{Binding ViewportWidth, ElementName=HealerScroller}">
-              <Grid.Style>
-                <Style TargetType="Grid">
-                  <Style.Triggers>
-                    <DataTrigger Binding="{Binding ComputedHorizontalScrollBarVisibility, ElementName=HealerScroller}" Value="Visible">
-                      <Setter Property="Margin" Value="0,0,0,12"/>
-                    </DataTrigger>
-                  </Style.Triggers>
-                </Style>
-              </Grid.Style>
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition/>
-              </Grid.RowDefinitions>
-              <Grid Height="{StaticResource ColumnHeadHeight}">
-                <v:Cells Style="{StaticResource HealerCells}" Margin="0,0,14,1">
-                  <TextBlock Text="{Binding HealerHead}" Style="{StaticResource HeadText}" Padding="28,0,8,0"/>
-                  <TextBlock Text="Healing" Style="{StaticResource Head}"/>
-                  <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-                  <TextBlock Text="Casts" Style="{StaticResource Head}" ToolTip="One per cast, however many people it reached"/>
-                  <TextBlock Text="Avg" Style="{StaticResource Head}" ToolTip="Healing divided by casts"/>
-                  <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-                  <TextBlock Text="Biggest" Style="{StaticResource Head}"
-                             ToolTip="The most one target was healed for by one cast"/>
-                  <TextBlock Text="Pet" Style="{StaticResource Head}" ToolTip="Heals by the character's pet. Part of Healing"/>
-                </v:Cells>
-                <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
-              </Grid>
-              <Grid Grid.Row="1" Style="{StaticResource MainList}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              v:WheelChain.On="True">
-                  <ItemsControl ItemsSource="{Binding Healers}" ItemTemplateSelector="{StaticResource HealerRows}"
-                                Focusable="False"/>
-                </ScrollViewer>
-              </Grid>
-            </Grid>
-          </ScrollViewer>
-        </DockPanel>
-      </Grid>
-    </v:Pane>
-
-    <!-- Both runs' running total on one clock. The shorter run's line
-         ends where the run did; it is not carried on flat. Which line is
-         which run is said inside the plot's top left-hand corner, where
-         a running total never is: the chart's right-hand edge belongs to
-         the ends of the two lines. Under it, the same as a table, which
-         takes the chart's place while it is open: the pane has no room
-         for both. (In a narrow window, where a pane is as tall as it
-         asks to be, the table opens under the chart.) -->
-    <v:Pane v:SplitPanel.Key="cpace" Title="{Binding PaceTitle}" Note="{Binding PaceNote}" Hint="{Binding PaceHint}">
-      <Grid>
-        <Grid.RowDefinitions>
-          <RowDefinition>
-            <RowDefinition.Style>
-              <Style TargetType="RowDefinition">
-                <Setter Property="Height" Value="*"/>
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding PaceTableOpen}" Value="True">
-                    <Setter Property="Height" Value="Auto"/>
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </RowDefinition.Style>
-          </RowDefinition>
-          <RowDefinition>
-            <RowDefinition.Style>
-              <Style TargetType="RowDefinition">
-                <Setter Property="Height" Value="Auto"/>
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding PaceTableOpen}" Value="True">
-                    <Setter Property="Height" Value="*"/>
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </RowDefinition.Style>
-          </RowDefinition>
-        </Grid.RowDefinitions>
-        <Grid>
-          <Grid.Style>
-            <Style TargetType="Grid">
-              <Setter Property="MinHeight" Value="80"/>
-              <Style.Triggers>
-                <Trigger Property="v:SplitPanel.Stacked" Value="True">
-                  <Setter Property="Height" Value="260"/>
-                </Trigger>
-                <MultiDataTrigger>
-                  <MultiDataTrigger.Conditions>
-                    <Condition Binding="{Binding PaceTableOpen}" Value="True"/>
-                    <Condition Binding="{Binding Path=(v:SplitPanel.Stacked), RelativeSource={RelativeSource Self}}" Value="False"/>
-                  </MultiDataTrigger.Conditions>
-                  <Setter Property="Visibility" Value="Collapsed"/>
-                </MultiDataTrigger>
-              </Style.Triggers>
-            </Style>
-          </Grid.Style>
-          <c:LineChart Model="{Binding Pace}" EmptyText="Nothing to compare"
-                       AutomationProperties.Name="Cumulative chart of both runs"/>
-          <ItemsControl ItemsSource="{Binding PaceLegend}" Margin="50,10,8,0" HorizontalAlignment="Left"
-                        VerticalAlignment="Top" IsHitTestVisible="False" Focusable="False"
-                        ItemContainerStyle="{StaticResource ByName}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <StackPanel Orientation="Horizontal" Height="14">
-                  <Rectangle Style="{StaticResource Swatch}" Fill="{Binding Swatch}"/>
-                  <TextBlock Text="{Binding Name}" FontSize="10.5" Margin="5,0,0,0" VerticalAlignment="Center"
-                             Foreground="{DynamicResource Text2Brush}"/>
-                </StackPanel>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </Grid>
-        <Border Grid.Row="1" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" SnapsToDevicePixels="True">
-          <Expander Header="Data table" IsExpanded="{Binding PaceTableOpen}" Margin="8,0,0,1" Padding="0"
-                    Foreground="{DynamicResource Text2Brush}" AutomationProperties.Name="Data table of both runs"
-                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-            <Grid Margin="-8,0,0,0">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition/>
-              </Grid.RowDefinitions>
-              <Grid Height="22">
-                <v:Cells Widths="{StaticResource PaceColumns}" Margin="0,0,14,1">
-                  <TextBlock Text="Time" Style="{StaticResource Head}"/>
-                  <TextBlock Text="A" Style="{StaticResource Head}"/>
-                  <TextBlock Text="B" Style="{StaticResource Head}"/>
-                  <TextBlock Text="B &#x2212; A" Style="{StaticResource Head}"/>
-                </v:Cells>
-                <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
-              </Grid>
-              <Grid Grid.Row="1" Style="{StaticResource SideList}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              v:WheelChain.On="True">
-                  <ItemsControl ItemsSource="{Binding PaceTable}" Focusable="False">
-                    <ItemsControl.ItemContainerStyle>
-                      <Style TargetType="ContentPresenter">
-                        <Setter Property="AutomationProperties.Name" Value="{Binding Time}"/>
-                      </Style>
-                    </ItemsControl.ItemContainerStyle>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Grid Height="{StaticResource SubRowHeight}">
-                          <v:Cells Widths="{StaticResource PaceColumns}" Margin="0,0,14,1">
-                            <TextBlock Text="{Binding Time}" Style="{StaticResource Cell}"
-                                       Foreground="{DynamicResource Text2Brush}"/>
-                            <TextBlock Text="{Binding A}" Style="{StaticResource Cell}"/>
-                            <TextBlock Text="{Binding B}" Style="{StaticResource Cell}"/>
-                            <TextBlock Text="{Binding Difference}" Style="{StaticResource Cell}"
-                                       Foreground="{DynamicResource Text2Brush}"/>
-                          </v:Cells>
-                          <Rectangle Style="{StaticResource RowRule}"/>
-                        </Grid>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </ScrollViewer>
-              </Grid>
-            </Grid>
-          </Expander>
+  <!-- ================================================================ Overview -->
+  <v:Pane v:SplitPanel.Key="cbars" Title="{Binding BarsTitle}">
+    <v:Pane.Tools>
+      <StackPanel Orientation="Horizontal">
+        <Border Style="{StaticResource SegmentGroup}" Margin="0,0,8,0" VerticalAlignment="Center"
+                Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton Style="{StaticResource Segment}" Content="By character" IsChecked="{Binding OverviewByCharacters}"
+                         GroupName="compareOverview"/>
+            <RadioButton Style="{StaticResource Segment}" Content="By target" IsChecked="{Binding OverviewByTargets}"
+                         GroupName="compareOverview"/>
+            <RadioButton Style="{StaticResource Segment}" Content="By job" IsChecked="{Binding OverviewByJobs}"
+                         GroupName="compareOverview"/>
+          </StackPanel>
         </Border>
-      </Grid>
-    </v:Pane>
-
-    <!-- By damage type; comparing healing, by heal. -->
-    <v:Pane v:SplitPanel.Key="ckinds" Title="{Binding KindsTitle}" Note="{Binding KindsNote}">
-      <!-- While a type is isolated: the way back to them all, where they
-           were picked. Not over the heals, which this pane lists while
-           healing is compared. -->
-      <v:Pane.Tools>
-        <Grid Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
-          <Button Style="{StaticResource LinkButton}" Content="Clear" Command="{Binding TypeFilter.ClearCommand}"
-                  ToolTip="Count every type of damage again" AutomationProperties.Name="Clear the isolated types"
-                  Visibility="{Binding TypeFilter.IsOn, Converter={StaticResource Visible}}"/>
-        </Grid>
-      </v:Pane.Tools>
-      <Grid>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto"/>
-          <RowDefinition/>
-        </Grid.RowDefinitions>
-        <Grid Height="{StaticResource SubRowHeight}">
-          <!-- Damage. -->
-          <v:Cells Style="{StaticResource KindCells}" Margin="0,0,14,1"
-                   Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
-            <TextBlock Text="Type" Style="{StaticResource HeadText}" Padding="14,0,8,0"/>
-            <TextBlock Text="Damage" Style="{StaticResource Head}"/>
-            <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-            <TextBlock Text="Share" Style="{StaticResource Head}" Padding="2,0,5,0"
-                       ToolTip="Share of that run's party damage, of every type"/>
-          </v:Cells>
-          <!-- Healing. -->
-          <v:Cells Style="{StaticResource KindCells}" Margin="0,0,14,1"
-                   Visibility="{Binding IsHealing, Converter={StaticResource Visible}}">
-            <TextBlock Text="Heal" Style="{StaticResource HeadText}" Padding="14,0,8,0"/>
-            <TextBlock Text="Healing" Style="{StaticResource Head}"/>
-            <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-          </v:Cells>
-          <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
-        </Grid>
-        <Grid Grid.Row="1" Style="{StaticResource SideList}">
-          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
-            <StackPanel>
-              <ItemsControl ItemsSource="{Binding KindRows}" ItemTemplate="{StaticResource KindPick}" Focusable="False"/>
-              <ItemsControl ItemsSource="{Binding HealSpells}" ItemTemplate="{StaticResource TotalRow}" Focusable="False"
-                            ItemContainerStyle="{StaticResource ByName}"/>
-            </StackPanel>
-          </ScrollViewer>
-        </Grid>
-      </Grid>
-    </v:Pane>
-
-    <!-- By target: what each target took; comparing healing, what each
-         character received. -->
-    <v:Pane v:SplitPanel.Key="ctargets" Title="By target" Note="{Binding TargetsNote}">
-      <!-- While a target is isolated: the way back to them all, where
-           they were picked. -->
-      <v:Pane.Tools>
-        <Grid Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
-          <Button Style="{StaticResource LinkButton}" Content="Clear" Command="{Binding TargetFilter.ClearCommand}"
-                  ToolTip="Count every target again" AutomationProperties.Name="Clear the isolated targets"
-                  Visibility="{Binding TargetFilter.IsOn, Converter={StaticResource Visible}}"/>
-        </Grid>
-      </v:Pane.Tools>
-      <Grid>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto"/>
-          <RowDefinition/>
-        </Grid.RowDefinitions>
-        <Grid Height="{StaticResource SubRowHeight}">
-          <v:Cells Style="{StaticResource KindCells}" Margin="0,0,14,1">
-            <TextBlock Text="Target" Style="{StaticResource HeadText}" Padding="14,0,8,0"
-                       ToolTip="Each name, with how many of it each run killed: A · B"/>
-            <Grid>
-              <TextBlock Text="Damage" Style="{StaticResource Head}"
+        <v:ColumnsButton Table="{Binding BarsColumns}" Extra="{Binding ShowAWords}" ExtraPath="ShowA"
                          Visibility="{Binding IsDamage, Converter={StaticResource Visible}}"/>
-              <TextBlock Text="Healing" Style="{StaticResource Head}"
+        <v:ColumnsButton Table="{Binding HealersColumns}" Extra="{Binding ShowAWords}" ExtraPath="ShowA"
                          Visibility="{Binding IsHealing, Converter={StaticResource Visible}}"/>
-            </Grid>
-            <TextBlock Text="&#x394;" Style="{StaticResource Head}" ToolTip="{StaticResource ChangeTip}"/>
-            <TextBlock Text="Kill time" Style="{StaticResource Head}" Padding="2,0,5,0"
-                       ToolTip="How long each run took to kill one of this name, on average"
-                       Visibility="{Binding IsDamage, Converter={StaticResource Visible}}"/>
+      </StackPanel>
+    </v:Pane.Tools>
+    <Grid>
+      <!-- Damage: by character, by target (each target's characters under
+           it), or by job. -->
+      <Grid v:Shed.Full="{StaticResource BarsColumns}" v:Shed.Less="{StaticResource BarsLess}"
+            v:ColumnSet.Table="{Binding BarsColumns}" Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid Height="{StaticResource RowHeight}">
+          <v:Cells Widths="{StaticResource BarsColumns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding BarsSort}" v:ColumnDrag.On="True">
+            <v:SortHead Column="name" Words="True">
+              <TextBlock Text="Character" Style="{StaticResource HeadText}" Padding="10,0,8,0"/>
+            </v:SortHead>
+            <v:SortHead Column="job" Words="True" Style="{StaticResource ShedsLate}">
+              <TextBlock Text="Job" Style="{StaticResource HeadText}" Padding="8,0,0,0"/>
+            </v:SortHead>
+            <v:SortHead Column="damage" Change="True"><TextBlock Text="Damage" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="share" Change="True"><TextBlock Text="Damage %" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="dps" Change="True"><TextBlock Text="DPS" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="accuracy" Change="True" Style="{StaticResource ShedsLate}"><TextBlock Text="Accuracy" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="crit" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Crit %" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="delay" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Delay" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="rangedAccuracy" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Ranged Acc" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="rangedCrit" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Ranged Crit" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="wsDamage" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="WS Damage" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="wsAvg" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="WS Avg" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="wsShare" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="WS %" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="wsAccuracy" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="WS Acc" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="scDamage" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="SC Damage" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="scShare" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="SC %" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="petDamage" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Pet Damage" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="petAccuracy" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Pet Acc" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="deaths" Change="True" Style="{StaticResource ShedsLate}"><TextBlock Text="Deaths" Style="{StaticResource DHead}"/></v:SortHead>
           </v:Cells>
-          <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
+          <Rectangle Style="{StaticResource Rule}"/>
         </Grid>
         <Grid Grid.Row="1" Style="{StaticResource SideList}">
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
-            <StackPanel>
-              <ItemsControl ItemsSource="{Binding TargetRows}" ItemTemplate="{StaticResource TargetPick}" Focusable="False"/>
-              <ItemsControl ItemsSource="{Binding HealTargets}" ItemTemplate="{StaticResource TotalRow}" Focusable="False"
-                            ItemContainerStyle="{StaticResource ByName}"/>
-            </StackPanel>
+            <ItemsControl ItemsSource="{Binding Bars}" ItemTemplate="{StaticResource BarRow}" Focusable="False"/>
+          </ScrollViewer>
+        </Grid>
+        <Grid Grid.Row="2" Height="{StaticResource PartyRowHeight}" Background="{DynamicResource Bg2Brush}" DataContext="{Binding Party}"
+              TextElement.FontWeight="SemiBold">
+          <Rectangle Height="1" VerticalAlignment="Top" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
+          <v:Cells Widths="{StaticResource BarsColumns}" Margin="0,1,14,0">
+            <TextBlock Text="Party" Style="{StaticResource CellText}" Padding="10,0,8,0"/>
+            <TextBlock Style="{StaticResource CellText}" FontWeight="Normal" FontSize="11" Padding="8,0,0,0"
+                       Foreground="{DynamicResource Text2Brush}">
+              <Run Text="{Binding Cells[job].A, Mode=OneWay}" Foreground="{DynamicResource RunATextBrush}"/><Run Text=" · "/><Run Text="{Binding Cells[job].B, Mode=OneWay}"/>
+            </TextBlock>
+            <v:DeltaCell Cell="{Binding Cells[damage]}"/>
+            <v:DeltaCell Cell="{Binding Cells[share]}"/>
+            <v:DeltaCell Cell="{Binding Cells[dps]}"/>
+            <v:DeltaCell Cell="{Binding Cells[accuracy]}" Style="{StaticResource ShedsLate}"/>
+            <v:DeltaCell Cell="{Binding Cells[crit]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[delay]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[rangedAccuracy]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[rangedCrit]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[wsDamage]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[wsAvg]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[wsShare]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[wsAccuracy]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[scDamage]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[scShare]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[petDamage]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[petAccuracy]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[deaths]}" Style="{StaticResource ShedsLate}"/>
+          </v:Cells>
+        </Grid>
+      </Grid>
+
+      <!-- Healing by character. -->
+      <Grid v:Shed.Full="{StaticResource HealerColumns}" v:ColumnSet.Table="{Binding HealersColumns}"
+            Visibility="{Binding IsHealing, Converter={StaticResource Visible}}">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid Height="{StaticResource RowHeight}">
+          <v:Cells Widths="{StaticResource HealerColumns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding HealersSort}" v:ColumnDrag.On="True">
+            <v:SortHead Column="name" Words="True">
+              <TextBlock Text="Character" Style="{StaticResource HeadText}" Padding="10,0,8,0"/>
+            </v:SortHead>
+            <v:SortHead Column="job" Words="True" Style="{StaticResource Sheds}">
+              <TextBlock Text="Job" Style="{StaticResource HeadText}" Padding="8,0,0,0"/>
+            </v:SortHead>
+            <v:SortHead Column="healing" Change="True"><TextBlock Text="Healing" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="share" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Healing %" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="hps" Change="True"><TextBlock Text="HPS" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="casts" Change="True"><TextBlock Text="Casts" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="avg" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Avg / cast" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="deaths" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Deaths" Style="{StaticResource DHead}"/></v:SortHead>
+          </v:Cells>
+          <Rectangle Style="{StaticResource Rule}"/>
+        </Grid>
+        <Grid Grid.Row="1" Style="{StaticResource SideList}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
+            <ItemsControl ItemsSource="{Binding Healers}" ItemTemplate="{StaticResource HealerRow}" Focusable="False"/>
+          </ScrollViewer>
+        </Grid>
+        <Grid Grid.Row="2" Height="{StaticResource PartyRowHeight}" Background="{DynamicResource Bg2Brush}" DataContext="{Binding HealParty}"
+              TextElement.FontWeight="SemiBold">
+          <Rectangle Height="1" VerticalAlignment="Top" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
+          <v:Cells Widths="{StaticResource HealerColumns}" Margin="0,1,14,0">
+            <TextBlock Text="Party" Style="{StaticResource CellText}" Padding="10,0,8,0"/>
+            <TextBlock Style="{StaticResource CellText}" FontWeight="Normal" FontSize="11" Padding="8,0,0,0"
+                       Foreground="{DynamicResource Text2Brush}">
+              <Run Text="{Binding Cells[job].A, Mode=OneWay}" Foreground="{DynamicResource RunATextBrush}"/><Run Text=" · "/><Run Text="{Binding Cells[job].B, Mode=OneWay}"/>
+            </TextBlock>
+            <v:DeltaCell Cell="{Binding Cells[healing]}"/>
+            <v:DeltaCell Cell="{Binding Cells[share]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[hps]}"/>
+            <v:DeltaCell Cell="{Binding Cells[casts]}"/>
+            <v:DeltaCell Cell="{Binding Cells[avg]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[deaths]}" Style="{StaticResource Sheds}"/>
+          </v:Cells>
+        </Grid>
+      </Grid>
+    </Grid>
+  </v:Pane>
+
+  <!-- ================================================================= Actions -->
+  <v:Pane v:SplitPanel.Key="cactions" Title="{Binding ActionsTitle}">
+    <v:Pane.Tools>
+      <StackPanel Orientation="Horizontal">
+        <Border Style="{StaticResource SegmentGroup}" Margin="0,0,8,0" VerticalAlignment="Center"
+                Visibility="{Binding IsHealing, Converter={StaticResource Visible}}">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton Style="{StaticResource Segment}" Content="By spell" IsChecked="{Binding HealsBySpellOn}" GroupName="compareHeals"/>
+            <RadioButton Style="{StaticResource Segment}" Content="By caster" IsChecked="{Binding HealsByCasterOn}" GroupName="compareHeals"/>
+            <RadioButton Style="{StaticResource Segment}" Content="By target" IsChecked="{Binding HealsByTargetOn}" GroupName="compareHeals"/>
+          </StackPanel>
+        </Border>
+        <v:ColumnsButton Table="{Binding ActionsColumns}" Extra="{Binding ShowAWords}" ExtraPath="ShowA"
+                         Visibility="{Binding IsDamage, Converter={StaticResource Visible}}"/>
+        <v:ColumnsButton Table="{Binding HealsColumns}" Extra="{Binding ShowAWords}" ExtraPath="ShowA"
+                         Visibility="{Binding IsHealing, Converter={StaticResource Visible}}"/>
+      </StackPanel>
+    </v:Pane.Tools>
+    <Grid>
+      <Grid v:Shed.Full="{StaticResource ActionColumns}" v:ColumnSet.Table="{Binding ActionsColumns}"
+            Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid Height="{StaticResource RowHeight}">
+          <v:Cells Widths="{StaticResource ActionColumns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding ActionsSort}" v:ColumnDrag.On="True">
+            <v:SortHead Column="name" Words="True">
+              <TextBlock Text="Action" Style="{StaticResource HeadText}" Padding="10,0,8,0"/>
+            </v:SortHead>
+            <v:SortHead Column="hits" Change="True"><TextBlock Text="Hits" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="accuracy" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Acc" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="total" Change="True"><TextBlock Text="Total" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="avg" Change="True"><TextBlock Text="Avg" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="max" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Max" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="share"><TextBlock Text="Share" Style="{StaticResource Head}" Padding="2,0,8,0"/></v:SortHead>
+            <Border/>
+          </v:Cells>
+          <Rectangle Style="{StaticResource Rule}"/>
+        </Grid>
+        <Grid Grid.Row="1" Style="{StaticResource SideList}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
+            <ItemsControl ItemsSource="{Binding ActionRows}" ItemTemplate="{StaticResource ActionRow}" Focusable="False"/>
           </ScrollViewer>
         </Grid>
       </Grid>
-    </v:Pane>
+      <Grid v:Shed.Full="{StaticResource HealColumns}" v:ColumnSet.Table="{Binding HealsColumns}"
+            Visibility="{Binding IsHealing, Converter={StaticResource Visible}}">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid Height="{StaticResource RowHeight}">
+          <v:Cells Widths="{StaticResource HealColumns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding HealsSort}" v:ColumnDrag.On="True">
+            <v:SortHead Column="name" Words="True">
+              <TextBlock Text="Heal" Style="{StaticResource HeadText}" Padding="10,0,8,0"/>
+            </v:SortHead>
+            <v:SortHead Column="casts" Change="True"><TextBlock Text="Casts" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="total" Change="True"><TextBlock Text="Total" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="avg" Change="True"><TextBlock Text="Avg" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="max" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Max" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="share"><TextBlock Text="Share" Style="{StaticResource Head}" Padding="2,0,8,0"/></v:SortHead>
+            <Border/>
+          </v:Cells>
+          <Rectangle Style="{StaticResource Rule}"/>
+        </Grid>
+        <Grid Grid.Row="1" Style="{StaticResource SideList}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
+            <ItemsControl ItemsSource="{Binding HealRows}" ItemTemplate="{StaticResource HealRow}" Focusable="False"/>
+          </ScrollViewer>
+        </Grid>
+      </Grid>
+    </Grid>
+  </v:Pane>
 
+  <!-- ================================================================== Deltas -->
+  <v:Pane v:SplitPanel.Key="cdeltas" Title="Deltas">
+    <Grid v:Shed.Full="{StaticResource DeltaColumns}" v:Shed.Less="{StaticResource DeltaLess}">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition/>
+      </Grid.RowDefinitions>
+      <Grid Height="{StaticResource RowHeight}">
+        <v:Cells Widths="{StaticResource DeltaColumns}" Margin="0,0,14,1">
+          <TextBlock Text="Character" Style="{StaticResource HeadText}" Padding="10,0,8,0"/>
+          <Border/>
+          <TextBlock Text="{Binding A.Called}" Style="{StaticResource HeadSheds}" Foreground="{DynamicResource RunATextBrush}"
+                     Padding="2,0,8,0"/>
+          <TextBlock Text="{Binding B.Called}" Style="{StaticResource Head}" Foreground="{DynamicResource RunBTextBrush}"
+                     Padding="2,0,8,0"/>
+          <TextBlock Text="Change" Style="{StaticResource Head}" Padding="2,0,8,0"/>
+          <Border Style="{StaticResource ShedsLate}"/>
+        </v:Cells>
+        <Rectangle Style="{StaticResource Rule}"/>
+      </Grid>
+      <!-- The party: A's total, B's, the change and its percentage. -->
+      <Grid Grid.Row="1" Height="28" Background="{DynamicResource Bg2Brush}">
+        <v:Cells Widths="{StaticResource DeltaColumns}" Margin="0,0,14,1">
+          <TextBlock Text="Party" Style="{StaticResource CellText}" FontWeight="SemiBold" Padding="10,0,8,0"/>
+          <v:DeltaBar Delta="{Binding DeltaPartyBar}" Scale="{Binding DeltaPartyScale}" Grey="{Binding IsHealing}"/>
+          <TextBlock Text="{Binding DeltaParty.A}" Style="{StaticResource DeltaPrev}" FontWeight="SemiBold"/>
+          <TextBlock Text="{Binding DeltaParty.B}" Style="{StaticResource Fig}" FontSize="11.5" FontWeight="SemiBold" Padding="2,0,8,0"/>
+          <StackPanel Style="{StaticResource DeltaFigs}" DataContext="{Binding DeltaParty}">
+            <TextBlock Text="{Binding Change.Sub}" Style="{StaticResource Tone}" FontSize="11.5"/>
+            <TextBlock Text="{Binding Change.Main}" Style="{StaticResource Tone}" FontSize="10.5" FontWeight="Normal" Margin="4,0,0,0"/>
+          </StackPanel>
+          <Border Style="{StaticResource ShedsLate}"/>
+        </v:Cells>
+        <Rectangle Style="{StaticResource Rule}"/>
+      </Grid>
+      <Grid Grid.Row="2" Style="{StaticResource SideList}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
+          <ItemsControl ItemsSource="{Binding DeltaRows}" ItemTemplate="{StaticResource DeltaRow}" Focusable="False"/>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+  </v:Pane>
+
+  <!-- ============================================================== Cumulative -->
+  <v:Pane v:SplitPanel.Key="cpace" Title="{Binding PaceTitle}">
+    <v:Pane.Tools>
+      <Border Style="{StaticResource SegmentGroup}" VerticalAlignment="Center" Margin="0,0,6,0">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton Style="{StaticResource Segment}" Content="Both" IsChecked="{Binding PaceBothOn}" GroupName="comparePace"/>
+          <RadioButton Style="{StaticResource Segment}" Content="Gap" IsChecked="{Binding PaceGapOn}" GroupName="comparePace"/>
+        </StackPanel>
+      </Border>
+    </v:Pane.Tools>
+    <Grid Margin="6,4,6,6" MinHeight="120">
+      <c:LineChart Model="{Binding Pace}" EndLabels="True" EmptyText="Nothing to compare"
+                   AutomationProperties.Name="Cumulative chart of both runs"
+                   Visibility="{Binding PaceBothOn, Converter={StaticResource Visible}}"/>
+      <c:GapChart Model="{Binding Gap}" AutomationProperties.Name="Gap between the runs"
+                  Visibility="{Binding PaceGapOn, Converter={StaticResource Visible}}"/>
+    </Grid>
+  </v:Pane>
+
+  <!-- ============================================================== Battle Log -->
+  <v:Pane v:SplitPanel.Key="cfights" Title="Battle Log">
+    <v:Pane.Tools>
+      <v:ColumnsButton Table="{Binding FightsColumns}" Extra="{Binding ShowAWords}" ExtraPath="ShowA"/>
+    </v:Pane.Tools>
+    <Grid v:Shed.Full="{StaticResource FightColumns}" v:ColumnSet.Table="{Binding FightsColumns}">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <Grid Height="{StaticResource RowHeight}">
+        <v:Cells Widths="{StaticResource FightColumns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding FightsSort}" v:ColumnDrag.On="True">
+          <v:SortHead Column="name" Words="True">
+            <TextBlock Text="Monster" Style="{StaticResource HeadText}" Padding="10,0,8,0"/>
+          </v:SortHead>
+          <v:SortHead Column="kills" Change="True"><TextBlock Text="Kills" Style="{StaticResource DHead}"/></v:SortHead>
+          <v:SortHead Column="dps" Change="True"><TextBlock Text="{Binding RateWord}" Style="{StaticResource DHead}"/></v:SortHead>
+          <v:SortHead Column="killTime" Change="True"><TextBlock Text="Kill time" Style="{StaticResource DHead}"/></v:SortHead>
+        </v:Cells>
+        <Rectangle Style="{StaticResource Rule}"/>
+      </Grid>
+      <Grid Grid.Row="1" Style="{StaticResource SideList}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
+          <ItemsControl ItemsSource="{Binding TallyRows}" ItemTemplate="{StaticResource TallyRow}" Focusable="False"/>
+        </ScrollViewer>
+      </Grid>
+      <Grid Grid.Row="2" Height="{StaticResource PartyRowHeight}" Background="{DynamicResource Bg2Brush}"
+            DataContext="{Binding AllMonsters}" TextElement.FontWeight="SemiBold">
+        <Rectangle Height="1" VerticalAlignment="Top" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>
+        <v:Cells Widths="{StaticResource FightColumns}" Margin="0,1,14,0">
+          <TextBlock Text="{Binding Name}" Style="{StaticResource CellText}" Padding="10,0,8,0"/>
+          <v:DeltaCell Cell="{Binding Cells[kills]}"/>
+        </v:Cells>
+      </Grid>
+    </Grid>
+  </v:Pane>
+
+  <!-- ================================================================= Filters -->
+  <v:Pane v:SplitPanel.Key="cfilters" Title="Filters">
+    <v:Pane.Tools>
+      <Border Style="{StaticResource SegmentGroup}" VerticalAlignment="Center" Margin="0,0,6,0">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton Style="{StaticResource Segment}" Content="By target" IsChecked="{Binding FiltersByTargetsOn}" GroupName="compareFilters"/>
+          <RadioButton Style="{StaticResource Segment}" Content="By damage type" IsChecked="{Binding FiltersByTypesOn}" GroupName="compareFilters"/>
+        </StackPanel>
+      </Border>
+    </v:Pane.Tools>
+    <Grid>
+      <Grid v:Shed.Full="{StaticResource FilterColumns}" v:ColumnSet.Table="{Binding TargetColumns}"
+            Visibility="{Binding FiltersByTargetsOn, Converter={StaticResource Visible}}">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid Height="{StaticResource RowHeight}">
+          <v:Cells Widths="{StaticResource FilterColumns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding TargetSort}" v:ColumnDrag.On="True">
+            <v:SortHead Column="name" Words="True"><TextBlock Text="Target" Style="{StaticResource HeadText}" Padding="10,0,8,0"/></v:SortHead>
+            <v:SortHead Column="damage" Change="True"><TextBlock Text="Damage" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="share" Change="True"><TextBlock Text="Share" Style="{StaticResource DHead}"/></v:SortHead>
+          </v:Cells>
+          <Rectangle Style="{StaticResource Rule}"/>
+        </Grid>
+        <Grid Grid.Row="1" Style="{StaticResource SideList}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
+            <ItemsControl ItemsSource="{Binding TargetRows}" ItemTemplate="{StaticResource FilterRow}" Focusable="False"/>
+          </ScrollViewer>
+        </Grid>
+      </Grid>
+      <Grid v:Shed.Full="{StaticResource FilterColumns}" v:ColumnSet.Table="{Binding TypeColumns}"
+            Visibility="{Binding FiltersByTypesOn, Converter={StaticResource Visible}}">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid Height="{StaticResource RowHeight}">
+          <v:Cells Widths="{StaticResource FilterColumns}" Margin="0,0,14,1" v:SortHead.Sort="{Binding TypeSort}" v:ColumnDrag.On="True">
+            <v:SortHead Column="name" Words="True"><TextBlock Text="Type" Style="{StaticResource HeadText}" Padding="10,0,8,0"/></v:SortHead>
+            <v:SortHead Column="damage" Change="True"><TextBlock Text="Damage" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="share" Change="True"><TextBlock Text="Share" Style="{StaticResource DHead}"/></v:SortHead>
+          </v:Cells>
+          <Rectangle Style="{StaticResource Rule}"/>
+        </Grid>
+        <Grid Grid.Row="1" Style="{StaticResource SideList}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True">
+            <ItemsControl ItemsSource="{Binding TypeRows}" ItemTemplate="{StaticResource FilterRow}" Focusable="False"/>
+          </ScrollViewer>
+        </Grid>
+      </Grid>
+    </Grid>
+  </v:Pane>
+
+  <!-- ============================================================== Drill-down -->
+  <v:Pane v:SplitPanel.Key="cdrill" Title="Drill-down">
+    <v:Pane.Tools>
+      <StackPanel Orientation="Horizontal" Visibility="{Binding DrillOpen, Converter={StaticResource Visible}}">
+        <Button Style="{StaticResource ToolButton}" Content="&#x21C4;" Command="{Binding SwapDrillCommand}"
+                AutomationProperties.Name="Swap the two ends"/>
+        <Button Style="{StaticResource ToolButton}" Content="Reset" Command="{Binding ResetDrillCommand}"/>
+        <Button Style="{StaticResource ToolButton}" Content="Close" Command="{Binding CloseDrillCommand}"/>
+      </StackPanel>
+    </v:Pane.Tools>
+    <DockPanel Visibility="{Binding DrillOpen, Converter={StaticResource Visible}}">
+      <!-- Each end: its run, a character and an action. -->
+      <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="10,3">
+        <StackPanel>
+          <StackPanel Orientation="Horizontal" Height="28">
+            <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagA}" Margin="0,0,8,0"/>
+            <TextBlock Text="{Binding A.Called}" Width="96" FontSize="11.5" VerticalAlignment="Center"
+                       Foreground="{DynamicResource RunATextBrush}" TextTrimming="CharacterEllipsis"/>
+            <v:PairPicker DataContext="{Binding DrillWhoA}" Margin="0,0,8,0"/>
+            <v:PairPicker DataContext="{Binding DrillWhatA}"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Height="28">
+            <Control Style="{StaticResource RunTagSmall}" Template="{StaticResource RunTagB}" Margin="0,0,8,0"/>
+            <TextBlock Text="{Binding B.Called}" Width="96" FontSize="11.5" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Text2Brush}" TextTrimming="CharacterEllipsis"/>
+            <v:PairPicker DataContext="{Binding DrillWhoB}" Margin="0,0,8,0"/>
+            <v:PairPicker DataContext="{Binding DrillWhatB}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
+        <ItemsControl ItemsSource="{Binding DrillFigures}" ItemTemplate="{StaticResource DrillFigure}" Focusable="False"
+                      AlternationCount="64">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Rows="1"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </Border>
+      <c:PairedHistogramChart Model="{Binding DrillHistogram}" MinHeight="150" Margin="8,8,8,4"
+                              FillA="{DynamicResource RunABrush}" FillB="{DynamicResource RunBBrush}"
+                              AutomationProperties.Name="Both ends' hits, as shares of each end's"/>
+    </DockPanel>
+  </v:Pane>
 </v:SplitPanel>

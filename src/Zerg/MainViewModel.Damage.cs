@@ -113,7 +113,7 @@ public sealed partial class MainViewModel
 
         // Nothing before the clock starts. The rows are the ones the
         // cumulative chart is drawn from, so the bars add up to its lines.
-        var pulse = Shown.Session.StartedAt != null ? BandMarks.Pulse(c.Events, c.Elapsed) : null;
+        var pulse = Shown.Session.StartedAt != null ? BandMarks.Pulse(c.Events, c.Elapsed, c.DamageRange?.From ?? 0) : null;
         HasMarks = pulse != null;
         TotalMark = Kept(TotalMark, pulse?.Bars);
         if (pulse != null) TotalMarkCaption = BandMarks.Caption(pulse.Bucket);
@@ -139,9 +139,11 @@ public sealed partial class MainViewModel
     /// the deaths of the characters who count. Its note is the beat's.</summary>
     void DrawKills(Snapshot c)
     {
-        KillsText = Format.Int(c.Killed.Count);
-        DeathsText = Format.Int(c.Kills.Deaths.Count);
-        HasDeaths = c.Kills.Deaths.Count > 0;
+        // Over the range of the section on screen: each has its own.
+        var (killed, deaths) = IsHealing ? (c.HealKilled, c.HealKills.Deaths) : (c.Killed, c.Kills.Deaths);
+        KillsText = Format.Int(killed.Count);
+        DeathsText = Format.Int(deaths.Count);
+        HasDeaths = deaths.Count > 0;
         killedIn = c.IsolatedFight is { } f && c.Isolated.Count == 0
             ? f.Length is double l ? "killed in " + Format.Elapsed(l, tenths: true) : None
             : null;
@@ -203,7 +205,8 @@ public sealed partial class MainViewModel
 
     void DrawLine(Snapshot c)
     {
-        var agg = c.Totals;
+        // Everyone of the whole session, whatever range is picked.
+        var agg = DamageRange != null ? Counting.Aggregate(c.Timeline) : c.Totals;
         EmptyText = SessionText.Empty(Shown.Session, Viewing);
 
         // One line per character, and none for anyone at zero: a resisted
@@ -212,8 +215,10 @@ public sealed partial class MainViewModel
 
         // The left edge is the session's zero and the right edge its clock,
         // running or held, so the axis covers the span DPS is divided by.
-        double? now = Shown.Session.StartedAt != null ? c.Elapsed : null;
-        var cum = Counting.Cumulative(c.Events, names, 0, now);
+        // The whole session, whatever range is picked: the range is drawn
+        // over it, and can be picked again from it.
+        double? now = Shown.Session.StartedAt != null ? c.Clock : null;
+        var cum = Counting.Cumulative(c.Timeline, names, 0, now);
 
         var lines = cum.Series.Select(s => new Drawn(s.Name, new LineSeries(NameOf(s.Name), s.Values, ColorOf(s.Name)))).ToList();
         string? members = null;
@@ -236,7 +241,7 @@ public sealed partial class MainViewModel
         // say so. Every change of the session's state is followed by a count.
         Line = new LineModel(cum.Times, lines.Select(l => l.Series).ToList(), cum.Live == true,
                              Running: cum.Live == true && Shown.Session.Running,
-                             Deaths: ChartDeaths(c, lines.Select(l => l.Real).ToList()), Kills: ChartKills(c.Killed));
+                             Deaths: ChartDeaths(c, lines.Select(l => l.Real).ToList()), Kills: ChartKills(c.TimelineKilled));
         PanelLine = AppTheme.IsDark ? Line : Line with
         {
             Series = lines.Select(l => l.Real != null ? l.Series with { Color = PanelColorOf(l.Real) } : l.Series).ToList(),
@@ -247,8 +252,8 @@ public sealed partial class MainViewModel
     /// its character's line among <paramref name="drawn"/> (by real name, in
     /// the order drawn), or on the axis alone for one with no line.</summary>
     IReadOnlyList<LineDeath>? ChartDeaths(Snapshot c, List<string?> drawn) =>
-        c.Kills.Deaths.Count == 0 ? null
-        : c.Kills.Deaths.Select(d => new LineDeath(NameOf(d.Name), d.At, d.Next,
+        c.TimelineKills.Deaths.Count == 0 ? null
+        : c.TimelineKills.Deaths.Select(d => new LineDeath(NameOf(d.Name), d.At, d.Next,
                                                     drawn.IndexOf(d.Name) is int i and >= 0 ? i : null)).ToList();
 
     /// <summary>The kills a cumulative chart ticks: those of what is isolated.</summary>
