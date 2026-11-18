@@ -4,16 +4,20 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:v="clr-namespace:Zerg.Views">
   <UserControl.Resources>
-    <!-- Heal, Casts, Total, Avg, Min, Max, Share, and a blank column that
-         ends the row: the widths the design draws them at in a pane 940
-         wide, as shares, each with the least it may be. A narrower pane
+    <!-- Heal, Casts, Total, Avg, Min, Max, Share, MP Spent, HP/MP, and a
+         blank column that ends the row: the widths the design draws them at
+         in a pane 940 wide, as shares, each with the least it may be. A narrower pane
          takes the room from the name first; when even the leasts do not
          fit, the table drops Min (v:Shed, on the scroll viewer below).
 
          There is no "least, average, greatest" mark here, on purpose: Avg
          is per cast and Min and Max are per target, and one line would mix
          the two scales. -->
-    <sys:String x:Key="Columns">360*150,56*44,110*64,96*52,96*52,96*52,104*100,8*0</sys:String>
+    <sys:String x:Key="Columns">360*150,56*44,110*64,96*52,96*52,96*52,104*100,96*64,84*52,8*0</sys:String>
+
+    <!-- What MP Spent and HP/MP's headings tell the pointer. -->
+    <sys:String x:Key="MpTip">Each cast's list MP cost, charged once however many people it reached. On a person, an even part of each cast that reached them. A heal that costs the player none (Chakra, a waltz, a wyvern's breath, an automaton's Cure) is a dash</sys:String>
+    <sys:String x:Key="PerMpTip">HP healed per MP spent, over the heals that cost MP. A cure on someone at full health heals nothing and still costs its MP</sys:String>
 
     <!-- The small bar beside a heading's share, in the character's colour:
          in a floating panel, in the colour they have there. -->
@@ -86,6 +90,8 @@
             <v:SmallBar For="Character" Length="42" Value="{Binding Fraction}" Style="{StaticResource HeadingBar}">
               <TextBlock Text="{Binding Share}" Style="{StaticResource Fig}"/>
             </v:SmallBar>
+            <TextBlock Text="{Binding Mp}" Style="{StaticResource Fig}"/>
+            <TextBlock Text="{Binding PerMp}" Style="{StaticResource Cell}" FontWeight="SemiBold"/>
           </v:Cells>
         </Grid>
       </Button>
@@ -170,6 +176,8 @@
               <v:SmallBar For="Action" Length="42" Value="{Binding ShareFraction}" Fill="{DynamicResource Text3Brush}">
                 <TextBlock Text="{Binding Share}" Style="{StaticResource Cell}"/>
               </v:SmallBar>
+              <TextBlock Text="{Binding Mp}" Style="{StaticResource SubFigQuiet}"/>
+              <TextBlock Text="{Binding PerMp}" Style="{StaticResource Cell}"/>
             </v:Cells>
           </Grid>
         </Button>
@@ -215,6 +223,8 @@
               <v:SmallBar For="Action" Length="42" Value="{Binding ShareFraction}" Fill="{DynamicResource Text3Brush}">
                 <TextBlock Text="{Binding Share}" Style="{StaticResource SubFigQuiet}"/>
               </v:SmallBar>
+              <TextBlock Text="{Binding Mp}" Style="{StaticResource SubFigQuiet}"/>
+              <TextBlock Text="{Binding PerMp}" Style="{StaticResource SubFigQuiet}"/>
             </v:Cells>
           </Grid>
         </Button>
@@ -295,7 +305,7 @@
                     v:ColumnSet.Table="{Binding HealsColumns}"
                     VerticalScrollBarVisibility="Disabled" v:WheelChain.On="True"
                     Visibility="{Binding HasHeals, Converter={StaticResource Visible}}">
-        <Grid MinWidth="476" Width="{Binding ViewportWidth, ElementName=Sideways}">
+        <Grid MinWidth="592" Width="{Binding ViewportWidth, ElementName=Sideways}">
           <Grid.Style>
             <Style TargetType="Grid">
               <Style.Triggers>
@@ -340,6 +350,12 @@
               <v:SortHead Column="share">
                 <TextBlock Text="Share" Style="{StaticResource Head}"
                            ToolTip="A heading's: of the party's healing, or By target of everything healed, pets' heals included. A line's: out of everything under its heading, pets' heals included, or a step further in, out of the line it is under"/>
+              </v:SortHead>
+              <v:SortHead Column="mp">
+                <TextBlock Text="MP Spent" Style="{StaticResource Head}" ToolTip="{StaticResource MpTip}"/>
+              </v:SortHead>
+              <v:SortHead Column="perMp">
+                <TextBlock Text="HP/MP" Style="{StaticResource Head}" ToolTip="{StaticResource PerMpTip}"/>
               </v:SortHead>
             </v:Cells>
             <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>

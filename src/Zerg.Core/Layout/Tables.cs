@@ -72,6 +72,8 @@ public static class Tables
         new("hps", "HPS"),
         new("casts", "Casts"),
         new("avg", "Avg / cast"),
+        new("mp", "MP Spent"),
+        new("perMp", "HP/MP"),
         new("petHealing", "Pet Healing"),
     ]);
 
@@ -85,6 +87,8 @@ public static class Tables
         new("min", "Min"),
         new("max", "Max"),
         new("share", "Share"),
+        new("mp", "MP Spent"),
+        new("perMp", "HP/MP"),
         new("end", "", Fixed: true),
     ]);
 

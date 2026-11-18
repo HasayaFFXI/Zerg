@@ -721,6 +721,43 @@ to its owner.
     the heal's own drill-down. One heal on one person is the same drill-down
     in every way, and so is everything one character cast on one person.
 
+## MP Spent and HP/MP
+
+How much HP a healer's MP bought (`ManaCost`, `Healing.Totals`): columns in
+Healing by character, the Heals table and the floating strip.
+
+- **A cast costs its list MP**, looked up by the heal line's `via` and
+  `actionId`: a spell by its spell id (Cures, Curagas, Blue Magic's cures),
+  a pet's heal by the server's ability id (Healing Ruby, Healing Ruby II,
+  Whispering Wind, whose MP is the summoner's). The costs are the server's
+  own (LandSandBoat's `spell_list.sql` and `summoner.lua`). The addon writes
+  no cost, and need not: the cost is the same for everyone who casts it, and
+  a table in Zerg reads older files and saved parses too.
+- **The list cost, not what was spent.** Conserve MP, Manafont and Apogee
+  change what a cast cost, and nothing in the packet says so. Those casts
+  read a little dear. Measuring a character's MP drop could be done only for
+  the file's own character, mixed with Refresh ticks.
+- **A spell a pet cast costs its owner nothing.** An automaton's Cure IV
+  (or any pet's spell) is paid from the pet's own MP, so it is no MP of the
+  player's: a dash, and left out of both sides as a free heal is. Its HP is
+  still the owner's healing, as every pet heal is. A Blood Pact is the one
+  pet heal the player pays for.
+- **Once a cast, however many it reached**, as Casts: a Curaga II on five
+  is 120 MP and the HP of all five.
+- **HP/MP is what the casts that cost MP healed, over that MP.** A heal that
+  costs none (Chakra, Reward, a waltz, a wyvern's breath, and Restoral,
+  which the server's tables do not have) moves neither side, and is a dash
+  in both columns. Otherwise a DRG/WHM's free breaths would make their
+  cures look cheap.
+- **Waste shows by itself, with no overcure estimated.** `hp` is what the
+  target got: a cure on someone at full health is 0 and still costs its
+  MP, so HP/MP falls. This is not the overcure "Healing" rules out: nothing
+  is guessed about anyone's missing HP.
+- **On a person, a cast's MP is shared evenly among everyone it reached**:
+  a Curaga II on five is 24 MP on each, so the person who was already full
+  reads 0. A second result on the same person is not charged again. The
+  people under a heal add up to its MP.
+
 ## Support
 
 Buffs, status removals and wards (`Support`), listed in the Healing

@@ -322,6 +322,8 @@ public sealed partial class HealerRow(string key, Action<string> pick) : Row(key
     [ObservableProperty] private string hps = "";
     [ObservableProperty] private string casts = "";
     [ObservableProperty] private string avg = "";
+    [ObservableProperty] private string mp = "";
+    [ObservableProperty] private string perMp = "";
     [ObservableProperty] private string petHealing = "";
 
     /// <summary>The row's shade, in the character's colour.</summary>
@@ -346,6 +348,8 @@ public sealed partial class HealPartyRow : ObservableObject
     [ObservableProperty] private string hps = "";
     [ObservableProperty] private string casts = "";
     [ObservableProperty] private string avg = "";
+    [ObservableProperty] private string mp = "";
+    [ObservableProperty] private string perMp = "";
     [ObservableProperty] private string petHealing = "";
 }
 
@@ -365,6 +369,8 @@ public sealed partial class HealStripRow(string key) : Row(key)
     [ObservableProperty] private string healing = "";
     [ObservableProperty] private string share = "";
     [ObservableProperty] private string casts = "";
+    [ObservableProperty] private string mp = "";
+    [ObservableProperty] private string perMp = "";
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private string tip = "";
     /// <summary>Healing is isolated to others and not this character.</summary>
@@ -404,6 +410,9 @@ public sealed partial class HealRow(string key, string actor, string? action, bo
     [ObservableProperty] private string min = "";
     [ObservableProperty] private string max = "";
     [ObservableProperty] private string share = "";
+    /// <summary>MP Spent, and HP/MP: on a person, their part of each cast's MP.</summary>
+    [ObservableProperty] private string mp = "";
+    [ObservableProperty] private string perMp = "";
     /// <summary>The drill-down is open on this heal.</summary>
     [ObservableProperty] private bool selected;
     /// <summary>"A", "B" or "", as an action row's.</summary>

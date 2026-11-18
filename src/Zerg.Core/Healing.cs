@@ -13,6 +13,13 @@ public sealed class HealAction
     public double? Min { get; set; }
     public double Max { get; set; }
     public double Avg { get; set; }
+    /// <summary>MP spent on it: each cast's list cost, once however many it
+    /// reached (<see cref="ManaCost"/>); 0 for a heal that costs none.</summary>
+    public double Mp { get; set; }
+    /// <summary>What the casts that cost MP healed.</summary>
+    public double CostedHp { get; set; }
+    /// <summary>HP healed per MP spent, or null with none spent.</summary>
+    public double? PerMp { get; set; }
     /// <summary>Everyone this heal reached, largest first.</summary>
     public List<HealPart> Targets { get; set; } = [];
 
@@ -37,6 +44,14 @@ public sealed class HealPart
     public double? Min { get; set; }
     public double Max { get; set; }
     public double Avg { get; set; }
+    /// <summary>MP spent on this person: each cast that reached them charged
+    /// its cost shared evenly among everyone it reached, so a Curaga II on
+    /// five is 24 MP on each.</summary>
+    public double Mp { get; set; }
+    /// <summary>What the casts that cost MP healed this person.</summary>
+    public double CostedHp { get; set; }
+    /// <summary>HP healed per MP spent, or null with none spent.</summary>
+    public double? PerMp { get; set; }
     /// <summary>On a person a character healed: the heals on them; on a person
     /// healed, who healed them. Largest first.</summary>
     public List<HealPart> Parts { get; set; } = [];
@@ -44,12 +59,20 @@ public sealed class HealPart
     internal readonly HashSet<double> Uses = [];
     internal readonly OrderedDictionary<string, HealPart> ByName = new(StringComparer.Ordinal);
 
-    internal void Add(double v, double? use)
+    /// <param name="v">What it healed this person.</param>
+    /// <param name="use">The cast it belongs to.</param>
+    /// <param name="mp">This person's part of the cast's MP, or null for a heal that costs none.</param>
+    internal void Add(double v, double? use, double? mp)
     {
         if (v > Max) Max = v;
         if (v > 0 && (Min == null || v < Min)) Min = v;
         Total += v;
-        if (use is not double u || Uses.Add(u)) Casts++;
+        bool cast = use is not double u || Uses.Add(u);
+        if (cast) Casts++;
+        if (mp is not double m) return;
+        CostedHp += v;
+        // Once a cast, as Casts: a second result on the same person is not charged again.
+        if (cast) Mp += m;
     }
 
     internal static HealPart Of(OrderedDictionary<string, HealPart> by, string name) =>
@@ -63,6 +86,7 @@ public sealed class HealPart
         foreach (var p in list)
         {
             p.Avg = p.Casts != 0 ? p.Total / p.Casts : 0;
+            p.PerMp = ManaCost.PerMp(p.CostedHp, p.Mp);
             p.Parts = List(p.ByName);
         }
         list.SortByDescending(p => p.Total);
@@ -85,6 +109,12 @@ public sealed class HealerTotals
     public double? Avg { get; set; }
     /// <summary>Part of the party's healing, 0..1, or null when the party healed nothing.</summary>
     public double? Share { get; set; }
+    /// <summary>MP spent: each cast's list cost, once; a pet's Blood Pacts are this character's MP.</summary>
+    public double Mp { get; set; }
+    /// <summary>What the casts that cost MP healed.</summary>
+    public double CostedHp { get; set; }
+    /// <summary>HP healed per MP spent, over the heals that cost MP, or null with none spent.</summary>
+    public double? PerMp { get; set; }
     public List<HealAction> ActionList { get; set; } = [];
     /// <summary>Everyone this character healed, their pet's heals included,
     /// largest first, each with the heals that reached them.</summary>
@@ -102,6 +132,11 @@ public sealed class HealTotals
     public int Casts { get; set; }
     public double Max { get; set; }
     public double? Avg { get; set; }
+    /// <summary>The party's MP spent, and what those casts healed.</summary>
+    public double Mp { get; set; }
+    public double CostedHp { get; set; }
+    /// <summary>HP healed per MP spent, or null with none spent.</summary>
+    public double? PerMp { get; set; }
     /// <summary>Heal rows in.</summary>
     public int Lines { get; set; }
     /// <summary>Everyone healed, by anyone, pets' heals included, largest
@@ -126,6 +161,11 @@ public sealed class HealTotals
 /// a cast for each of the five; Avg is what one of those casts healed them.</item>
 /// <item>Per person healed (<see cref="HealTotals.Targets"/>): everything that
 /// reached them, pets' heals included, then by whom and with what.</item>
+/// <item>MP Spent and HP/MP: each cast's list cost (<see cref="ManaCost"/>),
+/// once however many it reached; HP/MP is what the casts that cost MP
+/// healed over that MP, so a free heal (Chakra, a wyvern's breath) moves
+/// neither. On a person, a cast's cost is shared evenly among everyone it
+/// reached.</item>
 /// </list>
 /// <para><b>No overcure, on purpose.</b> The packet does not carry the target's
 /// missing HP, so overcure could only be estimated (against the best a spell
@@ -209,8 +249,9 @@ public static class Healing
         // In the order they first healed, which is the order a tie keeps.
         var by = new OrderedDictionary<string, HealerTotals>(StringComparer.Ordinal);
         var healed = new OrderedDictionary<string, HealPart>(StringComparer.Ordinal);
-        double total = 0, petTotal = 0, max = 0;
+        double total = 0, petTotal = 0, max = 0, mpAll = 0, costedAll = 0;
         int casts = 0;
+        var reached = Reached(heals);
 
         foreach (var h in heals)
         {
@@ -221,6 +262,12 @@ public static class Healing
 
             var v = h.Hp == 0 || double.IsNaN(h.Hp) ? 0 : h.Hp;
             bool newCast = h.Use is not double use || act.Uses.Add(use);
+            // The cast's MP, and each person's part of it: shared evenly
+            // among everyone the cast reached.
+            var cost = ManaCost.Of(h);
+            double? each = cost is double c
+                ? c / (h.Use is double u && reached.TryGetValue(u, out var n) ? n : 1)
+                : null;
 
             if (v > act.Max) act.Max = v;
             if (v > 0 && (act.Min == null || v < act.Min)) act.Min = v;
@@ -228,16 +275,16 @@ public static class Healing
             if (newCast) act.Casts++;
             // Both ways round: the people a heal reached, and the heals that
             // reached a person, a pet's among them under its own name.
-            HealPart.Of(act.ByTarget, h.Target).Add(v, h.Use);
+            HealPart.Of(act.ByTarget, h.Target).Add(v, h.Use, each);
             var on = HealPart.Of(a.ByTarget, h.Target);
-            on.Add(v, h.Use);
-            HealPart.Of(on.ByName, h.Action).Add(v, h.Use);
+            on.Add(v, h.Use, each);
+            HealPart.Of(on.ByName, h.Action).Add(v, h.Use, each);
             // And from the other end: who was healed, by whom, with what.
             var got = HealPart.Of(healed, h.Target);
-            got.Add(v, h.Use);
+            got.Add(v, h.Use, each);
             var from = HealPart.Of(got.ByName, h.Actor);
-            from.Add(v, h.Use);
-            HealPart.Of(from.ByName, h.Action).Add(v, h.Use);
+            from.Add(v, h.Use, each);
+            HealPart.Of(from.ByName, h.Action).Add(v, h.Use, each);
 
             // A pet's heal is its owner's healing, as its damage is their
             // damage; Pet Healing says how much of it was the pet's.
@@ -252,16 +299,31 @@ public static class Healing
                 a.PetTotal += v;
                 petTotal += v;
             }
+            // MP once a cast, however many it reached; what it healed, all of it.
+            if (cost is double mp)
+            {
+                act.CostedHp += v;
+                a.CostedHp += v;
+                costedAll += v;
+                if (newCast)
+                {
+                    act.Mp += mp;
+                    a.Mp += mp;
+                    mpAll += mp;
+                }
+            }
         }
 
         var actors = by.Values.Select(x =>
         {
             x.Avg = x.Casts != 0 ? x.Total / x.Casts : null;
             x.Share = total != 0 ? x.Total / total : null;
+            x.PerMp = ManaCost.PerMp(x.CostedHp, x.Mp);
             x.ActionList = x.Actions.Values.ToList();
             foreach (var y in x.ActionList)
             {
                 y.Avg = y.Casts != 0 ? y.Total / y.Casts : 0;
+                y.PerMp = ManaCost.PerMp(y.CostedHp, y.Mp);
                 y.Targets = HealPart.List(y.ByTarget);
             }
             x.ActionList.SortByDescending(p => p.Total);
@@ -274,6 +336,20 @@ public static class Healing
         {
             Actors = actors, Total = total, PetTotal = petTotal, Casts = casts, Max = max,
             Avg = casts != 0 ? total / casts : null, Lines = heals.Count, Targets = HealPart.List(healed),
+            Mp = mpAll, CostedHp = costedAll, PerMp = ManaCost.PerMp(costedAll, mpAll),
         };
+    }
+
+    /// <summary>How many people each cast reached, by its use: what its MP
+    /// is shared among, person by person. A second result on the same
+    /// person is not a second person.</summary>
+    static Dictionary<double, int> Reached(IReadOnlyList<HealEvent> heals)
+    {
+        var people = new HashSet<(double, string)>();
+        var count = new Dictionary<double, int>();
+        foreach (var h in heals)
+            if (h.Use is double u && people.Add((u, h.Target)))
+                count[u] = count.GetValueOrDefault(u) + 1;
+        return count;
     }
 }

@@ -164,6 +164,7 @@ src/Zerg.Core/          net10.0, no UI: everything testable
   AddonVersion                         the VibeXI version expected; is a file's behind
   Session                              the session clock (arm, latch, pause, snapped end)
   Counting, Totals, Healing            filter, credit, aggregate; the Party line
+  ManaCost                             a heal's list MP cost by via and id (MP Spent, HP/MP)
   Targets, DamageTypes                 isolating targets and damage types
   Compare, CompareSheet                A/B runs, and everything Compare prints
                                        (Change, Cell, CompareLine, Deltas, the Battle Log)

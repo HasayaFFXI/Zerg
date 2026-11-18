@@ -4,18 +4,22 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:v="clr-namespace:Zerg.Views">
   <UserControl.Resources>
-    <!-- Character, Job, then six figures: the widths the design draws them
-         at in a table 930 wide, as shares. The heading and every row share
+    <!-- Character, Job, then eight figures: the widths the design draws them
+         at in a table 1,140 wide, as shares. The heading and every row share
          them. The Healing % column is wide enough for the small bar an
          unshaded row has beside its figure, so there is one set. -->
-    <sys:String x:Key="Columns">190*,100*,104*,105*,96*,96*,115*,124*</sys:String>
+    <sys:String x:Key="Columns">190*,100*,104*,105*,96*,96*,115*,112*,96*,124*</sys:String>
 
-    <!-- The strip: Character, then Healing, % and Casts, as the damage
-         card's strip is (Views/BarsCard.xaml says how its columns are
-         worked out and what goes in a narrow panel: here Casts and the
-         job beside the name). -->
-    <sys:String x:Key="StripColumns">1*110,72,52,56</sys:String>
-    <sys:String x:Key="StripBarColumns">1*110,72,96,56</sys:String>
+    <!-- What MP Spent and HP/MP's headings tell the pointer, docked and floating. -->
+    <sys:String x:Key="MpTip">Each cast's list MP cost, charged once however many people it reached. A pet's Blood Pacts are its summoner's MP. A heal that costs the player none (Chakra, a waltz, a wyvern's breath, an automaton's Cure) is left out</sys:String>
+    <sys:String x:Key="PerMpTip">HP healed per MP spent, over the heals that cost MP. A cure on someone at full health heals nothing and still costs its MP</sys:String>
+
+    <!-- The strip: Character, then Healing, %, Casts, MP Spent and HP/MP,
+         as the damage card's strip is (Views/BarsCard.xaml says how its
+         columns are worked out and what goes in a narrow panel: here Casts,
+         MP Spent and the job beside the name; HP/MP stays). -->
+    <sys:String x:Key="StripColumns">1*110,72,52,56,72,56</sys:String>
+    <sys:String x:Key="StripBarColumns">1*110,72,96,56,72,56</sys:String>
     <Style x:Key="Strip" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource StripColumns}"/>
       <Style.Triggers>
@@ -53,7 +57,7 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-    <!-- The last column's, which goes in a narrow panel. -->
+    <!-- Casts' and MP Spent's, which go in a narrow panel. -->
     <Style x:Key="StripCellSheds" TargetType="TextBlock" BasedOn="{StaticResource StripCell}">
       <Style.Triggers>
         <Trigger Property="v:Shed.Narrow" Value="True">
@@ -130,6 +134,12 @@
                   ToolTip="One per cast, however many people it reached">
             <v:Caps Text="CASTS" Style="{StaticResource StripHead}"/>
           </Border>
+          <Border Background="Transparent" Style="{StaticResource Sheds}" ToolTip="{StaticResource MpTip}">
+            <v:Caps Text="MP SPENT" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="{StaticResource PerMpTip}">
+            <v:Caps Text="HP/MP" Style="{StaticResource StripHead}"/>
+          </Border>
         </v:Cells>
         <ItemsControl ItemsSource="{Binding HealStrip}" Focusable="False">
           <ItemsControl.ItemTemplate>
@@ -155,6 +165,8 @@
                     <TextBlock Text="{Binding Share}" Style="{StaticResource StripCell}"/>
                   </v:SmallBar>
                   <TextBlock Text="{Binding Casts}" Style="{StaticResource StripCellSheds}"/>
+                  <TextBlock Text="{Binding Mp}" Style="{StaticResource StripCellSheds}"/>
+                  <TextBlock Text="{Binding PerMp}" Style="{StaticResource StripCell}"/>
                 </v:Cells>
               </Grid>
               <DataTemplate.Triggers>
@@ -183,7 +195,7 @@
              columns. -->
         <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                       v:WheelChain.On="True" Visibility="{Binding HasHealers, Converter={StaticResource Visible}}">
-          <Grid MinWidth="720" Width="{Binding ViewportWidth, ElementName=Scroller}">
+          <Grid MinWidth="860" Width="{Binding ViewportWidth, ElementName=Scroller}">
             <Grid.Style>
               <Style TargetType="Grid">
                 <Style.Triggers>
@@ -234,6 +246,12 @@
                 <v:SortHead Column="avg">
                   <TextBlock Text="Avg / cast" Style="{StaticResource Head}" ToolTip="Healing divided by casts"/>
                 </v:SortHead>
+                <v:SortHead Column="mp">
+                  <TextBlock Text="MP Spent" Style="{StaticResource Head}" ToolTip="{StaticResource MpTip}"/>
+                </v:SortHead>
+                <v:SortHead Column="perMp">
+                  <TextBlock Text="HP/MP" Style="{StaticResource Head}" ToolTip="{StaticResource PerMpTip}"/>
+                </v:SortHead>
                 <v:SortHead Column="petHealing">
                   <TextBlock Text="Pet Healing" Style="{StaticResource Head}"
                              ToolTip="Everything this character's pet healed. Part of Healing"/>
@@ -274,6 +292,8 @@
                             <TextBlock Text="{Binding Hps}" Style="{StaticResource Cell}"/>
                             <TextBlock Text="{Binding Casts}" Style="{StaticResource Cell}"/>
                             <TextBlock Text="{Binding Avg}" Style="{StaticResource FigQuiet}"/>
+                            <TextBlock Text="{Binding Mp}" Style="{StaticResource FigQuiet}"/>
+                            <TextBlock Text="{Binding PerMp}" Style="{StaticResource Fig}"/>
                             <TextBlock Text="{Binding PetHealing}" Style="{StaticResource Fig}"/>
                           </v:Cells>
                         </Grid>
@@ -312,6 +332,8 @@
                 <TextBlock Text="{Binding HealParty.Hps}" Style="{StaticResource Cell}" FontWeight="SemiBold"/>
                 <TextBlock Text="{Binding HealParty.Casts}" Style="{StaticResource Cell}"/>
                 <TextBlock Text="{Binding HealParty.Avg}" Style="{StaticResource SubFigQuiet}"/>
+                <TextBlock Text="{Binding HealParty.Mp}" Style="{StaticResource SubFigQuiet}"/>
+                <TextBlock Text="{Binding HealParty.PerMp}" Style="{StaticResource SubFig}"/>
                 <TextBlock Text="{Binding HealParty.PetHealing}" Style="{StaticResource SubFig}"/>
               </v:Cells>
             </Grid>

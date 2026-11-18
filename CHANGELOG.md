@@ -7,6 +7,18 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- MP Spent and HP/MP: how much HP a healer's MP bought, so a healer sees
+  where MP went to waste. Two columns in Healing by character (its Party
+  line too), in the Heals table under all three tabs, and in Healing by
+  character's floating panel, where HP/MP stays when a narrow panel drops
+  Casts and MP Spent. A cast costs its list MP (Cure IV 88, Curaga II 120,
+  Blue Magic's cures, a Blood Pact's MP charged to its summoner), once
+  however many it reached; HP/MP is what those casts healed over that MP,
+  and a cure on someone at full health heals nothing and still costs its
+  MP. On a person a cast's MP is shared evenly among everyone it reached.
+  Heals that cost the player no MP (Chakra, waltzes, a wyvern's breath, an
+  automaton's Cure, paid from its own MP) are a dash and left out of both. Worked out from the heal lines the addon already
+  writes, so older event files and saved parses have them too.
 - Distributions: a drill-down's chart, a pair's and Compare's are no longer
   chunky. A melee Attack has several humps (hits, crits, pDIF bands), and
   the rule that set the number of columns assumed one, so a whole cluster
