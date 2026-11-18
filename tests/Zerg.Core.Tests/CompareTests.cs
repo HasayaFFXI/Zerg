@@ -331,7 +331,11 @@ public class CompareTests
         Assert.Equal(ChangeTone.Flat, drill.Figures.Single(f => f.Key == "hits").Cell.Change.Tone);
         Assert.Equal(ChangeTone.Worse, drill.Figures.Single(f => f.Key == "crit").Cell.Change.Tone);
         Assert.Equal((2, 1, 1100d, 900d), (drill.Spread.HitsA, drill.Spread.HitsB, drill.Spread.AvgA, drill.Spread.AvgB));
-        Assert.Equal((900d, 1200d), (drill.Spread.Bins[0].Lo, drill.Spread.Bins[^1].Hi));
+        // Even's columns: 900 to 1200 is 301 values, six columns of 51.
+        Assert.Equal((900d, 1206d, 6), (drill.Spread.Bins[0].Lo, drill.Spread.Bins[^1].Hi, drill.Spread.Bins.Count));
+        // Wide's run from the least to the greatest.
+        var wide = s.Drill(pair, healing: false, Binning.Wide).Spread;
+        Assert.Equal((900d, 1200d), (wide.Bins[0].Lo, wide.Bins[^1].Hi));
 
         // The pickers: each run's characters, and a character's actions with their hits.
         Assert.Equal(["Hasaya"], s.CharactersIn(runB: false, healing: false));

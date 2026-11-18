@@ -385,7 +385,7 @@ public sealed partial class CompareViewModel : ObservableObject
     /// <summary>The live sections' own setting, not a second one.</summary>
     public bool Skillchains => host.Skillchains;
 
-    /// <summary>Include Skillchains, Hide names or the theme changed.</summary>
+    /// <summary>Include Skillchains, Hide names, the theme or a drill-down's Columns changed.</summary>
     internal void SharedChanged()
     {
         OnPropertyChanged(nameof(Skillchains));

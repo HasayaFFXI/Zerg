@@ -1085,12 +1085,12 @@
                    HorizontalOffset="-12" VerticalOffset="-10" PopupAnimation="None"
                    IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}">
               <Grid Margin="14,6,14,26" Grid.IsSharedSizeScope="True">
-                <Border Background="{DynamicResource Bg2Brush}" CornerRadius="{DynamicResource WindowRadius}">
+                <Border Background="{DynamicResource MenuBrush}" CornerRadius="{DynamicResource WindowRadius}">
                   <Border.Effect>
                     <DropShadowEffect Color="Black" Opacity="0.6" BlurRadius="22" ShadowDepth="8" Direction="270"/>
                   </Border.Effect>
                 </Border>
-                <Border Background="{DynamicResource Bg2Brush}" BorderBrush="{DynamicResource Line3Brush}"
+                <Border Background="{DynamicResource MenuBrush}" BorderBrush="{DynamicResource Line3Brush}"
                         BorderThickness="1" CornerRadius="{DynamicResource WindowRadius}" Padding="3" MinWidth="160">
                   <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"/>
                 </Border>
@@ -1147,7 +1147,7 @@
     <Setter Property="FontWeight" Value="Normal"/>
     <Setter Property="FontStyle" Value="Normal"/>
     <Setter Property="Foreground" Value="{DynamicResource Text1Brush}"/>
-    <Setter Property="Background" Value="{DynamicResource Bg2Brush}"/>
+    <Setter Property="Background" Value="{DynamicResource MenuBrush}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Line3Brush}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="Grid.IsSharedSizeScope" Value="True"/>
@@ -1354,20 +1354,18 @@
                 <Button x:Name="PopOut" Grid.Column="4" Style="{StaticResource IconButton}" Width="24" Height="22"
                         FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" Content="&#xE8A7;"
                         Command="{TemplateBinding PopOutCommand}"
-                        ToolTip="Float this card in a panel of its own, always on top, to lay over the game"
-                        AutomationProperties.Name="{Binding Title, RelativeSource={RelativeSource TemplatedParent}, StringFormat='Pop out {0}'}"/>
+                        ToolTip="Float this card in a panel of its own, always on top, to lay over the game"/>
               </Grid>
             </Grid>
             <ContentPresenter x:Name="Held" Grid.Row="1"/>
           </Grid>
           <ControlTemplate.Triggers>
-            <!-- A drill-down has no Pop out: the fold mark ends the heading.
-                 The button that is not there has no name either: a script
-                 reads the names of hidden things too, and "Pop out
-                 Drill-down" would be one. -->
+            <!-- A pane with nowhere to float has no Pop out: the fold mark
+                 ends the heading. The button that is not there has no name
+                 either (Views/Pane names it): a script reads the names of
+                 hidden things too. -->
             <Trigger Property="PopOutCommand" Value="{x:Null}">
               <Setter TargetName="PopOut" Property="Visibility" Value="Collapsed"/>
-              <Setter TargetName="PopOut" Property="AutomationProperties.Name" Value=""/>
               <Setter TargetName="Fold" Property="Margin" Value="0,0,9,0"/>
             </Trigger>
             <!-- Under the pointer the grip is brighter: this is the handle.

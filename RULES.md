@@ -823,7 +823,8 @@ the people a buff reached.
   a heal's, `Compare.HealSpread`), from the least hit of either run to the greatest, so a column of A's stands
   beside the column of B's for the same damage. The width is the finer of the
   two runs' own Freedman–Diaconis widths (the wider would flatten the tighter
-  run), and there are at most 20, since each bin holds two columns.
+  run), cut by the rule in "Distribution columns", to fewer columns than one
+  histogram has (20, 30 under Fine), since each bin holds two.
 - **A column there is a share of that run's hits, not a count.** Two runs are
   seldom the same length; by count the longer dwarfs the other whatever their
   shapes. The counts are in the hover card. Each run's figures are
@@ -1015,6 +1016,41 @@ the one pipeline (`Compare.Measure`) and set side by side (`CompareSheet`).
   better or worse in itself.
 - **Run names are the session's.** Renamed in place (the name field, ✎ or
   F2), used everywhere a run is named, never saved.
+
+## Distribution columns
+
+How a drill-down's histogram, a pair's and Compare's are cut into columns
+(`Cut.Of`, `Binning`). The drill-down's heading has a Columns button for
+it, in its pop-out too. What is counted never changes, only the columns.
+
+- **Damage and healing each have their own**, saved (`damageColumns`,
+  `healingColumns`): a heal's casts and a melee Attack's hits are shaped
+  nothing alike. Compare's drill-down follows the one for its side.
+- **Wide is the first rule**: Freedman–Diaconis (2·IQR / n^⅓) alone, the
+  range from the least hit to the greatest cut into that many equal
+  widths, 6 to 28. A fixed count either flattens a tight weaponskill or
+  shatters a wide one.
+- **Freedman–Diaconis assumes one hump.** A melee Attack has several
+  (normal hits, crits, pDIF bands): its quartiles span the gap between two
+  humps and the width comes out wide. Derezz's Attack in `MNK.zerg`, 467
+  hits from 3 to 226, got 12 columns of 18.6, the first holding 38% of the
+  hits, everything from 3 to 21 including 47 hits of exactly 16. So Even
+  and Fine take at least √n columns, or FD's count where that is more.
+  Fine also takes a column for every ten hits, to 45, so narrow peaks
+  stand out, at the cost of thin columns in a narrow pane.
+- **Damage is whole, so Even and Fine columns are whole.** A width of 4.7
+  holds 4 values and 5 in turn, and a column holding one more value is
+  taller for it: a sawtooth of up to 25%. Their width is raised to a whole
+  number (1 at least) and the first edge is the least hit, floored, so
+  every column holds as many values; asked for more columns than there
+  are values, there is a column a value. Raising the width can leave
+  fewer columns than asked for, and the last column is a whole width, so
+  the axis can end past the greatest hit.
+- **A whole column reads its values**: one holding 14 to 24 reads "14 – 24"
+  in its hover, one of a single value just that value. A Wide column reads
+  its edges.
+- **Even is the default** for both. Wide is kept for whoever prefers the
+  old look.
 
 ## Colours and names
 

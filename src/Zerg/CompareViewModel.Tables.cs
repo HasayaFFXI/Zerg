@@ -511,7 +511,7 @@ public sealed partial class CompareViewModel
             return;
         }
         if (DrillWhoA == null) MakePicks();
-        var m = s.Drill(d, IsHealing);
+        var m = s.Drill(d, IsHealing, host.RuleOf(IsHealing));
         DrillFigures = m.Figures.Select(f => new BandItem(f.Key, f.Label, f.Cell)).ToList();
         DrillHistogram = PairedHistogramModel.From(m.Spread, A.Called, B.Called, "side");
         DrillTitle = d.KeyA == d.KeyB && d.ActionA == d.ActionB ? s.Draw(d.KeyB) + " · " + d.ActionB : "";

@@ -171,6 +171,7 @@ src/Zerg.Core/          net10.0, no UI: everything testable
                                        Count() is the whole pipeline in one call
   ParseFile                            .zerg export / import
   Replay                               an event file read whole: its bars, a range's session
+  Binning                              a distribution's columns (Wide, Even, Fine; Cut.Of)
   Format                               numbers and clocks: one rounding rule, US grouping
   LenientJson                          settings.json read so one bad value costs only itself
   Charts/                              where a chart puts things, no drawing

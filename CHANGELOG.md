@@ -7,6 +7,25 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- Distributions: a drill-down's chart, a pair's and Compare's are no longer
+  chunky. A melee Attack has several humps (hits, crits, pDIF bands), and
+  the rule that set the number of columns assumed one, so a whole cluster
+  of hits could land in one or two wide columns: Derezz's Attack in a
+  55-minute parse put 38% of its hits in its first column. The new Even
+  rule takes more columns (at least √n), each the same whole number of
+  values wide from a whole edge, so no column is taller for holding one
+  value more, and a column's hover reads the values it holds ("14 – 24").
+  A Columns button in the drill-down's heading (and its pop-out) picks
+  Even (the default), Wide (the old rule) or Fine (a column for every ten
+  hits, up to 45). Damage and Healing each remember their own, and
+  Compare's drill-down follows them.
+- The drill-down pops out into a floating panel of its own, in the Damage
+  and Healing sections both ("Drill-down", "Heal drill-down"). The bar names
+  the action; a strip under it says whose it is and how much, with Compare
+  with…, Swap and Close. A menu opened from a panel is solid near-black,
+  not a pale film over the game. With nothing picked the panel stays where it is and
+  says what to pick. While it is out the main window shows a stand-in, and
+  a floating Actions or Heals panel no longer opens it under the row.
 - The cumulative charts are now the Timeline, in the Damage and Healing
   sections both. Drag across one to pick a stretch of the session, and
   that section counts it alone: its band (the clock reads "Range", its

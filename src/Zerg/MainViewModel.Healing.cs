@@ -681,10 +681,10 @@ public sealed partial class MainViewModel
 
     /// <summary>A pick's figures: <see cref="Healing.Distribution"/> over its
     /// heal, or all of the character's, on its person or on everyone.</summary>
-    static Distribution SpreadOf(Snapshot c, string actor, string pick)
+    Distribution SpreadOf(Snapshot c, string actor, string pick)
     {
         var (heal, who) = HealParts(pick);
-        return Healing.Distribution(c.Heals, actor, heal, who);
+        return Healing.Distribution(c.Heals, actor, heal, who, HealingRule);
     }
 
     void DrawHealDrill(Snapshot c)
@@ -703,7 +703,7 @@ public sealed partial class MainViewModel
             var (pair, who) = Heading(on, HealWords);
             HealingDrill.ShowPair(DrillKey(on), pair,
                                   who + Dot + Versus(a.Count, b.Count) + " casts" + Dot + Versus(a.Total, b.Total) + " healed",
-                                  SwatchOf(on.Actor), a, b, CompareSheet.Sides(a, b, healing: true), SidesOf(on), NameOf);
+                                  SwatchOf(on.Actor), a, b, CompareSheet.Sides(a, b, healing: true, HealingRule), SidesOf(on), NameOf);
             return;
         }
 

@@ -325,10 +325,12 @@ public sealed partial class MainViewModel : ObservableObject
         CharacterFilter = PickFilter.OfCharacters(NameOf);
         HealerFilter = PickFilter.OfHealers(NameOf);
         Panels = new PanelSet(settings);
-        DamageDrill = new DrillView(DrillWords.Damage, Panels["actions"], CloseDrillCommand, SwapDrillCommand,
-                                    MakeDamagePick(), new ColumnSort("hits", settings));
-        HealingDrill = new DrillView(DrillWords.Healing, Panels["hactions"], CloseHealDrillCommand, SwapHealDrillCommand,
-                                     MakeHealPick(), new ColumnSort("casts", settings));
+        DamageDrill = new DrillView(DrillWords.Damage, Panels[PanelSet.Actions], Panels[PanelSet.Drill],
+                                    CloseDrillCommand, SwapDrillCommand, MakeDamagePick(), new ColumnSort("hits", settings));
+        HealingDrill = new DrillView(DrillWords.Healing, Panels[PanelSet.HealActions], Panels[PanelSet.HealDrill],
+                                     CloseHealDrillCommand, SwapHealDrillCommand, MakeHealPick(), new ColumnSort("casts", settings));
+        DamageDrill.Columns = MakeColumnsPick(healing: false);
+        HealingDrill.Columns = MakeColumnsPick(healing: true);
         BarsSort = new ColumnSort("bars", settings);
         ActionsSort = new ColumnSort("actions", settings);
         HealersSort = new ColumnSort("healers", settings);

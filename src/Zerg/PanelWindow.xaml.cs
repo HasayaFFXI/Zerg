@@ -81,7 +81,15 @@ public partial class PanelWindow : Window
         // " · Kirin", " · Melee"), and on a healing card the healers, in the
         // accent: a panel is read over the game, where the main window's
         // buttons and tables cannot be seen.
-        BarTitle.Inlines.Add(new Run(info.Title));
+        // A drill-down's is the action it is open on.
+        var drill = info.Key switch { PanelSet.Drill => model.DamageDrill, PanelSet.HealDrill => model.HealingDrill, _ => null };
+        if (drill != null)
+        {
+            var name = new Run();
+            name.SetBinding(Run.TextProperty, new Binding(nameof(DrillView.BarTitle)) { Source = drill, Mode = BindingMode.OneWay });
+            BarTitle.Inlines.Add(name);
+        }
+        else BarTitle.Inlines.Add(new Run(info.Title));
         // Compare's live panel says what it compares in its own heading.
         string[] filters = info.Key == PanelSet.CompareLive ? []
             : PanelSet.IsHealing(info.Key) ? [nameof(MainViewModel.HealerFilter)]
@@ -107,6 +115,7 @@ public partial class PanelWindow : Window
             PanelSet.HealActions => new HealActionsCard(),
             PanelSet.HealSupport => new SupportCard(),
             PanelSet.Fights => new FightsCard(),
+            PanelSet.Drill or PanelSet.HealDrill => new DrillCard { DataContext = drill, Alone = true },
             PanelSet.CompareLive => Scrolling(new CompareLive { DataContext = model.Compare }),
             _ => Scrolling(new HealBarsCard()),
         };
@@ -148,7 +157,8 @@ public partial class PanelWindow : Window
             {
                 int i = Array.IndexOf([PanelSet.Line, PanelSet.Bars, PanelSet.Actions,
                                        PanelSet.HealLine, PanelSet.HealBars, PanelSet.HealActions,
-                                       PanelSet.Filters, PanelSet.Fights, PanelSet.HealSupport, PanelSet.CompareLive], info.Key);
+                                       PanelSet.Filters, PanelSet.Fights, PanelSet.HealSupport, PanelSet.CompareLive,
+                                       PanelSet.Drill, PanelSet.HealDrill], info.Key);
                 int step = 36 * (i % 3), across = 48 * (i / 3);
                 WindowPlacement.MoveFrame(this, at.X + 60 + step + across, at.Y + 140 + step);
             }
@@ -354,6 +364,9 @@ public partial class PanelWindow : Window
             PanelSet.Fights => (420, 270),
             // Compare's live run: four columns, a heading line and seven rows.
             PanelSet.CompareLive => (480, 250),
+            // A drill-down: the six figures on one line, the chart, and a
+            // few of the hits under it.
+            PanelSet.Drill or PanelSet.HealDrill => (460, 470),
             // Room for a few rows and the drill-down that opens under one.
             _ => (660, 520),
         };

@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:c="clr-namespace:Zerg.Charts"
-             xmlns:v="clr-namespace:Zerg.Views">
+             xmlns:v="clr-namespace:Zerg.Views"
+             x:Name="Card">
   <UserControl.Resources>
     <!-- Every hit: the time, the target (which takes what is left), the
          damage (what a cast healed), how far it fell from the average as a
@@ -85,6 +86,13 @@
        much, and picking it again closes it), as tall as what is in it, and
        a fold means nothing there.
 
+       In its own panel (Alone) the bar names the action, and a strip at
+       the top carries what the heading would: whose it is and how much,
+       then the Columns button, the pick button, Swap and Close. With nothing picked the strip
+       says what to pick and there is nothing under it. While it is out it
+       is nowhere else: the main window shows a stand-in, and the Actions
+       panel opens nothing under the row.
+
        With a second action set beside the first (Ctrl and a press on its
        row, or the heading's pick button), it is the two side by side: the
        action it was opened on is A, the other B, each in its colour (A the
@@ -100,6 +108,7 @@
         <Setter Property="Hint" Value="{Binding Note}"/>
         <Setter Property="Swatch" Value="{Binding Swatch}"/>
         <Setter Property="IsTall" Value="True"/>
+        <Setter Property="PopOutCommand" Value="{Binding Own.PopOutCommand}"/>
         <Style.Triggers>
           <DataTrigger Binding="{Binding Open}" Value="False">
             <Setter Property="IsFolded" Value="True"/>
@@ -123,6 +132,7 @@
            another row sets that one beside it. -->
       <StackPanel Orientation="Horizontal"
                   Visibility="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}, Converter={StaticResource Hidden}}">
+        <v:PairPicker DataContext="{Binding Columns}" Margin="0,0,6,0"/>
         <v:PairPicker DataContext="{Binding Pick}" Margin="0,0,6,0"/>
         <Button Style="{StaticResource GhostButton}" Height="22" Padding="10,0" FontSize="11" Content="Swap"
                 Command="{Binding SwapCommand}" Margin="0,0,6,0"
@@ -140,6 +150,44 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" v:WheelChain.On="True"
                   Focusable="False" v:Shed.Full="{StaticResource Figures}">
       <StackPanel>
+        <!-- In its own panel: whose it is and how much, and the heading's
+             tools. 14 on the right, clear of the scroll bar. -->
+        <DockPanel Height="30" Margin="12,0,14,0"
+                   Visibility="{Binding Alone, ElementName=Card, Converter={StaticResource Visible}}">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0"
+                      Visibility="{Binding Open, Converter={StaticResource Visible}}">
+            <v:PairPicker DataContext="{Binding Columns}" Margin="0,0,6,0"/>
+            <v:PairPicker DataContext="{Binding Pick}" Margin="0,0,6,0"/>
+            <Button Style="{StaticResource GhostButton}" Height="22" Padding="10,0" FontSize="11" Content="Swap"
+                    Command="{Binding SwapCommand}" Margin="0,0,6,0"
+                    ToolTip="Make B the one the drill-down is opened on" AutomationProperties.Name="Swap A and B"
+                    Visibility="{Binding Paired, Converter={StaticResource Visible}}"/>
+            <Button Style="{StaticResource GhostButton}" Height="22" Padding="10,0" FontSize="11" Content="Close"
+                    Command="{Binding CloseCommand}" AutomationProperties.Name="{Binding Words.Close}"
+                    ToolTip="{Binding Words.CloseTip}"/>
+          </StackPanel>
+          <Rectangle DockPanel.Dock="Left" Width="8" Height="8" RadiusX="2" RadiusY="2" Margin="0,0,6,0"
+                     VerticalAlignment="Center" Fill="{Binding Swatch}"
+                     Visibility="{Binding Open, Converter={StaticResource Visible}}"/>
+          <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Typography.NumeralAlignment="Tabular">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock" BasedOn="{StaticResource Label}">
+                <Setter Property="Text" Value="{Binding Note}"/>
+                <Setter Property="ToolTip" Value="{Binding Note}"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding Open}" Value="False">
+                    <Setter Property="Text" Value="{Binding Words.Pick}"/>
+                    <Setter Property="ToolTip" Value="{x:Null}"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+        </DockPanel>
+
+        <!-- Nothing picked: nothing to show (in the main window the pane
+             is folded then, and under a row it is not made). -->
+        <StackPanel Visibility="{Binding Open, Converter={StaticResource Visible}}">
         <!-- Over one action. -->
         <StackPanel Visibility="{Binding Paired, Converter={StaticResource Hidden}}">
         <!-- The six figures: one row on the raised surface, in equal
@@ -369,6 +417,7 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </Expander>
+        </StackPanel>
       </StackPanel>
     </ScrollViewer>
   </v:Pane>

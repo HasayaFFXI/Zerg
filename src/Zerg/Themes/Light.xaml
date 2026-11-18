@@ -80,6 +80,8 @@
   <SolidColorBrush x:Key="Bg0Brush" Color="{StaticResource Bg0}"/>
   <SolidColorBrush x:Key="Bg1Brush" Color="{StaticResource Bg1}"/>
   <SolidColorBrush x:Key="Bg2Brush" Color="{StaticResource Bg2}"/>
+  <!-- A menu's face, and a submenu's: the raised surface. A floating panel has its own. -->
+  <SolidColorBrush x:Key="MenuBrush" Color="{StaticResource Bg2}"/>
   <SolidColorBrush x:Key="Bg3Brush" Color="{StaticResource Bg3}"/>
   <SolidColorBrush x:Key="Bg4Brush" Color="{StaticResource Bg4}"/>
   <SolidColorBrush x:Key="LineBrush" Color="{StaticResource Line}"/>

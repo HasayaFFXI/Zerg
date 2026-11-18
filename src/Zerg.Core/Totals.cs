@@ -340,6 +340,8 @@ public sealed class Cumulative
 public sealed record Bin(double Lo, double Hi)
 {
     public int Count { get; set; }
+    /// <summary>It holds whole values, Lo to Hi − 1 (<see cref="Cut.Whole"/>).</summary>
+    public bool Whole { get; init; }
 }
 
 /// <summary>Every hit of one character's action (or of all their actions),

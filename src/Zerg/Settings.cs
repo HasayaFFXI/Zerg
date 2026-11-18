@@ -134,6 +134,14 @@ public sealed class Settings
     /// strongly the lower they fall. 50 to 100; 90 as installed.</summary>
     public int LowAccuracy { get; set; } = Core.LowMark.Installed;
 
+    /// <summary>How the Damage section's drill-down (and Compare's, on
+    /// damage) cuts hits into columns: "Even", as installed; "Wide" or
+    /// "Fine" (<see cref="Core.Binning"/>). Set in the drill-down's heading.</summary>
+    public string DamageColumns { get; set; } = nameof(Core.Binning.Even);
+
+    /// <summary>The same for the Healing section's, and Compare's on healing.</summary>
+    public string HealingColumns { get; set; } = nameof(Core.Binning.Even);
+
     /// <summary>The colour of Compare's run A, the baseline, as it is
     /// written ("#3987E5"). Null, as installed: the colour the theme in use
     /// has for it (blue). Once set, the one colour serves both themes. It
@@ -227,6 +235,15 @@ public sealed class Settings
         _ => ThemeChoice.Dark,
     };
 
+    /// <summary><see cref="DamageColumns"/> or <see cref="HealingColumns"/>
+    /// as the rule it names; anything else is Even, as installed.</summary>
+    internal Core.Binning Binning(bool healing) => (healing ? HealingColumns : DamageColumns) switch
+    {
+        nameof(Core.Binning.Wide) => Core.Binning.Wide,
+        nameof(Core.Binning.Fine) => Core.Binning.Fine,
+        _ => Core.Binning.Even,
+    };
+
     // ---------------------------------------------------------------- file
 
     static string FilePath => Path.Combine(AppInfo.DataDir, "settings.json");
@@ -284,6 +301,8 @@ public sealed class Settings
     {
         var installed = new Settings();
         Theme ??= installed.Theme;
+        DamageColumns ??= installed.DamageColumns;
+        HealingColumns ??= installed.HealingColumns;
         Section ??= installed.Section;
         ViewMode ??= installed.ViewMode;
         HealsBy ??= installed.HealsBy;

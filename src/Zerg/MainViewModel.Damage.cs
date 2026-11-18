@@ -939,18 +939,18 @@ public sealed partial class MainViewModel
         }
         if (on.Paired)
         {
-            var a = Counting.Distribution(c.Events, on.Actor, on.Action);
-            var b = Counting.Distribution(c.Events, on.ActorB!, on.ActionB!);
+            var a = Counting.Distribution(c.Events, on.Actor, on.Action, DamageRule);
+            var b = Counting.Distribution(c.Events, on.ActorB!, on.ActionB!, DamageRule);
             var (title, who) = Heading(on);
             DamageDrill.ShowPair(DrillKey(on), title,
                                  who + Dot + Versus(a.Count, b.Count) + " hits" + Dot + Versus(a.Total, b.Total) + " total damage",
-                                 SwatchOf(on.Actor), a, b, CompareSheet.Sides(a, b, healing: false), SidesOf(on), NameOf);
+                                 SwatchOf(on.Actor), a, b, CompareSheet.Sides(a, b, healing: false, DamageRule), SidesOf(on), NameOf);
             return;
         }
 
         // Folded per use, like every count: an area attack is one figure, what
         // the action hit for, not a point per target.
-        var d = Counting.Distribution(c.Events, on.Actor, on.Action);
+        var d = Counting.Distribution(c.Events, on.Actor, on.Action, DamageRule);
         var note = NameOf(on.Actor) + Dot + Format.Int(d.Count) + " hit" + (d.Count == 1 ? "" : "s") +
                    (d.Misses != 0 ? Dot + d.Misses.ToString(CultureInfo.InvariantCulture) + " miss" + (d.Misses == 1 ? "" : "es") : "") +
                    Dot + Format.Int(d.Total) + " total damage";

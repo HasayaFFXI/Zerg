@@ -529,13 +529,12 @@ public static class Counting
     /// Every hit of one character's action (<paramref name="action"/> null: all
     /// of them), with summary figures and a histogram. Folded first, so an AoE
     /// is one figure, what the action hit for, not one point per target.
-    /// The bin count follows Freedman–Diaconis, clamped to 6..maxBins: a fixed
-    /// count either flattens a tight weaponskill or shatters a wide one.
+    /// The columns follow <paramref name="rule"/> (<see cref="Cut.Of"/>): a
+    /// fixed count either flattens a tight weaponskill or shatters a wide one.
     /// </summary>
     public static Distribution Distribution(IReadOnlyList<CombatEvent> events, string actor, string? action,
-                                            int maxBins = 0)
+                                            Binning rule = Binning.Even)
     {
-        if (maxBins == 0) maxBins = 28;
         var picked = new List<CombatEvent>();
         int misses = 0, crits = 0, bursts = 0, tries = 0, lands = 0;
 
@@ -573,18 +572,9 @@ public static class Counting
         var bins = new List<Bin>();
         if (n > 0 && max > min)
         {
-            var width = BinWidth(q1, q3, n);
-            var raw = width > 0 ? Math.Ceiling((max - min) / width) : Math.Ceiling(Math.Sqrt(n));
-            // A NaN or zero count means "the default", 6.
-            var count = (int)Math.Max(6, Math.Min(maxBins, raw is 0 || double.IsNaN(raw) ? 6 : raw));
-
-            var bw = (max - min) / count;
-            for (int i = 0; i < count; i++) bins.Add(new Bin(min + i * bw, min + (i + 1) * bw));
-            for (int i = 0; i < n; i++)
-            {
-                var b = (int)Math.Min(count - 1, Math.Floor((sorted[i] - min) / bw));
-                bins[b].Count++;
-            }
+            var cut = Cut.Of(rule, min, max, BinWidth(q1, q3, n), n, Cut.Most(rule));
+            for (int i = 0; i < cut.Count; i++) bins.Add(new Bin(cut.LoOf(i), cut.HiOf(i)) { Whole = cut.Whole });
+            for (int i = 0; i < n; i++) bins[cut.At(sorted[i])].Count++;
         }
         else if (n > 0)
         {

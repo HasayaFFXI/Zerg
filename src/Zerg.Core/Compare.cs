@@ -140,6 +140,8 @@ public sealed record PairBin(double Lo, double Hi)
 {
     public int A { get; set; }
     public int B { get; set; }
+    /// <summary>It holds whole values, Lo to Hi − 1 (<see cref="Cut.Whole"/>).</summary>
+    public bool Whole { get; init; }
 }
 
 /// <summary>One action of one row in both runs: each run's own hits, and the
@@ -480,12 +482,13 @@ public static class Compare
     ///
     /// <para>The bins run from the smallest hit of either run to the largest.
     /// Their width is the finer of the two runs' own Freedman–Diaconis widths:
-    /// the wider would flatten the tighter run into a column or two. Clamped to
-    /// 6..<paramref name="maxBins"/>, fewer than a single histogram's, because
-    /// every bin holds two columns.</para>
+    /// the wider would flatten the tighter run into a column or two. Cut by
+    /// <paramref name="rule"/> as one histogram is (<see cref="Cut.Of"/>), to
+    /// fewer columns than a single histogram's (<see cref="Cut.MostPaired"/>),
+    /// because every bin holds two columns.</para>
     /// </summary>
-    public static Spread Spread(Measurement ma, Measurement mb, string key, string action, int maxBins = 0) =>
-        Spread(ma, mb, key, action, key, action, maxBins);
+    public static Spread Spread(Measurement ma, Measurement mb, string key, string action, Binning rule = Binning.Even) =>
+        Spread(ma, mb, key, action, key, action, rule);
 
     /// <summary>
     /// The same for two actions that need not be one: A's action of one row
@@ -494,14 +497,14 @@ public static class Compare
     /// action of both runs is.
     /// </summary>
     public static Spread Spread(Measurement ma, Measurement mb, string keyA, string actionA, string keyB, string actionB,
-                                int maxBins = 0)
+                                Binning rule = Binning.Even)
     {
-        static Distribution? Of(Measurement m, string key, string action)
+        Distribution? Of(Measurement m, string key, string action)
         {
-            var d = Counting.Distribution(m.Rows, key, action);
+            var d = Counting.Distribution(m.Rows, key, action, rule);
             return d.Swings > 0 ? d : null;
         }
-        return Shared(Of(ma, keyA, actionA), Of(mb, keyB, actionB), maxBins);
+        return Shared(Of(ma, keyA, actionA), Of(mb, keyB, actionB), rule);
     }
 
     /// <summary>
@@ -510,19 +513,19 @@ public static class Compare
     /// file's own heal drill-down. A pet's heals are under the pet's name. A
     /// cure on a full target is a cast that healed 0, in the first bin.
     /// </summary>
-    public static Spread HealSpread(Measurement ma, Measurement mb, string key, string action, int maxBins = 0) =>
-        HealSpread(ma, mb, key, action, key, action, maxBins);
+    public static Spread HealSpread(Measurement ma, Measurement mb, string key, string action, Binning rule = Binning.Even) =>
+        HealSpread(ma, mb, key, action, key, action, rule);
 
-    /// <summary>The same for two heals that need not be one, as <see cref="Spread(Measurement, Measurement, string, string, string, string, int)"/>.</summary>
+    /// <summary>The same for two heals that need not be one, as <see cref="Spread(Measurement, Measurement, string, string, string, string, Binning)"/>.</summary>
     public static Spread HealSpread(Measurement ma, Measurement mb, string keyA, string actionA, string keyB,
-                                    string actionB, int maxBins = 0)
+                                    string actionB, Binning rule = Binning.Even)
     {
-        static Distribution? Of(Measurement m, string key, string action)
+        Distribution? Of(Measurement m, string key, string action)
         {
-            var d = Counting.Distribution(Healing.AsEvents(m.HealRows), key, action);
+            var d = Counting.Distribution(Healing.AsEvents(m.HealRows), key, action, rule);
             return d.Swings > 0 ? d : null;
         }
-        return Shared(Of(ma, keyA, actionA), Of(mb, keyB, actionB), maxBins);
+        return Shared(Of(ma, keyA, actionA), Of(mb, keyB, actionB), rule);
     }
 
     /// <summary>
@@ -531,9 +534,8 @@ public static class Compare
     /// sections' drill-down puts two actions of one session side by side with
     /// this, so a pair there is binned as a pair here is.
     /// </summary>
-    public static Spread Shared(Distribution? a, Distribution? b, int maxBins = 0)
+    public static Spread Shared(Distribution? a, Distribution? b, Binning rule = Binning.Even)
     {
-        if (maxBins == 0) maxBins = 20;
         var spread = new Spread { A = a, B = b };
 
         double min = double.PositiveInfinity, max = double.NegativeInfinity, width = 0;
@@ -549,13 +551,10 @@ public static class Compare
 
         if (max > min)
         {
-            var raw = width > 0 ? Math.Ceiling((max - min) / width) : Math.Ceiling(Math.Sqrt(most));
-            var count = (int)Math.Max(6, Math.Min(maxBins, raw is 0 || double.IsNaN(raw) ? 6 : raw));
-            var bw = (max - min) / count;
-            for (int i = 0; i < count; i++) spread.Bins.Add(new PairBin(min + i * bw, min + (i + 1) * bw));
-            int At(double v) => (int)Math.Min(count - 1, Math.Floor((v - min) / bw));
-            if (a != null) foreach (var v in a.Sorted) spread.Bins[At(v)].A++;
-            if (b != null) foreach (var v in b.Sorted) spread.Bins[At(v)].B++;
+            var cut = Cut.Of(rule, min, max, width, most, Cut.MostPaired(rule));
+            for (int i = 0; i < cut.Count; i++) spread.Bins.Add(new PairBin(cut.LoOf(i), cut.HiOf(i)) { Whole = cut.Whole });
+            if (a != null) foreach (var v in a.Sorted) spread.Bins[cut.At(v)].A++;
+            if (b != null) foreach (var v in b.Sorted) spread.Bins[cut.At(v)].B++;
         }
         else
         {

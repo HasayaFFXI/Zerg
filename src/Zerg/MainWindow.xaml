@@ -942,7 +942,8 @@
              action; the heading here says so): then it is as tall as a
              heading, and the tables above it have its room (or, moved into
              a column of its own, as wide as one: a rail). The card folds
-             itself; this says so to the panel that arranges it. -->
+             itself; this says so to the panel that arranges it. Popped out
+             into a panel of its own, it is a stand-in here like any card. -->
         <Grid x:Name="Drill" v:SplitPanel.Key="drill" v:SplitPanel.Title="Drill-down">
           <Grid.Style>
             <Style TargetType="Grid">
@@ -953,10 +954,17 @@
                 <DataTrigger Binding="{Binding Panels[actions].IsOut}" Value="True">
                   <Setter Property="v:SplitPanel.SelfFolded" Value="True"/>
                 </DataTrigger>
+                <!-- Out in its own panel: a stand-in, as any card that floats. -->
+                <DataTrigger Binding="{Binding Panels[drill].IsOut}" Value="True">
+                  <Setter Property="v:SplitPanel.SelfFolded" Value="False"/>
+                  <Setter Property="v:SplitPanel.Fixed" Value="{StaticResource StandInHeight}"/>
+                </DataTrigger>
               </Style.Triggers>
             </Style>
           </Grid.Style>
-          <v:DrillCard DataContext="{Binding DamageDrill}"/>
+          <v:DrillCard DataContext="{Binding DamageDrill}"
+                       Visibility="{Binding Panels[drill].IsOut, Converter={StaticResource Hidden}}"/>
+          <v:Away DataContext="{Binding Panels[drill]}"/>
         </Grid>
 
       </v:SplitPanel>
@@ -1033,10 +1041,17 @@
                 <DataTrigger Binding="{Binding Panels[hactions].IsOut}" Value="True">
                   <Setter Property="v:SplitPanel.SelfFolded" Value="True"/>
                 </DataTrigger>
+                <!-- Out in its own panel: a stand-in, as any card that floats. -->
+                <DataTrigger Binding="{Binding Panels[hdrill].IsOut}" Value="True">
+                  <Setter Property="v:SplitPanel.SelfFolded" Value="False"/>
+                  <Setter Property="v:SplitPanel.Fixed" Value="{StaticResource StandInHeight}"/>
+                </DataTrigger>
               </Style.Triggers>
             </Style>
           </Grid.Style>
-          <v:DrillCard DataContext="{Binding HealingDrill}"/>
+          <v:DrillCard DataContext="{Binding HealingDrill}"
+                       Visibility="{Binding Panels[hdrill].IsOut, Converter={StaticResource Hidden}}"/>
+          <v:Away DataContext="{Binding Panels[hdrill]}"/>
         </Grid>
 
       </v:SplitPanel>

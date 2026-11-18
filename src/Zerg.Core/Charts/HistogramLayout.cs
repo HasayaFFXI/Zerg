@@ -40,7 +40,6 @@ public sealed class HistogramLayout
     /// <summary>The rounding of a column's top, and of a column's of two runs.</summary>
     public const double ColumnRadius = 2;
 
-    static readonly string Dash = ((char)0x2013).ToString();   // en dash
 
     IReadOnlyList<Bin> bins = [];
     int total;
@@ -185,7 +184,7 @@ public sealed class HistogramLayout
         if (mx < plot.X || mx > plot.X + plot.W || my < plot.Y - 10 || my > plot.Y + plot.H + 10) return null;
         int k = (int)Math.Max(0, Math.Min(bins.Count - 1, Math.Floor((mx - plot.X) / Slot)));
         var b = bins[k];
-        return new HistogramHover(k, Format.Int(b.Lo) + " " + Dash + " " + Format.Int(b.Hi),
+        return new HistogramHover(k, Cut.Range(b.Lo, b.Hi, b.Whole),
         [
             new HoverRow("Hits", b.Count.ToString(CultureInfo.InvariantCulture)),
             new HoverRow("Share", Format.Num(total != 0 ? (double)b.Count / total * 100 : 0, 1) + "%"),

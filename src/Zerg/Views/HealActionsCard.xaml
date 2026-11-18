@@ -107,6 +107,8 @@
           <MultiDataTrigger.Conditions>
             <Condition Binding="{Binding Selected}" Value="True"/>
             <Condition Binding="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}}" Value="True"/>
+            <!-- Not while the drill-down is out in a panel of its own. -->
+            <Condition Binding="{Binding Content.HealingDrill.Own.IsOut, RelativeSource={RelativeSource Self}}" Value="False"/>
           </MultiDataTrigger.Conditions>
           <Setter Property="ContentTemplate" Value="{StaticResource Detail}"/>
         </MultiDataTrigger>

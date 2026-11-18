@@ -758,10 +758,10 @@ public sealed class CompareSheet
     /// the same or another, on bins the two share, with its figures. Hits
     /// and Max are not coloured; nor is anything of a heal.
     /// </summary>
-    public CompareDrill Drill(CrossPair p, bool healing)
+    public CompareDrill Drill(CrossPair p, bool healing, Binning rule = Binning.Even)
     {
-        var s = healing ? Compare.HealSpread(A, B, p.KeyA, p.ActionA, p.KeyB, p.ActionB)
-                        : Compare.Spread(A, B, p.KeyA, p.ActionA, p.KeyB, p.ActionB);
+        var s = healing ? Compare.HealSpread(A, B, p.KeyA, p.ActionA, p.KeyB, p.ActionB, rule)
+                        : Compare.Spread(A, B, p.KeyA, p.ActionA, p.KeyB, p.ActionB, rule);
         var (a, b) = (s.A, s.B);
         int good = healing ? 0 : 1;
         static double? Of(Distribution? d, Func<Distribution, double> pick) => d is { Count: > 0 } ? pick(d) : null;
@@ -1007,10 +1007,10 @@ public sealed class CompareSheet
     /// A side with no swings is dashes.
     /// </summary>
     /// <param name="healing">The two are heals: casts, and no accuracy.</param>
-    public static ActionSpread Sides(Distribution? a, Distribution? b, bool healing)
+    public static ActionSpread Sides(Distribution? a, Distribution? b, bool healing, Binning rule = Binning.Even)
     {
         static Distribution? Swung(Distribution? d) => d is { Swings: > 0 } ? d : null;
-        var s = Compare.Shared(Swung(a), Swung(b));
+        var s = Compare.Shared(Swung(a), Swung(b), rule);
         static string W(double? x) => x is double v ? Whole(v) : Dash;
         static string P(double? x) => x is double v ? Percent(v) : Dash;
         if (healing)

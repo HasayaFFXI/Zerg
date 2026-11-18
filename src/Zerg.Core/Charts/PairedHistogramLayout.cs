@@ -22,7 +22,6 @@ public sealed class PairedHistogramLayout
     /// run's swatch (<see cref="HoverCard.Swatch"/> square, then a gap).</summary>
     public const double SwatchRoom = 12;
 
-    static readonly string Dash = ((char)0x2013).ToString();   // en dash
 
     IReadOnlyList<PairBin> bins = [];
     string unit = "hit";
@@ -163,7 +162,7 @@ public sealed class PairedHistogramLayout
         string Row(int n, int run) => totals[run] == 0 ? CompareSheet.Dash :
             n.ToString(CultureInfo.InvariantCulture) + " " + unit + (n == 1 ? "" : "s") + " · " +
             Format.Num((double)n / totals[run] * 100, 1) + "%";
-        return new HistogramHover(k, Format.Int(b.Lo) + " " + Dash + " " + Format.Int(b.Hi),
+        return new HistogramHover(k, Cut.Range(b.Lo, b.Hi, b.Whole),
                                   [new HoverRow("A", Row(b.A, 0), 0), new HoverRow("B", Row(b.B, 1), 1)]);
     }
 }

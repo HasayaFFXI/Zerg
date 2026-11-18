@@ -421,6 +421,59 @@ public sealed partial class MainViewModel
         lowSaver.Poke();
     }
 
+    // ------------------------------------------------- distribution columns
+    //
+    // How a drill-down's chart, and Compare's, cut hits into columns
+    // (Core.Cut): picked in the drill-down's heading, one rule for damage
+    // and one for healing, each saved. What is counted is the same; the
+    // drill-downs are drawn again from the last count, and Compare's again.
+
+    /// <summary>The rule the Damage section's drill-down, and Compare's on damage, cut by.</summary>
+    internal Binning DamageRule => settings.Binning(healing: false);
+    /// <summary>The rule the Healing section's, and Compare's on healing, cut by.</summary>
+    internal Binning HealingRule => settings.Binning(healing: true);
+    internal Binning RuleOf(bool healing) => settings.Binning(healing);
+
+    /// <summary>Each rule, and what its line in the menu says of it.</summary>
+    static string RuleNote(Binning rule, bool healing) => rule switch
+    {
+        Binning.Wide => "fewer columns, any width",
+        Binning.Fine => healing ? "a column for every 10 casts" : "a column for every 10 hits",
+        _ => "each as many values wide",
+    };
+
+    /// <summary>A drill-down's Columns button: its rule, and a menu of the three.</summary>
+    PairPick MakeColumnsPick(bool healing)
+    {
+        PairPick? pick = null;
+        pick = new PairPick("Distribution columns", () =>
+        [
+            new PairGroup("", null, [.. Enum.GetValues<Binning>().Select(r =>
+                new PairOption(r.ToString(), RuleNote(r, healing), r == RuleOf(healing), () => SetRule(healing, r, pick!)))]),
+        ]);
+        Label(pick, healing);
+        return pick;
+    }
+
+    void Label(PairPick pick, bool healing)
+    {
+        var rule = RuleOf(healing);
+        pick.Label = rule.ToString();
+        pick.Tip = "How the chart cuts " + (healing ? "casts" : "hits") + " into columns: " + RuleNote(rule, healing);
+    }
+
+    void SetRule(bool healing, Binning rule, PairPick pick)
+    {
+        if (rule == RuleOf(healing)) return;
+        if (healing) settings.HealingColumns = rule.ToString();
+        else settings.DamageColumns = rule.ToString();
+        settings.Save();
+        Log.Write((healing ? "healing" : "damage") + " columns " + rule);
+        Label(pick, healing);
+        if (snapshot != null) Recount();
+        Compare.SharedChanged();
+    }
+
     // ------------------------------------------- the colours of Compare's runs
     //
     // Each run's colour is the user's to set: as it is written ("#3987E5"),

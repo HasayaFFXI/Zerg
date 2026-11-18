@@ -200,8 +200,8 @@ public static class Healing
     /// healed that one person.
     /// </summary>
     public static Distribution Distribution(IEnumerable<HealEvent> heals, string actor, string? action,
-                                            string? target = null) =>
-        Counting.Distribution(AsEvents(target == null ? heals : heals.Where(h => h.Target == target)), actor, action);
+                                            string? target = null, Binning rule = Binning.Even) =>
+        Counting.Distribution(AsEvents(target == null ? heals : heals.Where(h => h.Target == target)), actor, action, rule);
 
     /// <summary>Heals (already filtered) → per character, per action. Largest first.</summary>
     public static HealTotals Totals(IReadOnlyList<HealEvent> heals)

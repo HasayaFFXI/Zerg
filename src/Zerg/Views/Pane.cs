@@ -104,7 +104,7 @@ public class Pane : HeaderedContentControl
     public object? Tools { get => GetValue(ToolsProperty); set => SetValue(ToolsProperty, value); }
 
     /// <summary>Sends the card out to float over the game. Without one, the
-    /// heading has no Pop out: a drill-down goes where its table goes.</summary>
+    /// heading has no Pop out.</summary>
     public ICommand? PopOutCommand { get => (ICommand?)GetValue(PopOutCommandProperty); set => SetValue(PopOutCommandProperty, value); }
 
     /// <summary>Folded to its heading. A pane also folds when whatever
@@ -139,13 +139,14 @@ public class Pane : HeaderedContentControl
     // and the two have no name: a script reads the names of hidden things
     // too.
 
-    ButtonBase? fold;
+    ButtonBase? fold, popOut;
     PaneGrip? grip;
 
     public override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
         fold = GetTemplateChild("Fold") as ButtonBase;
+        popOut = GetTemplateChild("PopOut") as ButtonBase;
         grip = GetTemplateChild("Grip") as PaneGrip;
         Call();
     }
@@ -154,13 +155,13 @@ public class Pane : HeaderedContentControl
     {
         base.OnPropertyChanged(e);
         if (e.Property == TitleProperty || e.Property == IsFoldedProperty || e.Property == SplitPanel.FoldedProperty ||
-            e.Property == SplitPanel.TitleProperty || e.Property == Float.OnProperty)
+            e.Property == SplitPanel.TitleProperty || e.Property == Float.OnProperty || e.Property == PopOutCommandProperty)
             Call();
     }
 
     void Call()
     {
-        if (fold is null && grip is null) return;
+        if (fold is null && grip is null && popOut is null) return;
         string name = SplitPanel.GetTitle(this) is { Length: > 0 } given ? given : Title ?? "";
         // Nameless too while the pane has no title (Compare's, until both
         // slots hold a parse): "Fold " is no name.
@@ -174,6 +175,9 @@ public class Pane : HeaderedContentControl
             fold.IsEnabled = folded || !IsFolded;
         }
         if (grip != null) Say(grip, floating ? "" : "Move " + name);
+        // By the name that does not change, as the other two: "Pop out
+        // Drill-down" whatever action it is open on.
+        if (popOut != null) Say(popOut, floating || PopOutCommand is null ? "" : "Pop out " + name);
 
         static void Say(UIElement part, string name)
         {

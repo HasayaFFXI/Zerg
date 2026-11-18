@@ -80,12 +80,13 @@ public partial class MainWindow : Window
         // panel, and there is nothing here to scroll to.
         model.DrillOpened += () =>
         {
-            if (SplitPanel.GetStacked(Page) && !model.Panels[PanelSet.Actions].IsOut)
+            if (SplitPanel.GetStacked(Page) && !model.Panels[PanelSet.Actions].IsOut && !model.Panels[PanelSet.Drill].IsOut)
                 Dispatcher.BeginInvoke(Drill.BringIntoView, DispatcherPriority.Loaded);
         };
         model.HealDrillOpened += () =>
         {
-            if (SplitPanel.GetStacked(Page) && !model.Panels[PanelSet.HealActions].IsOut)
+            if (SplitPanel.GetStacked(Page) && !model.Panels[PanelSet.HealActions].IsOut &&
+                !model.Panels[PanelSet.HealDrill].IsOut)
                 Dispatcher.BeginInvoke(HealDrill.BringIntoView, DispatcherPriority.Loaded);
         };
 

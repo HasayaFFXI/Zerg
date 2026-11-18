@@ -22,11 +22,13 @@ namespace Zerg;
 /// </summary>
 public sealed partial class DrillView : ObservableObject
 {
-    public DrillView(DrillWords words, PanelInfo panel, ICommand close, ICommand swap, PairPick pick, ColumnSort sort)
+    public DrillView(DrillWords words, PanelInfo panel, PanelInfo own, ICommand close, ICommand swap, PairPick pick,
+                     ColumnSort sort)
     {
         Words = words;
         Sort = sort;
         Panel = panel;
+        Own = own;
         CloseCommand = close;
         SwapCommand = swap;
         Pick = pick;
@@ -39,6 +41,14 @@ public sealed partial class DrillView : ObservableObject
     /// while that table floats.</summary>
     public PanelInfo Panel { get; }
 
+    /// <summary>The drill-down's own panel. While it is out the drill-down
+    /// is there alone: not in the main window, not under the table's row.</summary>
+    public PanelInfo Own { get; }
+
+    /// <summary>What its own panel's bar calls it: the action it is open
+    /// on, or with none picked the card's name.</summary>
+    public string BarTitle => Open ? Title : Own.Title;
+
     public ICommand CloseCommand { get; }
     /// <summary>Makes B the action the drill-down is opened on, and A the other.</summary>
     public ICommand SwapCommand { get; }
@@ -46,6 +56,9 @@ public sealed partial class DrillView : ObservableObject
     public PairPick Pick { get; }
     /// <summary>The list's order, as its headings set it: newest first, as it is listed, by none.</summary>
     public ColumnSort Sort { get; }
+    /// <summary>How the chart cuts hits into columns: the heading's Columns
+    /// button (Wide, Even, Fine), the section's own, saved.</summary>
+    public PairPick? Columns { get; set; }
 
     /// <summary>A second action is set beside the first: the figures are
     /// both sides' in a table, the chart is the two on shared bins, and
@@ -61,8 +74,12 @@ public sealed partial class DrillView : ObservableObject
     [ObservableProperty] private Brush panelFillA = Brushes.Gray;
     [ObservableProperty] private Brush panelFillB = Brushes.Gray;
 
-    [ObservableProperty] private bool open;
-    [ObservableProperty] private string title = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BarTitle))]
+    private bool open;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BarTitle))]
+    private string title = "";
     [ObservableProperty] private string note = "";
     /// <summary>Whose it is, as a swatch before the note.</summary>
     [ObservableProperty] private Brush? swatch;

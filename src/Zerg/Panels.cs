@@ -58,9 +58,11 @@ public sealed partial class PanelInfo(PanelSet set, string key, string title) : 
 /// </summary>
 public sealed partial class PanelSet : ObservableObject
 {
-    // No drill-down among them: that goes with its table, as a card under
-    // it in the main window and under the action's row in the table's panel.
     public const string Line = "line", Bars = "bars", Actions = "actions";
+    /// <summary>The drill-downs, each in a panel of its own. While one is in
+    /// the main window and its table floats, the table's panel shows it
+    /// under the picked row instead.</summary>
+    public const string Drill = "drill", HealDrill = "hdrill";
     /// <summary>The Damage section's Filters pane, By target and By damage
     /// type: floats as the pane it is, tabs and all.</summary>
     public const string Filters = "filters";
@@ -76,7 +78,10 @@ public sealed partial class PanelSet : ObservableObject
     public const string CompareLive = "clive";
 
     /// <summary>Whether a panel holds one of the Healing section's cards.</summary>
-    public static bool IsHealing(string key) => key is HealLine or HealBars or HealActions or HealSupport;
+    public static bool IsHealing(string key) => key is HealLine or HealBars or HealActions or HealSupport or HealDrill;
+
+    /// <summary>Whether a panel holds a drill-down.</summary>
+    public static bool IsDrill(string key) => key is Drill or HealDrill;
 
     readonly Settings settings;
     readonly PanelOpacities opacities;
@@ -106,10 +111,12 @@ public sealed partial class PanelSet : ObservableObject
         Add(Actions, "Actions");
         Add(Filters, "Filters");
         Add(Fights, "Battle Log");
+        Add(Drill, "Drill-down");
         Add(HealLine, "Healing timeline");
         Add(HealBars, "Healing by character");
         Add(HealActions, "Heals");
         Add(HealSupport, "Support");
+        Add(HealDrill, "Heal drill-down");
         Add(CompareLive, "Live compare");
 
         // A slider reports every step of a drag; the file is written once it settles.

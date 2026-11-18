@@ -11,6 +11,15 @@ public partial class DrillCard : UserControl
 
     public DrillCard() => InitializeComponent();
 
+    public static readonly DependencyProperty AloneProperty = DependencyProperty.Register(nameof(Alone),
+        typeof(bool), typeof(DrillCard), new PropertyMetadata(false));
+
+    /// <summary>The card is the whole of the drill-down's own panel, not
+    /// under a row of the table's: it carries the heading's tools on a
+    /// strip of its own (the panel draws no heading), and with nothing
+    /// picked says what to pick.</summary>
+    public bool Alone { get => (bool)GetValue(AloneProperty); set => SetValue(AloneProperty, value); }
+
     /// <summary>
     /// Two actions' figures beside their chart in a wide pane, under it in a
     /// narrow one. Only the figures' place changes: nothing is made again.

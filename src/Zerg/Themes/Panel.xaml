@@ -73,6 +73,11 @@
        it show through reads as noise. -->
   <SolidColorBrush x:Key="HoverCardBrush" Color="#262D3A"/>
 
+  <!-- A menu opened from a panel (the drill-down's pick button) is its own
+       window with no tint behind it: Bg2Brush above would be a pale film
+       over the game. Solid, and as near black as the panel's tint. -->
+  <SolidColorBrush x:Key="MenuBrush" Color="#141414"/>
+
   <!-- The ring round a chart marker is the colour of what the chart sits
        on. Here that is the tint, whatever is behind it. -->
   <SolidColorBrush x:Key="ChartSurfaceBrush" Color="#101010"/>
