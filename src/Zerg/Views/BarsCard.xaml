@@ -102,17 +102,17 @@
       <Setter Property="Foreground" Value="{DynamicResource CritBrush}"/>
     </Style>
 
-    <!-- The strip: Character, then Damage, %, Acc%, Crit%, Delay and the ranged
-         two (R.Acc%, R.Crit%), each wide enough for its longest figure or
-         its heading so one growing a digit moves nothing beside it; a figure
-         ends 2 units short of its column. The name has what is left, and
-         110 at least: in a panel too narrow for that the strip drops Deaths,
-         the four rates and the job beside the name (v:Shed, as the Actions
-         table drops columns), which is the strip the design draws 250 wide.
-         With "shade characters" off the share is a small bar beside the %
-         figure, which needs the room. -->
-    <sys:String x:Key="StripColumns">1*110,72,52,56,56,58,62,66,40</sys:String>
-    <sys:String x:Key="StripBarColumns">1*110,72,96,56,56,58,62,66,40</sys:String>
+    <!-- The strip: Character, then a column for each of the table's (the
+         job's nothing wide: it stands beside the name), each wide enough for
+         its longest figure or its heading so one growing a digit moves
+         nothing beside it; a figure ends 2 units short of its column. The
+         name has what is left, and 110 at least: in a panel too narrow for
+         that and the columns shown, those at the end of the row go
+         (StripRoom), which with the columns as installed is the strip the
+         design draws 250 wide. With "shade characters" off the share is a
+         small bar beside the % figure, which needs the room. -->
+    <sys:String x:Key="StripColumns">1*110,0,72,52,56,56,56,58,62,66,72,66,50,62,72,50,74,68,40</sys:String>
+    <sys:String x:Key="StripBarColumns">1*110,0,72,96,56,56,56,58,62,66,72,66,50,62,72,50,74,68,40</sys:String>
     <Style x:Key="Strip" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource StripColumns}"/>
       <Style.Triggers>
@@ -121,12 +121,15 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-    <!-- The strip itself says whether its columns fit (v:Shed.Full). -->
+    <!-- The strip drops the columns it has no room for, the last standing
+         first (v:ColumnSet.Fit): the player's order says what stays. Its
+         rows keep 3 units each side. -->
     <Style x:Key="StripRoom" TargetType="StackPanel">
-      <Setter Property="v:Shed.Full" Value="{StaticResource StripColumns}"/>
+      <Setter Property="v:ColumnSet.Fit" Value="{StaticResource StripColumns}"/>
+      <Setter Property="v:ColumnSet.FitMargin" Value="6"/>
       <Style.Triggers>
         <Trigger Property="v:Shading.Characters" Value="False">
-          <Setter Property="v:Shed.Full" Value="{StaticResource StripBarColumns}"/>
+          <Setter Property="v:ColumnSet.Fit" Value="{StaticResource StripBarColumns}"/>
         </Trigger>
       </Style.Triggers>
     </Style>
@@ -150,27 +153,14 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-    <!-- The last column's, which goes in a narrow panel. -->
-    <Style x:Key="StripCellSheds" TargetType="TextBlock" BasedOn="{StaticResource StripCell}">
-      <Style.Triggers>
-        <Trigger Property="v:Shed.Narrow" Value="True">
-          <Setter Property="Visibility" Value="Collapsed"/>
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-    <Style x:Key="StripDeaths" TargetType="TextBlock" BasedOn="{StaticResource StripCellSheds}">
+    <Style x:Key="StripDeaths" TargetType="TextBlock" BasedOn="{StaticResource StripCell}">
       <Setter Property="Foreground" Value="{DynamicResource CritBrush}"/>
     </Style>
-    <!-- The job beside the name: quieter than the name, and gone in a
-         narrow panel (and where there is none to show, as any badge). -->
+    <!-- The job beside the name: quieter than the name (and gone where
+         there is none to show, as any badge). -->
     <Style x:Key="StripJob" TargetType="TextBlock" BasedOn="{StaticResource Badge}">
       <Setter Property="FontSize" Value="10"/>
       <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
-      <Style.Triggers>
-        <Trigger Property="v:Shed.Narrow" Value="True">
-          <Setter Property="Visibility" Value="Collapsed"/>
-        </Trigger>
-      </Style.Triggers>
     </Style>
 
     <!-- A row of the docked table, in either tab: a heading (a character,
@@ -381,40 +371,72 @@
            is not pressed here: a panel lies over the game, and is often
            clicked through. One not among the characters isolated is
            quieter, as in the table. -->
-      <StackPanel Style="{StaticResource StripRoom}"
+      <!-- Its columns are every one the table has, in the table's order
+           (Tables.Strip); which of them it shows, and where, are the
+           panel's own (v:ColumnSet: TableColumns.Floating), from the bar's
+           Columns menu and by dragging a heading. In a panel too narrow
+           for the columns shown, those at the end go until the rest fit
+           (StripRoom). The job's column is nothing wide: the job stands
+           beside the name. -->
+      <StackPanel Style="{StaticResource StripRoom}" v:ColumnSet.Table="{Binding BarsColumns}"
                   Visibility="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}, Converter={StaticResource Visible}}">
         <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Label}" FontSize="12" Margin="13,8,13,0"
                    Visibility="{Binding HasActors, Converter={StaticResource Hidden}}"/>
-        <v:Cells Style="{StaticResource Strip}" Height="{StaticResource HitRowHeight}" Margin="3,0"
+        <v:Cells Style="{StaticResource Strip}" Height="{StaticResource HitRowHeight}" Margin="3,0" v:ColumnDrag.On="True"
                  Visibility="{Binding HasActors, Converter={StaticResource Visible}}">
           <v:Caps Text="CHARACTER" Style="{StaticResource StripHead}" HorizontalAlignment="Left" Margin="10,0,4,0"/>
-          <v:Caps Text="DAMAGE" Style="{StaticResource StripHead}"/>
-          <!-- A border, so the whole of the column's heading shows the tooltip. -->
+          <Border/>
+          <!-- Each a border, so the whole of the column's heading shows the
+               tooltip and takes the press that drags it. -->
+          <Border Background="Transparent" ToolTip="Everything this character dealt">
+            <v:Caps Text="DAMAGE" Style="{StaticResource StripHead}"/>
+          </Border>
           <Border Background="Transparent" ToolTip="This character's damage out of the whole party's">
             <v:Caps Text="%" Style="{StaticResource StripHead}"/>
           </Border>
-          <Border Background="Transparent" Style="{StaticResource Sheds}"
-                  ToolTip="Auto-attacks that connected, out of all attempted">
+          <Border Background="Transparent" ToolTip="Damage divided by the session clock">
+            <v:Caps Text="DPS" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="Auto-attacks that connected, out of all attempted">
             <v:Caps Text="ACC%" Style="{StaticResource StripHead}"/>
           </Border>
-          <Border Background="Transparent" Style="{StaticResource Sheds}"
-                  ToolTip="Auto-attacks that landed a critical hit, out of those that dealt damage">
+          <Border Background="Transparent" ToolTip="Auto-attacks that landed a critical hit, out of those that dealt damage">
             <v:Caps Text="CRIT%" Style="{StaticResource StripHead}"/>
           </Border>
-          <Border Background="Transparent" Style="{StaticResource Sheds}"
-                  ToolTip="The average time from one round of auto-attacks to the next, in seconds">
+          <Border Background="Transparent" ToolTip="The average time from one round of auto-attacks to the next, in seconds">
             <v:Caps Text="DELAY" Style="{StaticResource StripHead}"/>
           </Border>
-          <Border Background="Transparent" Style="{StaticResource Sheds}"
-                  ToolTip="Ranged attacks that connected, out of all attempted">
+          <Border Background="Transparent" ToolTip="Ranged attacks that connected, out of all attempted" AutomationProperties.Name="Ranged accuracy">
             <v:Caps Text="R.ACC%" Style="{StaticResource StripHead}"/>
           </Border>
-          <Border Background="Transparent" Style="{StaticResource Sheds}"
-                  ToolTip="Ranged attacks that landed a critical hit, out of those that dealt damage">
+          <Border Background="Transparent" ToolTip="Ranged attacks that landed a critical hit, out of those that dealt damage" AutomationProperties.Name="Ranged crit">
             <v:Caps Text="R.CRIT%" Style="{StaticResource StripHead}"/>
           </Border>
-          <Border Background="Transparent" Style="{StaticResource Sheds}"
-                  ToolTip="How many times this character died in the session">
+          <Border Background="Transparent" ToolTip="Total weaponskill damage. Skillchain damage is not part of it" AutomationProperties.Name="Weaponskill damage">
+            <v:Caps Text="WS DMG" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="Average damage of the weaponskills that dealt damage" AutomationProperties.Name="Weaponskill average">
+            <v:Caps Text="WS AVG" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="Weaponskill damage out of this character's damage" AutomationProperties.Name="Weaponskill share">
+            <v:Caps Text="WS%" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="Weaponskills that dealt damage, out of all used" AutomationProperties.Name="Weaponskill accuracy">
+            <v:Caps Text="WS ACC" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="Total damage of the skillchains this character closed. Empty while Include Skillchains is off" AutomationProperties.Name="Skillchain damage">
+            <v:Caps Text="SC DMG" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="Skillchain damage out of this character's damage" AutomationProperties.Name="Skillchain share">
+            <v:Caps Text="SC%" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="Everything this character's pet dealt. Already part of Damage" AutomationProperties.Name="Pet damage">
+            <v:Caps Text="PET DMG" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="The pet's melee attacks that connected, out of all attempted" AutomationProperties.Name="Pet accuracy">
+            <v:Caps Text="PET ACC" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="How many times this character died in the session" AutomationProperties.Name="Deaths">
             <v:Caps Text="DTH" Style="{StaticResource StripHead}"/>
           </Border>
         </v:Cells>
@@ -437,15 +459,25 @@
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock Text="{Binding Job}" Style="{StaticResource StripJob}"/>
                   </DockPanel>
+                  <Border/>
                   <TextBlock Text="{Binding Damage}" Style="{StaticResource StripCell}" FontSize="12" FontWeight="SemiBold"/>
                   <v:SmallBar For="Character" Length="36" Inset="8" Value="{Binding Fraction}" Fill="{Binding Edge}">
                     <TextBlock Text="{Binding Share}" Style="{StaticResource StripCell}"/>
                   </v:SmallBar>
-                  <TextBlock Text="{Binding Accuracy}" Style="{StaticResource StripCellSheds}"/>
-                  <TextBlock Text="{Binding Crit}" Style="{StaticResource StripCellSheds}"/>
-                  <TextBlock Text="{Binding Delay}" Style="{StaticResource StripCellSheds}"/>
-                  <TextBlock Text="{Binding RangedAccuracy}" Style="{StaticResource StripCellSheds}"/>
-                  <TextBlock Text="{Binding RangedCrit}" Style="{StaticResource StripCellSheds}"/>
+                  <TextBlock Text="{Binding Dps}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding Accuracy}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding Crit}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding Delay}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding RangedAccuracy}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding RangedCrit}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding WsDamage}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding WsAvg}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding WsShare}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding WsAccuracy}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding ScDamage}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding ScShare}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding PetDamage}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding PetAccuracy}" Style="{StaticResource StripCell}"/>
                   <TextBlock Text="{Binding Deaths}" Style="{StaticResource StripDeaths}"/>
                 </v:Cells>
               </Grid>

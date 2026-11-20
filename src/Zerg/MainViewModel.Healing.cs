@@ -185,6 +185,7 @@ public sealed partial class MainViewModel
             row.Avg = Whole(a.Avg);
             row.Mp = MpText(a.Mp);
             row.PerMp = PerMpText(a.PerMp);
+            (row.Overcure, row.OvercurePct) = OvercureText(a.Overcure, a.OvercurePct);
             // A dash, not a zero: most characters have no pet to have healed.
             row.PetHealing = a.PetTotal != 0 ? Format.Int(a.PetTotal) : None;
         });
@@ -202,10 +203,12 @@ public sealed partial class MainViewModel
         HealParty.Avg = Whole(h.Avg);
         HealParty.Mp = MpText(h.Mp);
         HealParty.PerMp = PerMpText(h.PerMp);
+        (HealParty.Overcure, HealParty.OvercurePct) = OvercureText(h.Overcure, h.OvercurePct);
         HealParty.PetHealing = h.PetTotal != 0 ? Format.Int(h.PetTotal) : None;
 
-        // Floating, the strip: Healing, its share, casts, MP Spent and HP/MP. Nothing in it
-        // moves with the clock, as nothing in the damage strip does.
+        // Floating, the strip: whichever of the table's columns the panel
+        // shows (Tables.HealStrip). HPS is written by the draw beat once a
+        // second, as the damage strip's DPS is.
         Rows.Sync(HealStrip, actors, a => a.Name, a => new HealStripRow(a.Name), (row, a) =>
         {
             row.Name = NameOf(a.Name);
@@ -213,11 +216,16 @@ public sealed partial class MainViewModel
             row.Fill = PanelShadeOf(a.Name);
             row.Edge = Solid(PanelColorOf(a.Name));
             row.Fraction = RowMarks.Fraction(a.Total, top);
+            row.Total = a.Total;
             row.Healing = Format.Int(a.Total);
             row.Share = Percent(a.Share);
+            row.Hps = Format.Num(Counting.PerSecond(a.Total, c.HealElapsed / 1000) ?? double.NaN, 1);
             row.Casts = Format.Int(a.Casts);
+            row.Avg = Whole(a.Avg);
             row.Mp = MpText(a.Mp);
             row.PerMp = PerMpText(a.PerMp);
+            (row.Overcure, row.OvercurePct) = OvercureText(a.Overcure, a.OvercurePct);
+            row.PetHealing = a.PetTotal != 0 ? Format.Int(a.PetTotal) : None;
             row.IsOwner = a.Name == Roster.Owner;
             row.Dimmed = HealerFilter.Marks(a.Name, "").Dimmed;
             row.Tip = Tip(a);
@@ -236,6 +244,8 @@ public sealed partial class MainViewModel
         "avg" => SortKey<HealerTotals>.Of(a => a.Avg),
         "mp" => SortKey<HealerTotals>.Of(a => a.Mp > 0 ? (double?)a.Mp : null),
         "perMp" => SortKey<HealerTotals>.Of(a => a.PerMp),
+        "overcure" => SortKey<HealerTotals>.Of(a => a.OvercurePct != null ? (double?)a.Overcure : null),
+        "overcurePct" => SortKey<HealerTotals>.Of(a => a.OvercurePct),
         "petHealing" => SortKey<HealerTotals>.Of(a => a.PetTotal != 0 ? (double?)a.PetTotal : null),
         _ => null,
     };
@@ -251,6 +261,9 @@ public sealed partial class MainViewModel
         "max" => SortKey<HealAction>.Of(x => x.Max),
         "mp" => SortKey<HealAction>.Of(x => x.Mp > 0 ? (double?)x.Mp : null),
         "perMp" => SortKey<HealAction>.Of(x => x.PerMp),
+        "base" => SortKey<HealAction>.Of(x => x.Base),
+        "overcure" => SortKey<HealAction>.Of(x => x.OvercurePct != null ? (double?)x.Overcure : null),
+        "overcurePct" => SortKey<HealAction>.Of(x => x.OvercurePct),
         _ => null,
     };
 
@@ -266,6 +279,9 @@ public sealed partial class MainViewModel
         "max" => SortKey<HealPart>.Of(x => x.Max),
         "mp" => SortKey<HealPart>.Of(x => x.Mp > 0 ? (double?)x.Mp : null),
         "perMp" => SortKey<HealPart>.Of(x => x.PerMp),
+        "base" => SortKey<HealPart>.Of(x => x.Base),
+        "overcure" => SortKey<HealPart>.Of(x => x.OvercurePct != null ? (double?)x.Overcure : null),
+        "overcurePct" => SortKey<HealPart>.Of(x => x.OvercurePct),
         _ => null,
     };
 
@@ -275,6 +291,11 @@ public sealed partial class MainViewModel
 
     /// <summary>HP/MP to a tenth, or a dash with no MP spent.</summary>
     static string PerMpText(double? perMp) => perMp is double x ? Format.Num(x, 1) : None;
+
+    /// <summary>Overcure and Overcure % as the columns print them: both a
+    /// dash when nothing could be measured.</summary>
+    static (string, string) OvercureText(double overcure, double? pct) =>
+        pct is null ? (None, None) : (Format.Int(overcure), Percent(pct));
 
     // ----------------------------------------------------------------- heals
 
@@ -366,7 +387,8 @@ public sealed partial class MainViewModel
 
     /// <summary>A heading of the Heals table: a character, or (By target) a
     /// person healed. Its total, its share, and what pets healed, apart.</summary>
-    readonly record struct HealsHead(string Name, double Total, double? Share, double Pet, double Mp, double? PerMp);
+    readonly record struct HealsHead(string Name, double Total, double? Share, double Pet, double Mp, double? PerMp,
+                                     double Overcure, double? OvercurePct);
 
     /// <summary>A line of the Heals table under a heading: whose (the
     /// character who cast it), what it is (its pick), the name it is drawn
@@ -375,7 +397,8 @@ public sealed partial class MainViewModel
     /// (Most).</summary>
     readonly record struct HealsLine(string Actor, string Pick, string Name, bool Person, bool Under, double Total,
                                      int Casts, double Avg, double? Min, double Max, double Of, double Most,
-                                     double Mp, double? PerMp);
+                                     double Mp, double? PerMp, double Overcure, double? OvercurePct,
+                                     bool Heal = false, double? Base = null, string? Also = null);
 
     void DrawHeals(Snapshot c)
     {
@@ -395,7 +418,8 @@ public sealed partial class MainViewModel
             top = RowMarks.Largest(c.Healing.Targets.Select(p => p.Total));
             foreach (var p in c.Healing.Targets)
             {
-                var head = new HealsHead(p.Name, p.Total, everything != 0 ? p.Total / everything : null, 0, p.Mp, p.PerMp);
+                var head = new HealsHead(p.Name, p.Total, everything != 0 ? p.Total / everything : null, 0, p.Mp, p.PerMp,
+                                         p.Overcure, p.OvercurePct);
                 items.Add((head, null));
                 if (!heads.Contains(p.Name)) continue;
                 double most = RowMarks.Largest(p.Parts.Select(x => x.Total));
@@ -403,12 +427,13 @@ public sealed partial class MainViewModel
                 {
                     var pick = HealPick(null, p.Name);
                     items.Add((head, new HealsLine(a.Name, pick, a.Name, true, false, a.Total, a.Casts, a.Avg, a.Min,
-                                                   a.Max, p.Total, most, a.Mp, a.PerMp)));
+                                                   a.Max, p.Total, most, a.Mp, a.PerMp, a.Overcure, a.OvercurePct)));
                     if (!lines.Contains(a.Name + KeyGap + pick)) continue;
                     double under = RowMarks.Largest(a.Parts.Select(x => x.Total));
                     foreach (var h in HealsSort.Order(a.Parts, k => PartKey(k, people: false)))
                         items.Add((head, new HealsLine(a.Name, HealPick(h.Name, p.Name), h.Name, false, true, h.Total,
-                                                       h.Casts, h.Avg, h.Min, h.Max, a.Total, under, h.Mp, h.PerMp)));
+                                                       h.Casts, h.Avg, h.Min, h.Max, a.Total, under, h.Mp, h.PerMp,
+                                                       h.Overcure, h.OvercurePct, true, h.Base, h.Also)));
                 }
             }
         }
@@ -417,7 +442,7 @@ public sealed partial class MainViewModel
             top = RowMarks.Largest(c.Healing.Actors.Select(a => a.Total));
             foreach (var a in c.Healing.Actors)
             {
-                var head = new HealsHead(a.Name, a.Total, a.Share, a.PetTotal, a.Mp, a.PerMp);
+                var head = new HealsHead(a.Name, a.Total, a.Share, a.PetTotal, a.Mp, a.PerMp, a.Overcure, a.OvercurePct);
                 items.Add((head, null));
                 if (!heads.Contains(a.Name)) continue;
                 // Out of everything under this heading, the pet's heals too:
@@ -430,12 +455,14 @@ public sealed partial class MainViewModel
                     foreach (var act in HealsSort.Order(a.ActionList, HealKey))
                     {
                         items.Add((head, new HealsLine(a.Name, act.Name, act.Name, false, false, act.Total, act.Casts,
-                                                       act.Avg, act.Min, act.Max, all, most, act.Mp, act.PerMp)));
+                                                       act.Avg, act.Min, act.Max, all, most, act.Mp, act.PerMp,
+                                                       act.Overcure, act.OvercurePct, true, act.Base, act.Also)));
                         if (!lines.Contains(a.Name + KeyGap + act.Name)) continue;
                         double under = RowMarks.Largest(act.Targets.Select(x => x.Total));
                         foreach (var p in HealsSort.Order(act.Targets, k => PartKey(k, people: true)))
                             items.Add((head, new HealsLine(a.Name, HealPick(act.Name, p.Name), p.Name, true, true, p.Total,
-                                                           p.Casts, p.Avg, p.Min, p.Max, act.Total, under, p.Mp, p.PerMp)));
+                                                           p.Casts, p.Avg, p.Min, p.Max, act.Total, under, p.Mp, p.PerMp,
+                                                           p.Overcure, p.OvercurePct, false, p.Base, p.Also)));
                     }
                     continue;
                 }
@@ -444,12 +471,13 @@ public sealed partial class MainViewModel
                 {
                     var pick = HealPick(null, p.Name);
                     items.Add((head, new HealsLine(a.Name, pick, p.Name, true, false, p.Total, p.Casts, p.Avg, p.Min,
-                                                   p.Max, all, mostOn, p.Mp, p.PerMp)));
+                                                   p.Max, all, mostOn, p.Mp, p.PerMp, p.Overcure, p.OvercurePct)));
                     if (!lines.Contains(a.Name + KeyGap + pick)) continue;
                     double under = RowMarks.Largest(p.Parts.Select(x => x.Total));
                     foreach (var h in HealsSort.Order(p.Parts, k => PartKey(k, people: false)))
                         items.Add((head, new HealsLine(a.Name, HealPick(h.Name, p.Name), h.Name, false, true, h.Total,
-                                                       h.Casts, h.Avg, h.Min, h.Max, p.Total, under, h.Mp, h.PerMp)));
+                                                       h.Casts, h.Avg, h.Min, h.Max, p.Total, under, h.Mp, h.PerMp,
+                                                       h.Overcure, h.OvercurePct, true, h.Base, h.Also)));
                 }
             }
         }
@@ -481,6 +509,7 @@ public sealed partial class MainViewModel
                 row.Pet = h.Pet != 0 ? "incl. " + Format.Int(h.Pet) + " pet" : "";
                 row.Mp = MpText(h.Mp);
                 row.PerMp = PerMpText(h.PerMp);
+                (row.Overcure, row.OvercurePct) = OvercureText(h.Overcure, h.OvercurePct);
                 row.Open = heads.Contains(h.Name);
                 row.Label = (healed ? "Heals on " : "Heals of ") + NameOf(h.Name);
                 return;
@@ -498,6 +527,10 @@ public sealed partial class MainViewModel
             row.ShareFraction = RowMarks.Fraction(l.Total, l.Most);
             row.Mp = MpText(l.Mp);
             row.PerMp = PerMpText(l.PerMp);
+            // A heal's base, a dash with none; a person's only where their gear makes it another.
+            row.Base = l.Base is double b ? Format.Int(b) : l.Heal ? None : "";
+            row.BaseTip = l.Also;
+            (row.Overcure, row.OvercurePct) = OvercureText(l.Overcure, l.OvercurePct);
             row.Open = !l.Under && lines.Contains(l.Actor + KeyGap + l.Pick);
             (row.Selected, row.Side, row.SideFill, row.PanelSideFill) = MarkOf(on, fills, l.Actor, l.Pick);
             row.Label = NameOf(l.Actor) + ", " + (HealParts(l.Pick) is (null, { } who)

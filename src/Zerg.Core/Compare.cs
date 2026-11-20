@@ -294,6 +294,11 @@ public static class Compare
 
         // Healing over the same window, re-keyed by job the same way.
         var hl = Healing.Filter(run.Source.Heals, new FilterOptions { Session = sn, Roster = roster, Characters = own });
+        // Overcure's bases, learned from the run's whole session as the
+        // Healing section learns them: whoever is isolated, each heal is
+        // charged against its own caster's.
+        var overcure = Overcure.Fit(own == null ? hl : Healing.Filter(run.Source.Heals, new FilterOptions { Session = sn, Roster = roster }));
+        var named = hl;
         if (byJob)
         {
             hl = hl.Select(h =>
@@ -313,7 +318,9 @@ public static class Compare
                 return key == h.Actor ? h : h with { Actor = key };
             }).ToList();
         }
-        var heal = Healing.Totals(hl);
+        // Renamed (by job, or matched by hand), each heal keeps its caster's charge.
+        if (!ReferenceEquals(named, hl)) overcure = overcure.Renamed(named, hl);
+        var heal = Healing.Totals(hl, overcure);
 
         // For Healing mode: the cumulative line, and party healing by spell
         // and by receiver, pet heals included in all three as in the Healing
@@ -421,6 +428,15 @@ public static class Compare
     {
         var list = PairUp(a, b).Select(p => new PairTotal(p.Key, p.A, p.B)).ToList();
         list.SortByDescending(x => Math.Max(x.A, x.B));
+        return list;
+    }
+
+    /// <summary>Pieces of the healing under one name each (a spell, a person
+    /// healed), each run's, largest first.</summary>
+    internal static List<Pair<HealPart>> Parts(IReadOnlyList<HealPart> a, IReadOnlyList<HealPart> b)
+    {
+        var list = Pairs(ByName(a, x => x.Name), ByName(b, x => x.Name));
+        list.SortByDescending(x => Math.Max(x.A?.Total ?? 0, x.B?.Total ?? 0));
         return list;
     }
 

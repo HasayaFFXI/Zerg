@@ -117,6 +117,14 @@ public class CompareTests
     [InlineData("chbars", "avg", 0)]
     [InlineData("chbars", "deaths", -1)]
     [InlineData("cheals", "total", 0)]
+    // How well the MP went is: more HP/MP, less Overcure %. MP and Base are not.
+    [InlineData("chbars", "mp", 0)]
+    [InlineData("chbars", "perMp", 1)]
+    [InlineData("chbars", "overcure", 0)]
+    [InlineData("chbars", "overcurePct", -1)]
+    [InlineData("cheals", "perMp", 1)]
+    [InlineData("cheals", "base", 0)]
+    [InlineData("cheals", "overcurePct", -1)]
     [InlineData("cfilterTargets", "damage", 1)]
     public void Each_column_is_coloured_by_its_own_direction(string table, string column, int better)
     {
@@ -493,6 +501,54 @@ public class CompareTests
     }
 
     // ------------------------------------------------------------- healing
+
+    /// <summary>A Cure IV of <paramref name="hp"/> by <paramref name="mage"/>
+    /// on Hasaya and Bystander, three times each: <paramref name="hp"/> is
+    /// their base.</summary>
+    static IEnumerable<string> Whole(string mage, double hp, double t) =>
+        Enumerable.Range(0, 6).Select(i => Lines.Heal(t + i, mage, hp, target: i % 2 == 0 ? "Hasaya" : "Bystander"));
+
+    [Fact]
+    public void Overcure_is_compared_less_being_better()
+    {
+        // A cuts a Cure IV short (100 of 300: 200 over 1,900 healed and 200
+        // more); B heals whole.
+        var a = Run(60, [Lines.Hit(5, "Hasaya", 100), .. Whole("Mage", 300, 10), Lines.Heal(20, "Mage", 100)]);
+        var b = Run(60, [Lines.Hit(5, "Hasaya", 100), .. Whole("Mage", 300, 10)]);
+        var s = Sheet(a, b);
+
+        var mage = s.Healers.Single();
+        Assert.Equal(("200", "0"), (mage["overcure"].A, mage["overcure"].B));
+        Assert.Equal(("9.5%", "0.0%"), (mage["overcurePct"].A, mage["overcurePct"].B));
+        Assert.Equal(ChangeTone.Better, mage["overcurePct"].Change.Tone);
+        Assert.Equal(ChangeTone.Better, s.HealBand.Single(c => c.Key == "overcurePct").Cell.Change.Tone);
+        Assert.Equal(ChangeTone.Better, s.HealParty["overcurePct"].Change.Tone);
+        // By caster, by spell and by target, with the heal's base.
+        var cure = s.Heals.Single().Lines.Single();
+        Assert.Equal(("300", "300"), (cure["base"].A, cure["base"].B));
+        Assert.Equal("9.5%", s.HealSpells.Single()["overcurePct"].A);
+        Assert.Equal("200", s.HealTargets.Single(l => l.Key == "Hasaya")["overcure"].A);
+        Assert.Equal("9.5%", s.Heals.Single().Head["overcurePct"].A);
+    }
+
+    [Fact]
+    public void By_job_each_character_is_charged_against_their_own_base()
+    {
+        // Two White Mages: 300 and 410 whole. 352 is above every amount of
+        // Hasaya's own (no day or weather lands there), so whole; against
+        // the job's two bases it would be charged 58 of 410.
+        var lines = new List<string> { Lines.Job("Mage", "WHM"), Lines.Job("Cleric", "WHM"), Lines.Hit(5, "Hasaya", 100) };
+        lines.AddRange(Whole("Mage", 300, 10));
+        lines.AddRange(Whole("Cleric", 410, 20));
+        lines.Add(Lines.Heal(30, "Mage", 352));
+        var run = Run(60, [.. lines]);
+        var s = Sheet(run, run, new CompareOptions { ByJob = true });
+
+        var whm = Assert.Single(s.Healers);
+        Assert.Equal(("WHM", "0", "0.0%"), (whm.Key, whm["overcure"].B, whm["overcurePct"].B));
+        // The two do not share a base, so the job has none.
+        Assert.Equal("—", s.Heals.Single().Lines.Single()["base"].B);
+    }
 
     [Fact]
     public void Healing_is_compared_without_colour_but_for_deaths()

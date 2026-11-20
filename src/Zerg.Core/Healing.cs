@@ -22,6 +22,19 @@ public sealed class HealAction
     public double? PerMp { get; set; }
     /// <summary>Everyone this heal reached, largest first.</summary>
     public List<HealPart> Targets { get; set; } = [];
+    /// <summary>What it overcured (<see cref="Zerg.Core.Overcure"/>): what its
+    /// cures would have healed past what their targets were missing.</summary>
+    public double Overcure { get; set; }
+    /// <summary>What the heals Overcure could be measured on healed.</summary>
+    public double CuredHp { get; set; }
+    /// <summary>Overcure out of what those heals would have healed whole,
+    /// 0..1; null when none could be measured.</summary>
+    public double? OvercurePct { get; set; }
+    /// <summary>The amount its overcure is measured against (the caster's
+    /// base for the spell), or null with none.</summary>
+    public double? Base { get; set; }
+    /// <summary>The caster's other bases for it ("Also 196"), or null.</summary>
+    public string? Also { get; set; }
 
     internal readonly HashSet<double> Uses = [];
     internal readonly OrderedDictionary<string, HealPart> ByTarget = new(StringComparer.Ordinal);
@@ -55,6 +68,20 @@ public sealed class HealPart
     /// <summary>On a person a character healed: the heals on them; on a person
     /// healed, who healed them. Largest first.</summary>
     public List<HealPart> Parts { get; set; } = [];
+    /// <summary>What it overcured (<see cref="Zerg.Core.Overcure"/>): what its
+    /// cures would have healed past what their targets were missing.</summary>
+    public double Overcure { get; set; }
+    /// <summary>What the heals Overcure could be measured on healed.</summary>
+    public double CuredHp { get; set; }
+    /// <summary>Overcure out of what those heals would have healed whole,
+    /// 0..1; null when none could be measured.</summary>
+    public double? OvercurePct { get; set; }
+    /// <summary>On one heal on one person: the amount its overcure is
+    /// measured against, their gear in it. Under a heal (a person it
+    /// reached) only when that differs from the heal's own. Else null.</summary>
+    public double? Base { get; set; }
+    /// <summary>With <see cref="Base"/>, the caster's other bases, or null.</summary>
+    public string? Also { get; set; }
 
     internal readonly HashSet<double> Uses = [];
     internal readonly OrderedDictionary<string, HealPart> ByName = new(StringComparer.Ordinal);
@@ -62,8 +89,14 @@ public sealed class HealPart
     /// <param name="v">What it healed this person.</param>
     /// <param name="use">The cast it belongs to.</param>
     /// <param name="mp">This person's part of the cast's MP, or null for a heal that costs none.</param>
-    internal void Add(double v, double? use, double? mp)
+    /// <param name="oc">What it overcured, or null when that cannot be measured.</param>
+    internal void Add(double v, double? use, double? mp, double? oc)
     {
+        if (oc is double o)
+        {
+            Overcure += o;
+            CuredHp += v;
+        }
         if (v > Max) Max = v;
         if (v > 0 && (Min == null || v < Min)) Min = v;
         Total += v;
@@ -87,6 +120,7 @@ public sealed class HealPart
         {
             p.Avg = p.Casts != 0 ? p.Total / p.Casts : 0;
             p.PerMp = ManaCost.PerMp(p.CostedHp, p.Mp);
+            p.OvercurePct = Healing.OvercurePct(p.Overcure, p.CuredHp);
             p.Parts = List(p.ByName);
         }
         list.SortByDescending(p => p.Total);
@@ -119,6 +153,14 @@ public sealed class HealerTotals
     /// <summary>Everyone this character healed, their pet's heals included,
     /// largest first, each with the heals that reached them.</summary>
     public List<HealPart> Targets { get; set; } = [];
+    /// <summary>What it overcured (<see cref="Zerg.Core.Overcure"/>): what its
+    /// cures would have healed past what their targets were missing.</summary>
+    public double Overcure { get; set; }
+    /// <summary>What the heals Overcure could be measured on healed.</summary>
+    public double CuredHp { get; set; }
+    /// <summary>Overcure out of what those heals would have healed whole,
+    /// 0..1; null when none could be measured.</summary>
+    public double? OvercurePct { get; set; }
 
     internal readonly OrderedDictionary<string, HealPart> ByTarget = new(StringComparer.Ordinal);
 }
@@ -139,9 +181,21 @@ public sealed class HealTotals
     public double? PerMp { get; set; }
     /// <summary>Heal rows in.</summary>
     public int Lines { get; set; }
+    /// <summary>What it overcured (<see cref="Zerg.Core.Overcure"/>): what its
+    /// cures would have healed past what their targets were missing.</summary>
+    public double Overcure { get; set; }
+    /// <summary>What the heals Overcure could be measured on healed.</summary>
+    public double CuredHp { get; set; }
+    /// <summary>Overcure out of what those heals would have healed whole,
+    /// 0..1; null when none could be measured.</summary>
+    public double? OvercurePct { get; set; }
+
     /// <summary>Everyone healed, by anyone, pets' heals included, largest
     /// first: under each who healed them, and under that with what.</summary>
     public List<HealPart> Targets { get; set; } = [];
+    /// <summary>The party's healing by spell (<see cref="HealEvent.Spell"/>),
+    /// whoever cast it, largest first. A cast counted once, its MP once.</summary>
+    public List<HealPart> Spells { get; set; } = [];
 }
 
 /// <summary>
@@ -166,13 +220,10 @@ public sealed class HealTotals
 /// healed over that MP, so a free heal (Chakra, a wyvern's breath) moves
 /// neither. On a person, a cast's cost is shared evenly among everyone it
 /// reached.</item>
+/// <item>Overcure: estimated (<see cref="Zerg.Core.Overcure"/>), against each
+/// caster's base for the spell, learned from the session's cures; the
+/// packet does not carry the target's missing HP. Max is the raw value.</item>
 /// </list>
-/// <para><b>No overcure, on purpose.</b> The packet does not carry the target's
-/// missing HP, so overcure could only be estimated (against the best a spell
-/// had done so far), which forgives early casts and charges every cast after a
-/// buffed one. It was tried and removed as not accurate enough. Don't bring it
-/// back without a real source for missing HP; Max is the raw value for the
-/// same reason.</para>
 /// </summary>
 public static class Healing
 {
@@ -243,13 +294,21 @@ public static class Healing
                                             string? target = null, Binning rule = Binning.Even) =>
         Counting.Distribution(AsEvents(target == null ? heals : heals.Where(h => h.Target == target)), actor, action, rule);
 
+    /// <summary>Overcure out of what the measured heals would have healed
+    /// whole, or null with none measured.</summary>
+    internal static double? OvercurePct(double overcure, double cured) =>
+        overcure + cured > 0 ? overcure / (overcure + cured) : null;
+
     /// <summary>Heals (already filtered) → per character, per action. Largest first.</summary>
-    public static HealTotals Totals(IReadOnlyList<HealEvent> heals)
+    /// <param name="overcure">The session's bases (<see cref="Overcure.Fit"/>),
+    /// which every heal's overcure is measured against; none without.</param>
+    public static HealTotals Totals(IReadOnlyList<HealEvent> heals, Overcure? overcure = null)
     {
         // In the order they first healed, which is the order a tie keeps.
         var by = new OrderedDictionary<string, HealerTotals>(StringComparer.Ordinal);
         var healed = new OrderedDictionary<string, HealPart>(StringComparer.Ordinal);
-        double total = 0, petTotal = 0, max = 0, mpAll = 0, costedAll = 0;
+        var spells = new OrderedDictionary<string, HealPart>(StringComparer.Ordinal);
+        double total = 0, petTotal = 0, max = 0, mpAll = 0, costedAll = 0, ocAll = 0, curedAll = 0;
         int casts = 0;
         var reached = Reached(heals);
 
@@ -269,22 +328,35 @@ public static class Healing
                 ? c / (h.Use is double u && reached.TryGetValue(u, out var n) ? n : 1)
                 : null;
 
+            double? oc = overcure?.Of(h);
+            if (oc is double o)
+            {
+                act.Overcure += o;
+                act.CuredHp += v;
+                a.Overcure += o;
+                a.CuredHp += v;
+                ocAll += o;
+                curedAll += v;
+            }
+
             if (v > act.Max) act.Max = v;
             if (v > 0 && (act.Min == null || v < act.Min)) act.Min = v;
             act.Total += v;
             if (newCast) act.Casts++;
             // Both ways round: the people a heal reached, and the heals that
             // reached a person, a pet's among them under its own name.
-            HealPart.Of(act.ByTarget, h.Target).Add(v, h.Use, each);
+            HealPart.Of(act.ByTarget, h.Target).Add(v, h.Use, each, oc);
             var on = HealPart.Of(a.ByTarget, h.Target);
-            on.Add(v, h.Use, each);
-            HealPart.Of(on.ByName, h.Action).Add(v, h.Use, each);
+            on.Add(v, h.Use, each, oc);
+            HealPart.Of(on.ByName, h.Action).Add(v, h.Use, each, oc);
             // And from the other end: who was healed, by whom, with what.
             var got = HealPart.Of(healed, h.Target);
-            got.Add(v, h.Use, each);
+            got.Add(v, h.Use, each, oc);
             var from = HealPart.Of(got.ByName, h.Actor);
-            from.Add(v, h.Use, each);
-            HealPart.Of(from.ByName, h.Action).Add(v, h.Use, each);
+            from.Add(v, h.Use, each, oc);
+            HealPart.Of(from.ByName, h.Action).Add(v, h.Use, each, oc);
+            // And by spell, whoever cast it: the cast's whole MP, once.
+            HealPart.Of(spells, h.Spell).Add(v, h.Use, cost, oc);
 
             // A pet's heal is its owner's healing, as its damage is their
             // damage; Pet Healing says how much of it was the pet's.
@@ -319,24 +391,49 @@ public static class Healing
             x.Avg = x.Casts != 0 ? x.Total / x.Casts : null;
             x.Share = total != 0 ? x.Total / total : null;
             x.PerMp = ManaCost.PerMp(x.CostedHp, x.Mp);
+            x.OvercurePct = OvercurePct(x.Overcure, x.CuredHp);
             x.ActionList = x.Actions.Values.ToList();
             foreach (var y in x.ActionList)
             {
                 y.Avg = y.Casts != 0 ? y.Total / y.Casts : 0;
                 y.PerMp = ManaCost.PerMp(y.CostedHp, y.Mp);
+                y.OvercurePct = OvercurePct(y.Overcure, y.CuredHp);
                 y.Targets = HealPart.List(y.ByTarget);
+                if (overcure is null) continue;
+                // The base a heal is measured against, and on a person under
+                // it theirs only where their gear makes it another.
+                y.Base = overcure.Base(x.Name, y.Name);
+                y.Also = Overcure.Also(overcure.Others(x.Name, y.Name));
+                foreach (var p in y.Targets)
+                    if (overcure.Base(x.Name, y.Name, p.Name) is double b && b != y.Base)
+                        (p.Base, p.Also) = (b, Overcure.Also(overcure.Others(x.Name, y.Name, p.Name)));
             }
             x.ActionList.SortByDescending(p => p.Total);
             x.Targets = HealPart.List(x.ByTarget);
+            // One heal on one person, By caster: its base on them.
+            if (overcure is not null)
+                foreach (var p in x.Targets)
+                    foreach (var q in p.Parts)
+                        (q.Base, q.Also) = (overcure.Base(x.Name, q.Name, p.Name),
+                                            Overcure.Also(overcure.Others(x.Name, q.Name, p.Name)));
             return x;
         }).ToList();
         actors.SortByDescending(p => p.Total);
 
+        var people = HealPart.List(healed);
+        // One heal on one person, By target: its base on them.
+        if (overcure is not null)
+            foreach (var p in people)
+                foreach (var from in p.Parts)
+                    foreach (var q in from.Parts)
+                        (q.Base, q.Also) = (overcure.Base(from.Name, q.Name, p.Name),
+                                            Overcure.Also(overcure.Others(from.Name, q.Name, p.Name)));
         return new HealTotals
         {
             Actors = actors, Total = total, PetTotal = petTotal, Casts = casts, Max = max,
-            Avg = casts != 0 ? total / casts : null, Lines = heals.Count, Targets = HealPart.List(healed),
+            Avg = casts != 0 ? total / casts : null, Lines = heals.Count, Targets = people, Spells = HealPart.List(spells),
             Mp = mpAll, CostedHp = costedAll, PerMp = ManaCost.PerMp(costedAll, mpAll),
+            Overcure = ocAll, CuredHp = curedAll, OvercurePct = OvercurePct(ocAll, curedAll),
         };
     }
 

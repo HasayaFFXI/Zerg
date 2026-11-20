@@ -74,6 +74,8 @@ public static class Tables
         new("avg", "Avg / cast"),
         new("mp", "MP Spent"),
         new("perMp", "HP/MP"),
+        new("overcure", "Overcure"),
+        new("overcurePct", "Overcure %"),
         new("petHealing", "Pet Healing"),
     ]);
 
@@ -89,6 +91,9 @@ public static class Tables
         new("share", "Share"),
         new("mp", "MP Spent"),
         new("perMp", "HP/MP"),
+        new("base", "Base"),
+        new("overcure", "Overcure"),
+        new("overcurePct", "Overcure %"),
         new("end", "", Fixed: true),
     ]);
 
@@ -101,6 +106,64 @@ public static class Tables
         new("misses", "Miss"),
         new("hitRate", "Hit %"),
         new("end", "", Fixed: true),
+    ]);
+
+    // ------------------------------------------------------- floating panels
+
+    /// <summary>
+    /// The Overview as it floats: the strip (<c>Views/BarsCard</c>), every
+    /// column the table has, each where the table writes it. The job stands
+    /// beside the name in a strip, so its column is fixed, nothing wide and
+    /// never listed. As installed the strip shows what it showed before it
+    /// had columns to choose: Damage, its share, the four split rates and
+    /// the deaths. A panel's columns are its own (settings.json's
+    /// <c>panelColumns</c>).
+    /// </summary>
+    public static ColumnTable Strip { get; } = new("bars",
+        [.. CharacterColumns.Table.All.Select(c => c.Key == "job" ? c with { Name = "", Fixed = true } : c)],
+        new Dictionary<string, string>
+        {
+            [CharacterColumns.Ranged] = "Ranged",
+            [CharacterColumns.Weaponskill] = "Weaponskill",
+            [CharacterColumns.Skillchain] = "Skillchain",
+            [CharacterColumns.Pet] = "Pet",
+        },
+        ["dps", CharacterColumns.Weaponskill, CharacterColumns.Skillchain, CharacterColumns.Pet]);
+
+    /// <summary>Healing by character as it floats: the strip
+    /// (<c>Views/HealBarsCard</c>), every column the table has, the job
+    /// fixed beside the name as in the damage strip. As installed:
+    /// Healing, its share, Casts, MP Spent, HP/MP and Overcure %.</summary>
+    public static ColumnTable HealStrip { get; } = new("healers",
+        [.. Healers.All.Select(c => c.Key == "job" ? c with { Name = "", Fixed = true } : c)],
+        hidden: ["hps", "avg", "overcure", "petHealing"]);
+
+    /// <summary>A drill-down's list of hits (<c>Views/DrillCard</c>), as it
+    /// floats: the time first and fixed, then the action and its target,
+    /// the amount, the mark of how far it fell from the average, and that
+    /// distance in figures. A blank column ends the row.</summary>
+    public static ColumnTable Hits { get; } = HitList("hits", "Damage");
+
+    /// <summary>The healing drill-down's list of casts.</summary>
+    public static ColumnTable Casts { get; } = HitList("casts", "Healing");
+
+    static ColumnTable HitList(string key, string amount) => new(key,
+    [
+        new("time", "Time", Fixed: true),
+        new("action", "Action"),
+        new("amount", amount),
+        new("mark", "Mark"),
+        new("vsAvg", "vs avg"),
+        new("end", "", Fixed: true),
+    ]);
+
+    /// <summary>Compare's live panel (<c>Views/CompareLive</c>): each
+    /// character's rate so far and its change from the other run's.</summary>
+    public static ColumnTable Live { get; } = new("live",
+    [
+        new("name", "Character", Fixed: true),
+        new("rate", "Rate"),
+        new("change", "Change"),
     ]);
 
     // ------------------------------------------------------------- Compare
@@ -134,6 +197,10 @@ public static class Tables
         new("hps", "HPS"),
         new("casts", "Casts"),
         new("avg", "Avg / cast"),
+        new("mp", "MP Spent"),
+        new("perMp", "HP/MP"),
+        new("overcure", "Overcure"),
+        new("overcurePct", "Overcure %"),
         new("deaths", "Deaths"),
     ]);
 
@@ -159,6 +226,11 @@ public static class Tables
         new("avg", "Avg"),
         new("max", "Max"),
         new("share", "Share"),
+        new("mp", "MP Spent"),
+        new("perMp", "HP/MP"),
+        new("base", "Base"),
+        new("overcure", "Overcure"),
+        new("overcurePct", "Overcure %"),
         new("end", "", Fixed: true),
     ]);
 

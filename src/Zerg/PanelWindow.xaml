@@ -51,7 +51,7 @@
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
-    <!-- A glyph to press on the bar (Dock): the kit's icon button at the
+    <!-- A glyph to press on the bar (Columns, Dock): the kit's icon button at the
          pair's height, with an edge at rest, since on a see-through panel
          a glyph alone does not read as something to press. -->
     <Style x:Key="BarTool" TargetType="Button" BasedOn="{StaticResource IconButton}">
@@ -152,21 +152,26 @@
                a script still finds them by name. Gone altogether while
                clicks pass through. The slider gives up its length first
                when the panel is too narrow for all of them. -->
+          <!-- Columns first, on a panel with a table: its menu lists the
+               panel's own columns (TableColumns.Floating), and the tools
+               stay showing while it is open. None on a chart's. -->
           <Grid x:Name="Tools" Grid.ColumnSpan="2" HorizontalAlignment="Right" Width="125" Margin="0,0,-1,0"
                 Opacity="0" IsHitTestVisible="False" Effect="{StaticResource PanelHalo}">
             <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
               <ColumnDefinition MaxWidth="64"/>
               <ColumnDefinition Width="32"/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <Slider Minimum="15" Maximum="100" SmallChange="1" LargeChange="10" VerticalAlignment="Center"
+            <v:ColumnsButton x:Name="ColumnsTool" Compact="True" Margin="0,0,7,0" Visibility="Collapsed"/>
+            <Slider Grid.Column="1" Minimum="15" Maximum="100" SmallChange="1" LargeChange="10" VerticalAlignment="Center"
                     IsSnapToTickEnabled="True" TickFrequency="1" Value="{Binding Opacity}"
                     AutomationProperties.Name="Panel opacity"
                     ToolTip="How solid this panel's backdrop is. Drag left to see more of the game through it."/>
-            <TextBlock Grid.Column="1" Text="{Binding Opacity, StringFormat={}{0}%}" FontSize="10.5" TextAlignment="Right"
+            <TextBlock Grid.Column="2" Text="{Binding Opacity, StringFormat={}{0}%}" FontSize="10.5" TextAlignment="Right"
                        VerticalAlignment="Center" Typography.NumeralAlignment="Tabular"
                        Foreground="{DynamicResource Text2Brush}"/>
-            <Button Grid.Column="2" Style="{StaticResource BarTool}" Command="{Binding DockCommand}" Margin="7,0,0,0"
+            <Button Grid.Column="3" Style="{StaticResource BarTool}" Command="{Binding DockCommand}" Margin="7,0,0,0"
                     Content="&#xE73F;" AutomationProperties.Name="Dock"
                     ToolTip="Dock: return this card to the main window"/>
           </Grid>

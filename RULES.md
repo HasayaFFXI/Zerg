@@ -687,10 +687,8 @@ to its owner.
   wyvern did all the healing read 0 under Healing beside a five-figure Pet
   Healing.
 - **Casts are one per `use`**, however many targets; Avg is total / casts.
-- **There is no overcure, on purpose.** The packet does not carry the target's
-  missing HP, and an estimate against the spell's best cast so far was tried
-  and removed as not accurate enough. Do not bring it back without a real
-  source for missing HP.
+- **Overcure is estimated, from the cures alone** (see "Overcure"). The
+  packet does not carry the target's missing HP.
 - **A cure on a full target healed 0; it did not miss.** The cumulative line
   and the histogram reuse the damage code on a row-shaped copy
   (`Healing.AsEvents`) where every heal is a hit.
@@ -749,14 +747,77 @@ Healing by character, the Heals table and the floating strip.
   which the server's tables do not have) moves neither side, and is a dash
   in both columns. Otherwise a DRG/WHM's free breaths would make their
   cures look cheap.
-- **Waste shows by itself, with no overcure estimated.** `hp` is what the
+- **Waste shows by itself, with nothing estimated.** `hp` is what the
   target got: a cure on someone at full health is 0 and still costs its
-  MP, so HP/MP falls. This is not the overcure "Healing" rules out: nothing
-  is guessed about anyone's missing HP.
+  MP, so HP/MP falls. Nothing about anyone's missing HP goes into HP/MP;
+  Overcure, beside it, is the estimate.
 - **On a person, a cast's MP is shared evenly among everyone it reached**:
   a Curaga II on five is 24 MP on each, so the person who was already full
   reads 0. A second result on the same person is not charged again. The
   people under a heal add up to its MP.
+
+## Overcure
+
+What the cures would have healed past what their targets were missing
+(`Overcure`, `Healing.Totals`): Overcure and Overcure % in Healing by
+character (its Party line too) and the Heals table, where Base says what
+each heal is measured against.
+
+- **A heal line never says what the target was missing**, so this is an
+  estimate, not a count. A cure's full amount is fixed for one caster, one
+  spell and one target (LandSandBoat's `getCureFinal`: the caster's Cure
+  Potency and skill, the target's own cure-received gear), and the server
+  then caps it at the target's missing HP. So whatever a cast heals that
+  falls short of the full amount was cut short by the target's HP.
+- **The full amount is learned, per caster and spell: the base.** It is an
+  amount that keeps recurring: three times on two people, twice in one
+  cast, or three times and 15 % of one person's casts (a cure only ever
+  cast on the tank). The first try at overcure measured every cast against
+  the best the spell had done so far, which forgave early casts and charged
+  every one after a buffed cast; a recurring amount is neither.
+- **Day and weather are amounts too, not overcure.** A Light cure has a
+  one-in-three chance per target (each target of a Curaga rolls apart) of
+  taking the day and weather (`calculateDayAndWeather`): weather ±0.10 or
+  ±0.25, day ±0.10, bonuses added first, kept to 0..1.4. Every amount
+  those sums allow on a base is a whole cast. The game day is not worked
+  out from the clock, on purpose: a server may keep its own. So every sum
+  is allowed, all session. A cast that lands on one by chance (1 in 100 or
+  so here) is counted whole.
+- **An amount another explains is not a base.** One that is a day/weather or
+  sealed amount of a commoner base (landed at least half as often: two casts
+  in three are on the base, before capping) goes. A day/weather step may
+  explain one away only if it shows in two casters' or spells' cures:
+  weather reaches everyone alike, and one seen in a single caster's cures
+  is a coincidence (Federal's Cure V 760 is 661 × 1.15, and is his base).
+  Two bases can stand (a caster changed gear): the Base cell shows the one
+  most casts landed on, and its pointer is told the other ("Also 196").
+- **Divine Seal doubles a whole cast**, and the addon does not say so. A
+  cast with a result above every unsealed amount and on twice one is sealed,
+  every target of it: a whole cast, never a base.
+- **A target's gear** shows as an amount they get from a spell and no one
+  else does. One that recurs on them often enough is a base of its own; one
+  that recurs on them three times but too rarely for that (the rest were cut
+  short) is read as gear (between 0.8 and 1.35, and not a day/weather
+  step), and their base is the caster's times it. Under a heal, a person's
+  line shows their Base only where it differs.
+- **A capped cast is charged against the plain base**, never a day/weather
+  amount: what the base would have healed that person, less what it
+  healed. A cure on someone at full health (0) is charged the whole base.
+  With two bases, each is weighed by its share of the whole casts: that
+  person's own, and everyone else's worth five casts. A cast above every
+  full amount is not charged.
+- **Overcure % is Overcure out of what those cures would have healed
+  whole**: Overcure over Overcure plus what they healed. A heal with no
+  base (cast once, or never the same twice; a Curaga III cast once) has
+  no overcure: a dash, and what it healed is left out of both sides.
+- **Over the whole session.** The bases are learned from every heal of the
+  session, whoever is isolated and whatever range is picked, so a range or
+  a filter charges against the same bases. They are learned again as heals
+  come in: early in a session a figure can move.
+- **Not modelled:** an obi forcing the day and weather, Iridescence,
+  Twilight Cape, Rapture, Healer's Roll (whose effect the parses did not
+  show), Blue Magic's elements. A capped sealed cure on one target is
+  charged against the base, not twice it.
 
 ## Support
 
@@ -1016,6 +1077,17 @@ the one pipeline (`Compare.Measure`) and set side by side (`CompareSheet`).
   healing amount. A count's change is the run's length as much as its
   play; a Max is one hit; how much healing a party needed is the
   monsters', not the healers'. Their changes are printed, in grey.
+- **How well the MP went is coloured**: HP/MP, more being better, and
+  Overcure %, less being better (the band, Healing by character, Heals).
+  MP Spent, Overcure and Base are amounts, and grey: Base is what a heal
+  heals whole, the caster's gear, not how well it was cast.
+- **Each run's overcure is its own** ("Overcure"): the bases are learned
+  from that run's whole session, whoever is isolated. Grouped by job or
+  matched by hand, each heal is still charged against its own caster's
+  base (`Overcure.Renamed`): two White Mages of different Cure Potency are
+  never measured against one base, and a job's Base is its characters'
+  only where they share it. By spell and By target are the party's: a
+  spell cast by several has no one base, so Base is a dash there.
 - **One clock for the cumulative chart**: both runs from their own zero,
   each line ending where its run ends, with each run's kills on it. Gap
   is B − A on that clock, even about zero.

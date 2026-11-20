@@ -4,22 +4,23 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:v="clr-namespace:Zerg.Views">
   <UserControl.Resources>
-    <!-- Character, Job, then eight figures: the widths the design draws them
-         at in a table 1,140 wide, as shares. The heading and every row share
+    <!-- Character, Job, then ten figures: the widths the design draws them
+         at in a table 1,340 wide, as shares. The heading and every row share
          them. The Healing % column is wide enough for the small bar an
          unshaded row has beside its figure, so there is one set. -->
-    <sys:String x:Key="Columns">190*,100*,104*,105*,96*,96*,115*,112*,96*,124*</sys:String>
+    <sys:String x:Key="Columns">190*,100*,104*,105*,96*,96*,115*,112*,96*,96*,104*,124*</sys:String>
 
     <!-- What MP Spent and HP/MP's headings tell the pointer, docked and floating. -->
     <sys:String x:Key="MpTip">Each cast's list MP cost, charged once however many people it reached. A pet's Blood Pacts are its summoner's MP. A heal that costs the player none (Chakra, a waltz, a wyvern's breath, an automaton's Cure) is left out</sys:String>
     <sys:String x:Key="PerMpTip">HP healed per MP spent, over the heals that cost MP. A cure on someone at full health heals nothing and still costs its MP</sys:String>
+    <sys:String x:Key="OvercureTip">What the cures would have healed past what their targets were missing, estimated from the cures alone: one that healed less than its caster's base for it was cut short by its target's HP, and is charged the rest of that base. One on a day or weather amount, or doubled by Divine Seal, healed whole</sys:String>
+    <sys:String x:Key="OvercurePctTip">Overcure out of what those cures would have healed whole. A heal with no base (cast once, or never the same twice) has no overcure, and what it healed is left out</sys:String>
 
-    <!-- The strip: Character, then Healing, %, Casts, MP Spent and HP/MP,
-         as the damage card's strip is (Views/BarsCard.xaml says how its
-         columns are worked out and what goes in a narrow panel: here Casts,
-         MP Spent and the job beside the name; HP/MP stays). -->
-    <sys:String x:Key="StripColumns">1*110,72,52,56,72,56</sys:String>
-    <sys:String x:Key="StripBarColumns">1*110,72,96,56,72,56</sys:String>
+    <!-- The strip: Character, then a column for each of the table's (the
+         job's nothing wide), as the damage card's strip is (Views/
+         BarsCard.xaml says how its columns are worked out). -->
+    <sys:String x:Key="StripColumns">1*110,0,72,52,56,56,56,72,56,64,60,64</sys:String>
+    <sys:String x:Key="StripBarColumns">1*110,0,72,96,56,56,56,72,56,64,60,64</sys:String>
     <Style x:Key="Strip" TargetType="v:Cells">
       <Setter Property="Widths" Value="{StaticResource StripColumns}"/>
       <Style.Triggers>
@@ -28,12 +29,13 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-    <!-- The strip itself says whether its columns fit (v:Shed.Full). -->
+    <!-- The columns it has no room for go, the last standing first. -->
     <Style x:Key="StripRoom" TargetType="StackPanel">
-      <Setter Property="v:Shed.Full" Value="{StaticResource StripColumns}"/>
+      <Setter Property="v:ColumnSet.Fit" Value="{StaticResource StripColumns}"/>
+      <Setter Property="v:ColumnSet.FitMargin" Value="6"/>
       <Style.Triggers>
         <Trigger Property="v:Shading.Characters" Value="False">
-          <Setter Property="v:Shed.Full" Value="{StaticResource StripBarColumns}"/>
+          <Setter Property="v:ColumnSet.Fit" Value="{StaticResource StripBarColumns}"/>
         </Trigger>
       </Style.Triggers>
     </Style>
@@ -57,24 +59,11 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-    <!-- Casts' and MP Spent's, which go in a narrow panel. -->
-    <Style x:Key="StripCellSheds" TargetType="TextBlock" BasedOn="{StaticResource StripCell}">
-      <Style.Triggers>
-        <Trigger Property="v:Shed.Narrow" Value="True">
-          <Setter Property="Visibility" Value="Collapsed"/>
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-    <!-- The job beside the name: quieter than the name, and gone in a
-         narrow panel (and where there is none to show, as any badge). -->
+    <!-- The job beside the name: quieter than the name (and gone where
+         there is none to show, as any badge). -->
     <Style x:Key="StripJob" TargetType="TextBlock" BasedOn="{StaticResource Badge}">
       <Setter Property="FontSize" Value="10"/>
       <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
-      <Style.Triggers>
-        <Trigger Property="v:Shed.Narrow" Value="True">
-          <Setter Property="Visibility" Value="Collapsed"/>
-        </Trigger>
-      </Style.Triggers>
     </Style>
   </UserControl.Resources>
 
@@ -118,27 +107,47 @@
       <!-- The strip, as the damage card's is (Views/BarsCard.xaml): the
            shade, the 3-unit edge, the owner's mark, the cells, and no
            effect on a row. -->
-      <StackPanel Style="{StaticResource StripRoom}"
+      <!-- Every column the table has (Tables.HealStrip), the panel's own
+           choice of them and their order, and those at the end gone in a
+           panel too narrow for them, as the damage strip's (Views/
+           BarsCard.xaml says how). -->
+      <StackPanel Style="{StaticResource StripRoom}" v:ColumnSet.Table="{Binding HealersColumns}"
                   Visibility="{Binding Path=(v:Float.On), RelativeSource={RelativeSource Self}, Converter={StaticResource Visible}}">
         <TextBlock Text="{Binding HealEmptyText}" Style="{StaticResource Label}" FontSize="12" Margin="13,8,13,0"
                    Visibility="{Binding HasHealers, Converter={StaticResource Hidden}}"/>
-        <v:Cells Style="{StaticResource Strip}" Height="{StaticResource HitRowHeight}" Margin="3,0"
+        <v:Cells Style="{StaticResource Strip}" Height="{StaticResource HitRowHeight}" Margin="3,0" v:ColumnDrag.On="True"
                  Visibility="{Binding HasHealers, Converter={StaticResource Visible}}">
           <v:Caps Text="CHARACTER" Style="{StaticResource StripHead}" HorizontalAlignment="Left" Margin="10,0,4,0"/>
-          <v:Caps Text="HEALING" Style="{StaticResource StripHead}"/>
-          <!-- A border, so the whole of the column's heading shows the tooltip. -->
+          <Border/>
+          <Border Background="Transparent" ToolTip="Everything this character healed">
+            <v:Caps Text="HEALING" Style="{StaticResource StripHead}"/>
+          </Border>
           <Border Background="Transparent" ToolTip="This character's healing out of the whole party's">
             <v:Caps Text="%" Style="{StaticResource StripHead}"/>
           </Border>
-          <Border Background="Transparent" Style="{StaticResource Sheds}"
-                  ToolTip="One per cast, however many people it reached">
+          <Border Background="Transparent" ToolTip="Healing divided by the session clock">
+            <v:Caps Text="HPS" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="One per cast, however many people it reached">
             <v:Caps Text="CASTS" Style="{StaticResource StripHead}"/>
           </Border>
-          <Border Background="Transparent" Style="{StaticResource Sheds}" ToolTip="{StaticResource MpTip}">
+          <Border Background="Transparent" ToolTip="Healing divided by casts" AutomationProperties.Name="Average per cast">
+            <v:Caps Text="AVG" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="{StaticResource MpTip}">
             <v:Caps Text="MP SPENT" Style="{StaticResource StripHead}"/>
           </Border>
           <Border Background="Transparent" ToolTip="{StaticResource PerMpTip}">
             <v:Caps Text="HP/MP" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="{StaticResource OvercureTip}" AutomationProperties.Name="Overcure">
+            <v:Caps Text="OVER" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="{StaticResource OvercurePctTip}" AutomationProperties.Name="Overcure %">
+            <v:Caps Text="OVER %" Style="{StaticResource StripHead}"/>
+          </Border>
+          <Border Background="Transparent" ToolTip="Everything this character's pet healed. Part of Healing" AutomationProperties.Name="Pet healing">
+            <v:Caps Text="PET" Style="{StaticResource StripHead}"/>
           </Border>
         </v:Cells>
         <ItemsControl ItemsSource="{Binding HealStrip}" Focusable="False">
@@ -160,13 +169,19 @@
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock Text="{Binding Job}" Style="{StaticResource StripJob}"/>
                   </DockPanel>
+                  <Border/>
                   <TextBlock Text="{Binding Healing}" Style="{StaticResource StripCell}" FontSize="12" FontWeight="SemiBold"/>
                   <v:SmallBar For="Character" Length="36" Inset="8" Value="{Binding Fraction}" Fill="{Binding Edge}">
                     <TextBlock Text="{Binding Share}" Style="{StaticResource StripCell}"/>
                   </v:SmallBar>
-                  <TextBlock Text="{Binding Casts}" Style="{StaticResource StripCellSheds}"/>
-                  <TextBlock Text="{Binding Mp}" Style="{StaticResource StripCellSheds}"/>
+                  <TextBlock Text="{Binding Hps}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding Casts}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding Avg}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding Mp}" Style="{StaticResource StripCell}"/>
                   <TextBlock Text="{Binding PerMp}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding Overcure}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding OvercurePct}" Style="{StaticResource StripCell}"/>
+                  <TextBlock Text="{Binding PetHealing}" Style="{StaticResource StripCell}"/>
                 </v:Cells>
               </Grid>
               <DataTemplate.Triggers>
@@ -195,7 +210,7 @@
              columns. -->
         <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                       v:WheelChain.On="True" Visibility="{Binding HasHealers, Converter={StaticResource Visible}}">
-          <Grid MinWidth="860" Width="{Binding ViewportWidth, ElementName=Scroller}">
+          <Grid MinWidth="1010" Width="{Binding ViewportWidth, ElementName=Scroller}">
             <Grid.Style>
               <Style TargetType="Grid">
                 <Style.Triggers>
@@ -252,6 +267,12 @@
                 <v:SortHead Column="perMp">
                   <TextBlock Text="HP/MP" Style="{StaticResource Head}" ToolTip="{StaticResource PerMpTip}"/>
                 </v:SortHead>
+                <v:SortHead Column="overcure">
+                  <TextBlock Text="Overcure" Style="{StaticResource Head}" ToolTip="{StaticResource OvercureTip}"/>
+                </v:SortHead>
+                <v:SortHead Column="overcurePct">
+                  <TextBlock Text="Overcure %" Style="{StaticResource Head}" ToolTip="{StaticResource OvercurePctTip}"/>
+                </v:SortHead>
                 <v:SortHead Column="petHealing">
                   <TextBlock Text="Pet Healing" Style="{StaticResource Head}"
                              ToolTip="Everything this character's pet healed. Part of Healing"/>
@@ -294,6 +315,8 @@
                             <TextBlock Text="{Binding Avg}" Style="{StaticResource FigQuiet}"/>
                             <TextBlock Text="{Binding Mp}" Style="{StaticResource FigQuiet}"/>
                             <TextBlock Text="{Binding PerMp}" Style="{StaticResource Fig}"/>
+                            <TextBlock Text="{Binding Overcure}" Style="{StaticResource FigQuiet}"/>
+                            <TextBlock Text="{Binding OvercurePct}" Style="{StaticResource Fig}"/>
                             <TextBlock Text="{Binding PetHealing}" Style="{StaticResource Fig}"/>
                           </v:Cells>
                         </Grid>
@@ -334,6 +357,8 @@
                 <TextBlock Text="{Binding HealParty.Avg}" Style="{StaticResource SubFigQuiet}"/>
                 <TextBlock Text="{Binding HealParty.Mp}" Style="{StaticResource SubFigQuiet}"/>
                 <TextBlock Text="{Binding HealParty.PerMp}" Style="{StaticResource SubFig}"/>
+                <TextBlock Text="{Binding HealParty.Overcure}" Style="{StaticResource SubFigQuiet}"/>
+                <TextBlock Text="{Binding HealParty.OvercurePct}" Style="{StaticResource SubFig}"/>
                 <TextBlock Text="{Binding HealParty.PetHealing}" Style="{StaticResource SubFig}"/>
               </v:Cells>
             </Grid>

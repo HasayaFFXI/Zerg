@@ -344,11 +344,12 @@ public sealed partial class MainViewModel
         Party.Deaths = Died(c.Kills.Deaths.Count);
 
         // Floating, the card is a strip: the row shaded to the share as in
-        // the table, at the strength a panel allows the colour, and the
-        // figures a glance during a fight is for. The other columns, DPS
-        // among them, stay on the table, so nothing in the strip
-        // moves with the clock: every figure in it is a running total that
-        // only a new event can change.
+        // the table, at the strength a panel allows the colour, and whichever
+        // of the table's columns the panel shows (Tables.Strip). Of those
+        // only DPS moves with the clock, and the draw beat writes it once a
+        // second (StripRates), not at the draw frequency: the panel's halo
+        // lies over the strip and is worked out again whenever anything
+        // under it is drawn.
         Rows.Sync(Strip, actors, a => a.Name, a => new StripRow(a.Name), (row, a) =>
         {
             row.Name = NameOf(a.Name);
@@ -356,13 +357,23 @@ public sealed partial class MainViewModel
             row.Fill = PanelShadeOf(a.Name);
             row.Edge = Solid(PanelColorOf(a.Name));
             row.Fraction = RowMarks.Fraction(a.Total, top);
+            row.Total = a.Total;
             row.Damage = Format.Int(a.Total);
             row.Share = Format.Num(a.Share * 100, 1) + "%";
+            row.Dps = Rate(a.Total, c.Elapsed / 1000);
             row.Accuracy = Percent(a.AutoAcc);
             row.Crit = Percent(a.AutoCrit);
             row.Delay = Seconds(a.Delay);
             row.RangedAccuracy = Percent(a.RangedAcc);
             row.RangedCrit = Percent(a.RangedCrit);
+            row.WsDamage = Whole(a.WsTotal);
+            row.WsAvg = Whole(a.WsAvg);
+            row.WsShare = Percent(a.WsShare);
+            row.WsAccuracy = Percent(a.WsAcc);
+            row.ScDamage = Whole(a.ScTotal);
+            row.ScShare = Percent(a.ScShare);
+            row.PetDamage = Whole(a.PetTotal);
+            row.PetAccuracy = Percent(a.PetAcc);
             row.Deaths = Died(c.DiedOf(a.Name));
             row.IsOwner = a.Name == Roster.Owner;
             row.Dimmed = CharacterFilter.Marks(a.Name, "").Dimmed;

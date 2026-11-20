@@ -117,6 +117,15 @@ public sealed class Settings
     /// </summary>
     public Dictionary<string, ColumnsKept> Columns { get; set; } = [];
 
+    /// <summary>
+    /// A floating panel's columns where the player has moved or hidden any
+    /// there, by its table's key as <see cref="Columns"/> has them, and
+    /// "hits", "casts" (a drill-down's list) and "live" (Compare's live
+    /// panel). A table not here floats as it stands in the main window; a
+    /// strip ("bars", "healers") and the three floating alone as installed.
+    /// </summary>
+    public Dictionary<string, ColumnsKept> PanelColumns { get; set; } = [];
+
     /// <summary>A character's row is shaded in their colour to the length of
     /// their share: in the two per-character tables, on their heading in the
     /// Actions and Heals tables. On as installed. Off, the row is plain and a
@@ -322,6 +331,7 @@ public sealed class Settings
         OpenPanels = OpenPanels?.Where(n => n is not null).ToList() ?? [];
         HiddenColumns = HiddenColumns?.Where(n => n is not null).ToList();
         Columns = Columns?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value.Normal()) ?? [];
+        PanelColumns = PanelColumns?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value.Normal()) ?? [];
         PanelOpacities ??= [];
         Sorts = Sorts?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value) ?? [];
         Windows = Windows?.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value) ?? [];

@@ -4,8 +4,8 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:v="clr-namespace:Zerg.Views">
   <UserControl.Resources>
-    <!-- Heal, Casts, Total, Avg, Min, Max, Share, MP Spent, HP/MP, and a
-         blank column that ends the row: the widths the design draws them at
+    <!-- Heal, Casts, Total, Avg, Min, Max, Share, MP Spent, HP/MP, Base,
+         Overcure, Overcure %, and a blank column that ends the row: the widths the design draws them at
          in a pane 940 wide, as shares, each with the least it may be. A narrower pane
          takes the room from the name first; when even the leasts do not
          fit, the table drops Min (v:Shed, on the scroll viewer below).
@@ -13,11 +13,14 @@
          There is no "least, average, greatest" mark here, on purpose: Avg
          is per cast and Min and Max are per target, and one line would mix
          the two scales. -->
-    <sys:String x:Key="Columns">360*150,56*44,110*64,96*52,96*52,96*52,104*100,96*64,84*52,8*0</sys:String>
+    <sys:String x:Key="Columns">360*150,56*44,110*64,96*52,96*52,96*52,104*100,96*64,84*52,72*44,96*56,96*60,8*0</sys:String>
 
     <!-- What MP Spent and HP/MP's headings tell the pointer. -->
     <sys:String x:Key="MpTip">Each cast's list MP cost, charged once however many people it reached. On a person, an even part of each cast that reached them. A heal that costs the player none (Chakra, a waltz, a wyvern's breath, an automaton's Cure) is a dash</sys:String>
     <sys:String x:Key="PerMpTip">HP healed per MP spent, over the heals that cost MP. A cure on someone at full health heals nothing and still costs its MP</sys:String>
+    <sys:String x:Key="BaseTip">What the caster's heal heals when nothing cuts it short: the amount its casts keep landing on. Overcure is measured against it. Under a heal, a person's own only where their gear makes it another</sys:String>
+    <sys:String x:Key="OvercureTip">What the cures would have healed past what their targets were missing, estimated from the cures alone: one that healed less than its caster's base for it was cut short by its target's HP, and is charged the rest of that base. One on a day or weather amount, or doubled by Divine Seal, healed whole</sys:String>
+    <sys:String x:Key="OvercurePctTip">Overcure out of what those cures would have healed whole. A heal with no base (cast once, or never the same twice) has no overcure, and what it healed is left out</sys:String>
 
     <!-- The small bar beside a heading's share, in the character's colour:
          in a floating panel, in the colour they have there. -->
@@ -92,6 +95,10 @@
             </v:SmallBar>
             <TextBlock Text="{Binding Mp}" Style="{StaticResource Fig}"/>
             <TextBlock Text="{Binding PerMp}" Style="{StaticResource Cell}" FontWeight="SemiBold"/>
+            <!-- A heading has no base. -->
+            <Border/>
+            <TextBlock Text="{Binding Overcure}" Style="{StaticResource Fig}"/>
+            <TextBlock Text="{Binding OvercurePct}" Style="{StaticResource Cell}" FontWeight="SemiBold"/>
           </v:Cells>
         </Grid>
       </Button>
@@ -178,6 +185,10 @@
               </v:SmallBar>
               <TextBlock Text="{Binding Mp}" Style="{StaticResource SubFigQuiet}"/>
               <TextBlock Text="{Binding PerMp}" Style="{StaticResource Cell}"/>
+              <!-- The pointer is told the caster's other bases, if any. -->
+              <TextBlock Text="{Binding Base}" Style="{StaticResource SubFigQuiet}" ToolTip="{Binding BaseTip}"/>
+              <TextBlock Text="{Binding Overcure}" Style="{StaticResource SubFigQuiet}"/>
+              <TextBlock Text="{Binding OvercurePct}" Style="{StaticResource Cell}"/>
             </v:Cells>
           </Grid>
         </Button>
@@ -225,6 +236,9 @@
               </v:SmallBar>
               <TextBlock Text="{Binding Mp}" Style="{StaticResource SubFigQuiet}"/>
               <TextBlock Text="{Binding PerMp}" Style="{StaticResource SubFigQuiet}"/>
+              <TextBlock Text="{Binding Base}" Style="{StaticResource SubFigQuiet}" ToolTip="{Binding BaseTip}"/>
+              <TextBlock Text="{Binding Overcure}" Style="{StaticResource SubFigQuiet}"/>
+              <TextBlock Text="{Binding OvercurePct}" Style="{StaticResource SubFigQuiet}"/>
             </v:Cells>
           </Grid>
         </Button>
@@ -305,7 +319,7 @@
                     v:ColumnSet.Table="{Binding HealsColumns}"
                     VerticalScrollBarVisibility="Disabled" v:WheelChain.On="True"
                     Visibility="{Binding HasHeals, Converter={StaticResource Visible}}">
-        <Grid MinWidth="592" Width="{Binding ViewportWidth, ElementName=Sideways}">
+        <Grid MinWidth="752" Width="{Binding ViewportWidth, ElementName=Sideways}">
           <Grid.Style>
             <Style TargetType="Grid">
               <Style.Triggers>
@@ -356,6 +370,15 @@
               </v:SortHead>
               <v:SortHead Column="perMp">
                 <TextBlock Text="HP/MP" Style="{StaticResource Head}" ToolTip="{StaticResource PerMpTip}"/>
+              </v:SortHead>
+              <v:SortHead Column="base">
+                <TextBlock Text="Base" Style="{StaticResource Head}" ToolTip="{StaticResource BaseTip}"/>
+              </v:SortHead>
+              <v:SortHead Column="overcure">
+                <TextBlock Text="Overcure" Style="{StaticResource Head}" ToolTip="{StaticResource OvercureTip}"/>
+              </v:SortHead>
+              <v:SortHead Column="overcurePct">
+                <TextBlock Text="Overcure %" Style="{StaticResource Head}" ToolTip="{StaticResource OvercurePctTip}"/>
               </v:SortHead>
             </v:Cells>
             <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource Line2Brush}" SnapsToDevicePixels="True"/>

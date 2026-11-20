@@ -119,7 +119,10 @@ the log of a published Zerg reads `/_/src/...`. After scripted
 builds run `dotnet build-server shutdown` (a lingering node has held locks). A
 running `Zerg.exe` locks its build output: beside one, build the test project
 alone, or the app into another folder (`dotnet build src/Zerg/Zerg.csproj -o
-<folder>`, which still cannot start while the other runs).
+<folder>`, which still cannot start while the other runs). That build shares
+`obj` with Debug, so a later Debug build can find nothing to do and leave
+`bin/Debug` stale: once the other Zerg closes, build Debug with
+`--no-incremental` and check `Zerg.Core.dll`'s time.
 
 ## Versions
 
@@ -165,6 +168,8 @@ src/Zerg.Core/          net10.0, no UI: everything testable
   Session                              the session clock (arm, latch, pause, snapped end)
   Counting, Totals, Healing            filter, credit, aggregate; the Party line
   ManaCost                             a heal's list MP cost by via and id (MP Spent, HP/MP)
+  Overcure                             each caster's base for a spell, learned from the
+                                       session's cures; what a cut-short cast overcured
   Targets, DamageTypes                 isolating targets and damage types
   Compare, CompareSheet                A/B runs, and everything Compare prints
                                        (Change, Cell, CompareLine, Deltas, the Battle Log)
@@ -273,10 +278,22 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   shedding trigger; a cell's own `Visibility` binding is given back), and
   `Shed` needs no room for them (`ColumnLayout.Needs`; a `Less` set writes
   dropped columns as `0`, never leaves them out). Headings drag
-  (`Views/ColumnDrag` on the heading `Cells`: a group moves as one, never
-  in a floating panel); each pane's `Views/ColumnsButton` is its menu. A
-  table inside another (the drill-down under an action) sets
-  `v:ColumnSet.Layout="{x:Null}"`.
+  (`Views/ColumnDrag` on the heading `Cells`: a group moves as one); each
+  pane's `Views/ColumnsButton` is its menu. A table inside another (the
+  drill-down under an action) sets `v:ColumnSet.Layout="{x:Null}"`.
+  **A floating panel's columns are its own**: under `Float.On`,
+  `ColumnSet` binds the twin `TableColumns.Floating` (saved in
+  `settings.panelColumns`; `Float.On`'s callback rebinds), which follows
+  the docked table until changed there. The strips' twins are tables of
+  their own (`TableColumns.Strip`: `Tables.Strip`, `HealStrip`, every
+  column of the table, job fixed and 0 wide); the drill-down's hit list
+  and Live compare have columns only floating (`TableColumns.OnlyFloating`:
+  `Tables.Hits`, `Casts`, `Live`; docked, no layout). The panel bar's
+  Columns is a `ColumnsButton Compact` bound per panel in `PanelWindow`.
+  A strip drops the columns it has no room for from the end of the row
+  (`ColumnSet.Fit` → inherited `Dropped`, `ColumnLayout.Overflow`; `Cells`
+  leaves them out as hidden ones), and its DPS/HPS are written once a
+  second (`StripRates`), for the halo.
   A heading that sorts is a `Views/SortHead` round the heading's `TextBlock`
   (the shedding style goes on it); each table's order is a `ColumnSort`
   (saved in `settings.sorts`), rows listed through `Zerg.Core/TableOrder`'s
@@ -312,7 +329,8 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
   A press on a heading folds it (every heading starts folded; not saved),
   a press on a row under one ticks its box; the boxes isolate, by the
   rules in `Zerg.Core/OverviewTicks` (`MainViewModel.SetPairs`).
-  Floating, it is the characters' strip either way.
+  Floating, it is the characters' strip either way, with the panel's own
+  columns.
 - **Compare.** `CompareViewModel` over a `CompareSheet`; redraws only on a
   change and only while on screen (a live side is counted again each
   second). `RULES.md`, "Compare", has its rules. The section is the runs

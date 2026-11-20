@@ -28,9 +28,9 @@
          change. -->
     <sys:String x:Key="BarsColumns">190*120,100*60,120*104,100*90,114*96,108*96,102*90,108*96,100*90,100*90,120*104,108*96,100*90,100*90,120*104,100*90,120*104,100*90,90*72</sys:String>
     <sys:String x:Key="BarsLess">190*120,100*60,120*104,100*90,114*96,108*96,0,0,0,0,0,0,0,0,0,0,0,0,90*72</sys:String>
-    <sys:String x:Key="HealerColumns">150*110,86*60,128*104,90*76,118*96,108*90,112*96,90*72</sys:String>
+    <sys:String x:Key="HealerColumns">150*110,86*60,128*104,118*100,118*96,108*90,112*96,128*104,104*90,128*104,118*100,90*72</sys:String>
     <sys:String x:Key="ActionColumns">250*140,96*80,112*96,128*104,116*96,100*84,70*56,28</sys:String>
-    <sys:String x:Key="HealColumns">236*140,104*80,128*104,116*96,100*84,70*56,28</sys:String>
+    <sys:String x:Key="HealColumns">236*140,104*80,128*104,116*96,100*84,70*56,128*104,104*90,110*96,128*104,118*100,28</sys:String>
     <!-- Deltas: the name, the bar, A's total, B's total (an action's
          average), the change, an action's uses. Previous goes first, then
          Uses. -->
@@ -177,6 +177,10 @@
             <v:DeltaCell Cell="{Binding Cells[hps]}"/>
             <v:DeltaCell Cell="{Binding Cells[casts]}"/>
             <v:DeltaCell Cell="{Binding Cells[avg]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[mp]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[perMp]}" Style="{StaticResource ShedsLate}"/>
+            <v:DeltaCell Cell="{Binding Cells[overcure]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[overcurePct]}" Style="{StaticResource ShedsLate}"/>
             <v:DeltaCell Cell="{Binding Cells[deaths]}" Style="{StaticResource Sheds}"/>
           </v:Cells>
         </Grid>
@@ -270,6 +274,11 @@
             <v:DeltaCell Cell="{Binding Cells[avg]}"/>
             <v:DeltaCell Cell="{Binding Cells[max]}" Style="{StaticResource Sheds}"/>
             <TextBlock Text="{Binding Cells[share].B}" Style="{StaticResource FigQuiet}" Padding="2,0,8,0"/>
+            <v:DeltaCell Cell="{Binding Cells[mp]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[perMp]}" Style="{StaticResource ShedsLate}"/>
+            <v:DeltaCell Cell="{Binding Cells[base]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[overcure]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[overcurePct]}" Style="{StaticResource ShedsLate}"/>
             <ContentControl Content="{Binding}" ContentTemplate="{StaticResource Clear}" Focusable="False"/>
           </v:Cells>
         </Grid>
@@ -615,6 +624,10 @@
             <v:SortHead Column="hps" Change="True"><TextBlock Text="HPS" Style="{StaticResource DHead}"/></v:SortHead>
             <v:SortHead Column="casts" Change="True"><TextBlock Text="Casts" Style="{StaticResource DHead}"/></v:SortHead>
             <v:SortHead Column="avg" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Avg / cast" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="mp" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="MP Spent" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="perMp" Change="True" Style="{StaticResource ShedsLate}"><TextBlock Text="HP/MP" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="overcure" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Overcure" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="overcurePct" Change="True" Style="{StaticResource ShedsLate}"><TextBlock Text="Overcure %" Style="{StaticResource DHead}"/></v:SortHead>
             <v:SortHead Column="deaths" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Deaths" Style="{StaticResource DHead}"/></v:SortHead>
           </v:Cells>
           <Rectangle Style="{StaticResource Rule}"/>
@@ -638,6 +651,10 @@
             <v:DeltaCell Cell="{Binding Cells[hps]}"/>
             <v:DeltaCell Cell="{Binding Cells[casts]}"/>
             <v:DeltaCell Cell="{Binding Cells[avg]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[mp]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[perMp]}" Style="{StaticResource ShedsLate}"/>
+            <v:DeltaCell Cell="{Binding Cells[overcure]}" Style="{StaticResource Sheds}"/>
+            <v:DeltaCell Cell="{Binding Cells[overcurePct]}" Style="{StaticResource ShedsLate}"/>
             <v:DeltaCell Cell="{Binding Cells[deaths]}" Style="{StaticResource Sheds}"/>
           </v:Cells>
         </Grid>
@@ -707,6 +724,11 @@
             <v:SortHead Column="avg" Change="True"><TextBlock Text="Avg" Style="{StaticResource DHead}"/></v:SortHead>
             <v:SortHead Column="max" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Max" Style="{StaticResource DHead}"/></v:SortHead>
             <v:SortHead Column="share"><TextBlock Text="Share" Style="{StaticResource Head}" Padding="2,0,8,0"/></v:SortHead>
+            <v:SortHead Column="mp" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="MP Spent" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="perMp" Change="True" Style="{StaticResource ShedsLate}"><TextBlock Text="HP/MP" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="base" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Base" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="overcure" Change="True" Style="{StaticResource Sheds}"><TextBlock Text="Overcure" Style="{StaticResource DHead}"/></v:SortHead>
+            <v:SortHead Column="overcurePct" Change="True" Style="{StaticResource ShedsLate}"><TextBlock Text="Overcure %" Style="{StaticResource DHead}"/></v:SortHead>
             <Border/>
           </v:Cells>
           <Rectangle Style="{StaticResource Rule}"/>

@@ -260,4 +260,27 @@ public sealed class ColumnLayout
     /// </summary>
     public string Needs(string? widths) =>
         Layout.Columns.Zeroed(widths, Enumerable.Range(0, shown.Length).Where(c => !shown[c]));
+
+    /// <summary>
+    /// The columns shown that a row <paramref name="room"/> wide has no
+    /// room for, by place as written: the last standing first, one at a time,
+    /// until the rest fit (their leasts, <see cref="Layout.Columns.Least(ReadOnlySpan{Column}, ReadOnlySpan{bool})"/>).
+    /// A fixed column is never one of them. None while the room is not
+    /// known (0 or less), or for widths that are not this table's.
+    /// </summary>
+    public IReadOnlyList<int> Overflow(string? widths, double room)
+    {
+        var columns = Layout.Columns.Parse(widths);
+        if (columns.Length != shown.Length || !(room > 0)) return [];
+        var present = (bool[])shown.Clone();
+        var over = new List<int>();
+        for (int p = visual.Length - 1; p >= 0 && Layout.Columns.Least(columns, present) > room; p--)
+        {
+            int c = visual[p];
+            if (!present[c] || Table.All[c].Fixed) continue;
+            present[c] = false;
+            over.Add(c);
+        }
+        return over;
+    }
 }

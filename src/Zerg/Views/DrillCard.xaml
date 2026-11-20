@@ -327,8 +327,12 @@
                    TextWrapping="Wrap" HorizontalAlignment="Center" Typography.NumeralAlignment="Tabular"/>
 
         <!-- Every hit, newest first. The heading row says how many and
-             carries the list's two column headings. -->
-        <Expander Style="{StaticResource HitsExpander}" AutomationProperties.Name="{Binding Words.Every}">
+             carries the list's two column headings. Floating, its columns
+             are the panel's to choose (the bar's Columns, a heading
+             dragged: Tables.Hits); in the main window they stand as
+             written. -->
+        <Expander Style="{StaticResource HitsExpander}" AutomationProperties.Name="{Binding Words.Every}"
+                  v:ColumnSet.Table="{Binding HitColumns}">
           <Expander.Header>
             <Grid>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -339,7 +343,8 @@
               <!-- Over the rows' own columns: the heading's content begins
                    26 units in, after the caret. The two headings order the
                    list (v:SortHead), and a press on one does not fold it. -->
-              <v:Cells Widths="{StaticResource Columns}" Margin="-26,0,0,0" v:SortHead.Sort="{Binding Sort}">
+              <v:Cells Widths="{StaticResource Columns}" Margin="-26,0,0,0" v:SortHead.Sort="{Binding Sort}"
+                       v:ColumnDrag.On="True">
                 <Border/>
                 <Border/>
                 <v:SortHead Column="amount">

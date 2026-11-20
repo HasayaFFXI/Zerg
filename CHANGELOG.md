@@ -7,11 +7,45 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- Every floating panel with a table has its own columns: a Columns button
+  on its bar (with the pointer over the panel, beside the opacity slider)
+  shows and hides them, and a heading is dragged to move one, as in the
+  main window. A panel's columns are its own and change nothing in the main
+  window; until one is changed there, a panel stands as the main window's
+  table does and follows it, and its menu's last line, Same as the main
+  window, puts it back to that. The Overview's and Healing by character's
+  strips can now show any of their table's columns (DPS and HPS among them,
+  written once a second), starting with the ones they had; in a panel too
+  narrow for the columns shown, those at the end of the row go until the
+  rest fit, so the order says what stays. A drill-down's list of hits (Action, the amount,
+  its mark, vs avg) and Live compare (rate, change) have columns to choose
+  while they float, and stand as before in the main window. Saved in
+  settings.json's `panelColumns`.
+- Overcure: what the cures would have healed past what their targets were
+  missing. Overcure and Overcure % in Healing by character (its Party line
+  too) and in the Heals table under all three tabs, where a Base column
+  says what each heal is measured against (its pointer names a second base
+  when the caster had one). Heal lines never carry the target's missing HP,
+  so it is estimated: each caster's full amount for a spell is the amount
+  their casts keep landing on, and a cast that healed less was cut short
+  and is charged the rest. An amount that a day or weather allows, or one
+  doubled by Divine Seal, healed whole; the game day is not worked out from
+  the clock, as a server may keep its own. A heal with no amount that
+  recurs (cast once) is a dash. Worked out from the heal lines the addon
+  already writes, so older event files and saved parses have it too.
+  Overcure % is in Healing by character's floating panel too, after
+  HP/MP.
+- Compare's healing: MP Spent, HP/MP, Overcure and Overcure % in Healing by
+  character (its Party line too) and in Heals under all three tabs, with
+  Base there as well, and Overcure % in the band. HP/MP is coloured more
+  being better and Overcure % less; the rest are grey, as healing amounts
+  are. By spell and By target now carry every Heals column, not only the
+  total. Each run's bases are its own; grouped by job, each character is
+  still charged against their own base.
 - MP Spent and HP/MP: how much HP a healer's MP bought, so a healer sees
   where MP went to waste. Two columns in Healing by character (its Party
   line too), in the Heals table under all three tabs, and in Healing by
-  character's floating panel, where HP/MP stays when a narrow panel drops
-  Casts and MP Spent. A cast costs its list MP (Cure IV 88, Curaga II 120,
+  character's floating panel. A cast costs its list MP (Cure IV 88, Curaga II 120,
   Blue Magic's cures, a Blood Pact's MP charged to its summoner), once
   however many it reached; HP/MP is what those casts healed over that MP,
   and a cure on someone at full health heals nothing and still costs its

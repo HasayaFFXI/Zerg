@@ -344,7 +344,8 @@ public sealed class CompareSheet
     ];
 
     /// <summary>The healing tables: amounts and counts are never coloured;
-    /// deaths are, fewer being better.</summary>
+    /// how well the MP went is: HP/MP more being better, Overcure % less;
+    /// deaths fewer.</summary>
     static readonly Spec[] HealerSpecs =
     [
         new("healing", ChangeKind.Percent, 0, Whole),
@@ -352,6 +353,10 @@ public sealed class CompareSheet
         new("hps", ChangeKind.Percent, 0, Rate),
         new("casts", ChangeKind.Count, 0, Whole),
         new("avg", ChangeKind.Percent, 0, Whole),
+        new("mp", ChangeKind.Percent, 0, Whole),
+        new("perMp", ChangeKind.Percent, 1, Rate),
+        new("overcure", ChangeKind.Percent, 0, Whole),
+        new("overcurePct", ChangeKind.Points, -1, Percent),
         new("deaths", ChangeKind.Count, -1, Whole),
     ];
 
@@ -372,6 +377,12 @@ public sealed class CompareSheet
         new("total", ChangeKind.Percent, 0, Whole),
         new("avg", ChangeKind.Percent, 0, Whole),
         new("max", ChangeKind.Percent, 0, Whole),
+        new("mp", ChangeKind.Percent, 0, Whole),
+        new("perMp", ChangeKind.Percent, 1, Rate),
+        // What a heal heals whole: the caster's gear, not how well they did.
+        new("base", ChangeKind.Percent, 0, Whole),
+        new("overcure", ChangeKind.Percent, 0, Whole),
+        new("overcurePct", ChangeKind.Points, -1, Percent),
     ];
 
     /// <summary>Which way is better, for a column of one of the tables: +1,
@@ -501,8 +512,8 @@ public sealed class CompareSheet
             HealParty = HealPartyOf(ma, mb),
             Actions = d.Rows.Select(r => ActionsOf(r, ma, mb, names)).ToList(),
             Heals = d.Heals.Select(r => HealsOf(r, ma, mb, names)).ToList(),
-            HealSpells = TotalLines(Compare.Totals(ma.HealSpells, mb.HealSpells), n => n, HealTotalSpecs, ma.Heal.Total, mb.Heal.Total),
-            HealTargets = TotalLines(Compare.Totals(ma.HealTargets, mb.HealTargets), names.Draw, HealTotalSpecs, ma.Heal.Total, mb.Heal.Total),
+            HealSpells = PartLines(Compare.Parts(ma.Heal.Spells, mb.Heal.Spells), n => n, ma, mb),
+            HealTargets = PartLines(Compare.Parts(ma.Heal.Targets, mb.Heal.Targets), names.Draw, ma, mb),
             TargetLines = TotalLines(d.Targets, n => n.Length > 0 ? n : Dash, FilterSpecs, ma.Targets.Values.Sum(),
                                      mb.Targets.Values.Sum()),
             // In the order of the types' own table (Compare.KindLabels).
@@ -564,6 +575,9 @@ public sealed class CompareSheet
             Band("casts", "Casts", Has(ma, ma.Heal.Casts), Has(mb, mb.Heal.Casts), Whole, ChangeKind.Count, 0),
             Band("avg", "Avg / cast", ma.Heal.Avg, mb.Heal.Avg, Whole, ChangeKind.Percent, 0),
             Band("max", "Biggest heal", Has(ma, ma.Heal.Max), Has(mb, mb.Heal.Max), Whole, ChangeKind.Percent, 0),
+            // Less is better.
+            Band("overcurePct", "Overcure %", Has(ma, ma.Heal.OvercurePct), Has(mb, mb.Heal.OvercurePct), Percent,
+                 ChangeKind.Points, -1),
             new("killsDeaths", "Kills / Deaths", new Cell(KillsDeaths(mb), KillsDeaths(ma), deaths,
                                                           Has(mb, mb.Kills.Deaths.Count), Has(ma, ma.Kills.Deaths.Count))),
             new("top", "Top healer", Cell.Words(Top(ma), Top(mb))),
@@ -800,6 +814,10 @@ public sealed class CompareSheet
                 "hps" => Counting.PerSecond(h?.Total ?? 0, m.Duration),
                 "casts" => h?.Casts ?? 0,
                 "avg" => h?.Avg,
+                "mp" => h is { Mp: > 0 } ? h.Mp : null,
+                "perMp" => h?.PerMp,
+                "overcure" => h is { OvercurePct: not null } ? h.Overcure : null,
+                "overcurePct" => h?.OvercurePct,
                 "deaths" => m.DeathsOf(r.Key),
                 _ => null,
             };
@@ -818,6 +836,10 @@ public sealed class CompareSheet
             "hps" => Counting.PerSecond(m.Heal.Total, m.Duration),
             "casts" => m.Heal.Casts,
             "avg" => m.Heal.Avg,
+            "mp" => m.Heal.Mp > 0 ? m.Heal.Mp : null,
+            "perMp" => m.Heal.PerMp,
+            "overcure" => m.Heal.OvercurePct != null ? m.Heal.Overcure : null,
+            "overcurePct" => m.Heal.OvercurePct,
             "deaths" => m.Kills.Deaths.Count,
             _ => null,
         };
@@ -826,12 +848,28 @@ public sealed class CompareSheet
         return new CompareLine("", "Party", RunSide.Both, "", "", "", 0, 1, 0, cells);
     }
 
-    static double? HealFigure(string column, HealAction? h) => column switch
+    static double? HealFigure(string column, HealAction? h) =>
+        h == null ? Figure(column, 0, 0, 0, 0, 0, null, null, 0, null)
+                  : Figure(column, h.Casts, h.Total, h.Avg, h.Max, h.Mp, h.PerMp, h.Base, h.Overcure, h.OvercurePct);
+
+    static double? HealFigure(string column, HealPart? p) =>
+        p == null ? Figure(column, 0, 0, 0, 0, 0, null, null, 0, null)
+                  : Figure(column, p.Casts, p.Total, p.Avg, p.Max, p.Mp, p.PerMp, p.Base, p.Overcure, p.OvercurePct);
+
+    /// <summary>A heal's figure, or a piece of the healing's: as the Healing
+    /// section prints them, a dash for nothing to measure.</summary>
+    static double? Figure(string column, int casts, double total, double avg, double max, double mp, double? perMp,
+                          double? @base, double overcure, double? overcurePct) => column switch
     {
-        "casts" => h?.Casts ?? 0,
-        "total" => h?.Total ?? 0,
-        "avg" => h is { Casts: > 0 } ? h.Avg : null,
-        "max" => h is { Casts: > 0 } ? h.Max : null,
+        "casts" => casts,
+        "total" => total,
+        "avg" => casts > 0 ? avg : null,
+        "max" => casts > 0 ? max : null,
+        "mp" => mp > 0 ? mp : null,
+        "perMp" => perMp,
+        "base" => @base,
+        "overcure" => overcurePct != null ? overcure : null,
+        "overcurePct" => overcurePct,
         _ => null,
     };
 
@@ -851,13 +889,38 @@ public sealed class CompareSheet
         {
             ["total"] = Cell.Of(ma.Present ? r.A?.Total ?? 0 : null, mb.Present ? r.B?.Total ?? 0 : null, Whole, ChangeKind.Percent, 0),
         };
+        // The character's own MP and overcure, as the Healing section's heading has them.
+        static double? Whose(string c, HealerTotals? h) => c switch
+        {
+            "mp" => h is { Mp: > 0 } ? h.Mp : null,
+            "perMp" => h?.PerMp,
+            "overcure" => h is { OvercurePct: not null } ? h.Overcure : null,
+            "overcurePct" => h?.OvercurePct,
+            _ => null,
+        };
+        foreach (var s in HealSpecs)
+            if (s.Key is "mp" or "perMp" or "overcure" or "overcurePct")
+                head[s.Key] = Cell.Of(ma.Present ? Whose(s.Key, r.A) : null, mb.Present ? Whose(s.Key, r.B) : null,
+                                      s.Format, s.Kind, s.Good);
         return new CompareGroup(Line(names, r.Key, SideOf(r.A != null, r.B != null), 0, 0, head), lines);
     }
 
-    static readonly Spec[] HealTotalSpecs =
-    [
-        new("total", ChangeKind.Percent, 0, Whole),
-    ];
+    /// <summary>The party's healing by spell or by person healed, a heal's
+    /// columns each, and each side's share of its run's healing.</summary>
+    static List<CompareLine> PartLines(IReadOnlyList<Pair<HealPart>> rows, Func<string, string> draw,
+                                       Measurement ma, Measurement mb)
+    {
+        double leader = rows.Select(r => r.B?.Total ?? 0).DefaultIfEmpty(0).Max();
+        if (leader == 0) leader = rows.Select(r => r.A?.Total ?? 0).DefaultIfEmpty(0).Max();
+        double? ShareOf(Measurement m, HealPart? p) => m.Present && m.Heal.Total > 0 ? (p?.Total ?? 0) / m.Heal.Total : null;
+        return rows.Select(r =>
+        {
+            var cells = Cells(HealSpecs, c => ma.Present ? HealFigure(c, r.A) : null, c => mb.Present ? HealFigure(c, r.B) : null);
+            cells["share"] = Cell.Of(ShareOf(ma, r.A), ShareOf(mb, r.B), Percent, ChangeKind.Points, 0);
+            return new CompareLine(r.Key, draw(r.Key), SideOf(r.A != null, r.B != null), "", "", "", 0,
+                                   Share(r.B?.Total, leader), Share(r.A?.Total, leader), cells);
+        }).ToList();
+    }
 
     static readonly Spec[] FilterSpecs =
     [

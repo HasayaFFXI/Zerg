@@ -15,7 +15,9 @@ namespace Zerg.Views;
 public static class Float
 {
     public static readonly DependencyProperty OnProperty = DependencyProperty.RegisterAttached("On", typeof(bool),
-        typeof(Float), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.Inherits));
+        typeof(Float), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.Inherits,
+            // A table's columns are a panel's own there (ColumnSet).
+            (d, _) => ColumnSet.Refloat(d)));
 
     public static bool GetOn(DependencyObject d) => (bool)d.GetValue(OnProperty);
     public static void SetOn(DependencyObject d, bool value) => d.SetValue(OnProperty, value);

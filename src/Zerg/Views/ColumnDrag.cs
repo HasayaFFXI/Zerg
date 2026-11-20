@@ -18,9 +18,9 @@ namespace Zerg.Views;
 /// and a group's name (in the row over the headings) does too; nothing
 /// goes inside a group. The first column, the name, stays put.
 ///
-/// <para>Not in a floating panel, which is moved by hand from anywhere in
-/// it. Losing the pointer (another window, Alt+Tab) drops the drag and
-/// moves nothing.</para>
+/// <para>In a floating panel too, where it moves the panel's own columns
+/// (<see cref="ColumnSet"/>); the panel is moved by its bar. Losing the
+/// pointer (another window, Alt+Tab) drops the drag and moves nothing.</para>
 /// </summary>
 public static class ColumnDrag
 {
@@ -68,7 +68,7 @@ public static class ColumnDrag
     {
         var heads = (Cells)sender;
         now = null;
-        if (Float.GetOn(heads) || ColumnSet.Find(heads) is not { } found) return;
+        if (ColumnSet.Find(heads) is not { } found) return;
         var layout = ColumnSet.GetLayout(heads);
         if (layout is null || layout.Table != found.Table.Table) return;
         var x = e.GetPosition(heads).X;

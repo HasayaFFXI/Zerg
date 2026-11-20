@@ -75,10 +75,16 @@ public sealed class Cells : Panel
     /// another table (one with a different count of columns) is not this row's.</summary>
     ColumnLayout? Layout => ColumnSet.GetLayout(this) is { } l && l.Count == columns.Length ? l : null;
 
+    /// <summary>The column (as written) is shown in this row: not hidden by
+    /// the player, and not one a table that drops what does not fit has no
+    /// room for (<see cref="ColumnSet.FitProperty"/>).</summary>
+    bool Shows(ColumnLayout? layout, int c) =>
+        layout is null || (layout.Shown(c) && (ColumnSet.GetDropped(this) is not { } over || Array.IndexOf(over, c) < 0));
+
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.Property != ColumnSet.LayoutProperty) return;
+        if (e.Property != ColumnSet.LayoutProperty && e.Property != ColumnSet.DroppedProperty) return;
         Hide();
         InvalidateMeasure();
     }
@@ -104,7 +110,7 @@ public sealed class Cells : Panel
             if (heads && c < columns.Length)
                 KeyboardNavigation.SetTabIndex(child, layout?.SlotOf(c) ?? c);
             bool hidden = layout is not null && span > 0;
-            for (int k = c; k < c + span && hidden; k++) hidden = !layout!.Shown(k);
+            for (int k = c; k < c + span && hidden; k++) hidden = !Shows(layout, k);
             c += span;
 
             var kept = child.ReadLocalValue(KeptProperty);
@@ -135,7 +141,7 @@ public sealed class Cells : Panel
         present.Fill(true);
         var layout = Layout;
         if (layout is not null)
-            for (int c = 0; c < present.Length; c++) present[c] = layout.Shown(c);
+            for (int c = 0; c < present.Length; c++) present[c] = Shows(layout, c);
         for (int i = 0, c = 0; i < InternalChildren.Count && c < present.Length; i++)
         {
             var child = InternalChildren[i];

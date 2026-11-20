@@ -4,6 +4,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Media;
 
 namespace Zerg.Views;
 
@@ -35,6 +36,42 @@ public partial class ColumnsButton : UserControl
     public string Extra { get => (string)GetValue(ExtraProperty); set => SetValue(ExtraProperty, value); }
     public string ExtraPath { get => (string)GetValue(ExtraPathProperty); set => SetValue(ExtraPathProperty, value); }
 
+    /// <summary>
+    /// The glyph alone, at the size of a floating panel's bar tools (its
+    /// <c>BarTool</c> style): three columns, in place of the word and its
+    /// chevron. The menu is the same; on a panel it lists the panel's own
+    /// columns, which are given as <see cref="Table"/>.
+    /// </summary>
+    public static readonly DependencyProperty CompactProperty = DependencyProperty.Register(nameof(Compact), typeof(bool),
+        typeof(ColumnsButton), new PropertyMetadata(false, (d, e) => ((ColumnsButton)d).Compacted((bool)e.NewValue)));
+
+    public bool Compact { get => (bool)GetValue(CompactProperty); set => SetValue(CompactProperty, value); }
+
+    /// <summary>The menu opened or shut: a panel keeps its tools showing while it is open.</summary>
+    public event Action<bool>? MenuOpen;
+
+    void Compacted(bool on)
+    {
+        if (!on) return;
+        Press.SetResourceReference(StyleProperty, "BarTool");
+        Press.Padding = new Thickness(0);
+        Press.Margin = new Thickness(0);
+        var glyph = new System.Windows.Shapes.Path
+        {
+            Data = Geometry.Parse("M0.5,0.5 H11.5 V10.5 H0.5 Z M4.17,0.5 V10.5 M7.83,0.5 V10.5"),
+            StrokeThickness = 1,
+            Width = 12,
+            Height = 11,
+            SnapsToDevicePixels = true,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        glyph.SetBinding(System.Windows.Shapes.Shape.StrokeProperty,
+            new Binding(nameof(Foreground)) { RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor, typeof(Button), 1) });
+        Press.Content = glyph;
+        Press.ToolTip = "Columns: choose which this panel shows. Drag a column's heading to move it";
+    }
+
     readonly ContextMenu menu;
     List<ColumnChoice> lines = [];
     long shutAt = -1000;
@@ -48,6 +85,7 @@ public partial class ColumnsButton : UserControl
         // Asked of the property, not of Closed, which comes late or never.
         DependencyPropertyDescriptor.FromProperty(ContextMenu.IsOpenProperty, typeof(ContextMenu)).AddValueChanged(menu, (_, _) =>
         {
+            MenuOpen?.Invoke(menu.IsOpen);
             if (menu.IsOpen) return;
             shutAt = Environment.TickCount64;
             Let();
@@ -104,7 +142,7 @@ public partial class ColumnsButton : UserControl
             last = line.Is;
         }
         menu.Items.Add(new Separator());
-        menu.Items.Add(new MenuItem { Header = "Restore default columns", Command = table.RestoreCommand });
+        menu.Items.Add(new MenuItem { Header = table.RestoreWords, Command = table.RestoreCommand });
     }
 
     /// <summary>The lines let go of the table they keep up with.</summary>

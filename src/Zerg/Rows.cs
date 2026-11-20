@@ -171,13 +171,25 @@ public sealed partial class StripRow(string key) : Row(key)
     [ObservableProperty] private Brush? edge;
     /// <summary>How long the shade is: this character's damage out of the leader's.</summary>
     [ObservableProperty] private double fraction;
+    /// <summary>Their damage, which the draw beat divides by the clock for DPS.</summary>
+    public double Total { get; set; }
     [ObservableProperty] private string damage = "";
     [ObservableProperty] private string share = "";
+    /// <summary>Written by the draw beat, once a second, while the strip shows it.</summary>
+    [ObservableProperty] private string dps = "";
     [ObservableProperty] private string accuracy = "";
     [ObservableProperty] private string crit = "";
     [ObservableProperty] private string delay = "";
     [ObservableProperty] private string rangedAccuracy = "";
     [ObservableProperty] private string rangedCrit = "";
+    [ObservableProperty] private string wsDamage = "";
+    [ObservableProperty] private string wsAvg = "";
+    [ObservableProperty] private string wsShare = "";
+    [ObservableProperty] private string wsAccuracy = "";
+    [ObservableProperty] private string scDamage = "";
+    [ObservableProperty] private string scShare = "";
+    [ObservableProperty] private string petDamage = "";
+    [ObservableProperty] private string petAccuracy = "";
     [ObservableProperty] private string deaths = "";
     /// <summary>The character whose file this is: the one row on every
     /// session, marked so it is found without reading names.</summary>
@@ -324,6 +336,9 @@ public sealed partial class HealerRow(string key, Action<string> pick) : Row(key
     [ObservableProperty] private string avg = "";
     [ObservableProperty] private string mp = "";
     [ObservableProperty] private string perMp = "";
+    /// <summary>Overcure and Overcure %: a dash when nothing could be measured.</summary>
+    [ObservableProperty] private string overcure = "";
+    [ObservableProperty] private string overcurePct = "";
     [ObservableProperty] private string petHealing = "";
 
     /// <summary>The row's shade, in the character's colour.</summary>
@@ -350,6 +365,9 @@ public sealed partial class HealPartyRow : ObservableObject
     [ObservableProperty] private string avg = "";
     [ObservableProperty] private string mp = "";
     [ObservableProperty] private string perMp = "";
+    /// <summary>Overcure and Overcure %: a dash when nothing could be measured.</summary>
+    [ObservableProperty] private string overcure = "";
+    [ObservableProperty] private string overcurePct = "";
     [ObservableProperty] private string petHealing = "";
 }
 
@@ -366,11 +384,20 @@ public sealed partial class HealStripRow(string key) : Row(key)
     [ObservableProperty] private Brush? edge;
     /// <summary>How long the shade is: this character's healing out of the leader's.</summary>
     [ObservableProperty] private double fraction;
+    /// <summary>Their healing, which the draw beat divides by the clock for HPS.</summary>
+    public double Total { get; set; }
     [ObservableProperty] private string healing = "";
     [ObservableProperty] private string share = "";
+    /// <summary>Written by the draw beat, once a second, while the strip shows it.</summary>
+    [ObservableProperty] private string hps = "";
     [ObservableProperty] private string casts = "";
+    [ObservableProperty] private string avg = "";
     [ObservableProperty] private string mp = "";
     [ObservableProperty] private string perMp = "";
+    /// <summary>Overcure and Overcure %: a dash when nothing could be measured.</summary>
+    [ObservableProperty] private string overcure = "";
+    [ObservableProperty] private string overcurePct = "";
+    [ObservableProperty] private string petHealing = "";
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private string tip = "";
     /// <summary>Healing is isolated to others and not this character.</summary>
@@ -413,6 +440,15 @@ public sealed partial class HealRow(string key, string actor, string? action, bo
     /// <summary>MP Spent, and HP/MP: on a person, their part of each cast's MP.</summary>
     [ObservableProperty] private string mp = "";
     [ObservableProperty] private string perMp = "";
+    /// <summary>On one heal: the amount its overcure is measured against, a
+    /// dash with none; elsewhere "" (and under a heal, a person whose gear
+    /// makes it another).</summary>
+    [ObservableProperty] private string @base = "";
+    /// <summary>What the Base cell tells the pointer: the caster's other
+    /// bases ("Also 196"), or null for no tooltip.</summary>
+    [ObservableProperty] private string? baseTip;
+    [ObservableProperty] private string overcure = "";
+    [ObservableProperty] private string overcurePct = "";
     /// <summary>The drill-down is open on this heal.</summary>
     [ObservableProperty] private bool selected;
     /// <summary>"A", "B" or "", as an action row's.</summary>

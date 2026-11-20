@@ -209,6 +209,8 @@ public sealed partial class CompareViewModel : ObservableObject
     public PickFilter TargetFilter { get; } = PickFilter.OfTargets(paired: true);
     public PickFilter TypeFilter { get; } = PickFilter.OfTypes(paired: true);
 
+    /// <summary>The live panel's columns: chosen in the panel, the only place it is.</summary>
+    public TableColumns LiveColumns { get; }
     public TableColumns BarsColumns { get; }
     public TableColumns HealersColumns { get; }
     public TableColumns ActionsColumns { get; }
@@ -236,6 +238,7 @@ public sealed partial class CompareViewModel : ObservableObject
         paceMode = settings.ComparePace == PaceGap ? PaceGap : PaceBoth;
 
         BarsColumns = new TableColumns(Tables.CompareBars, settings);
+        LiveColumns = TableColumns.OnlyFloating(Tables.Live, settings);
         HealersColumns = new TableColumns(Tables.CompareHealers, settings);
         ActionsColumns = new TableColumns(Tables.CompareActions, settings);
         HealsColumns = new TableColumns(Tables.CompareHeals, settings);

@@ -330,6 +330,8 @@ public sealed partial class MainViewModel : ObservableObject
         HealingDrill = new DrillView(DrillWords.Healing, Panels[PanelSet.HealActions], Panels[PanelSet.HealDrill],
                                      CloseHealDrillCommand, SwapHealDrillCommand, MakeHealPick(), new ColumnSort("casts", settings));
         DamageDrill.Columns = MakeColumnsPick(healing: false);
+        DamageDrill.HitColumns = TableColumns.OnlyFloating(Tables.Hits, settings);
+        HealingDrill.HitColumns = TableColumns.OnlyFloating(Tables.Casts, settings);
         HealingDrill.Columns = MakeColumnsPick(healing: true);
         BarsSort = new ColumnSort("bars", settings);
         ActionsSort = new ColumnSort("actions", settings);
@@ -356,10 +358,10 @@ public sealed partial class MainViewModel : ObservableObject
         filtersBy = settings.FiltersBy == FiltersByTypes ? FiltersByTypes : FiltersByTargets;
         overviewBy = settings.OverviewBy == OverviewByTargets ? OverviewByTargets : OverviewByCharacters;
         ReadOldHidden(settings);
-        BarsColumns = new TableColumns(CharacterColumns.Table, settings);
+        BarsColumns = TableColumns.Strip(CharacterColumns.Table, Tables.Strip, settings);
         ActionsColumns = new TableColumns(Tables.Actions, settings);
         FightsColumns = new TableColumns(Tables.Fights, settings);
-        HealersColumns = new TableColumns(Tables.Healers, settings);
+        HealersColumns = TableColumns.Strip(Tables.Healers, Tables.HealStrip, settings);
         HealsColumns = new TableColumns(Tables.Heals, settings);
         SupportColumns = new TableColumns(Tables.Support, settings);
         TargetFilter.Columns = new TableColumns(Tables.Targets, settings);
@@ -797,10 +799,37 @@ public sealed partial class MainViewModel : ObservableObject
             foreach (var row in Healers) row.Hps = Format.Num(Counting.PerSecond(row.Total, healSecs) ?? double.NaN, 1);
             HealParty.Hps = HpsText;
         }
+        StripRates(secs, healSecs);
 
         // The chart's live edge follows the clock; held, it stays where it
         // is. A chart that is not on screen does not redraw for it.
         if (s.Running) Edge = ms;
+    }
+
+    /// <summary>The whole second a floating strip's rates were last written at.</summary>
+    long stripSecond = -1, healStripSecond = -1;
+
+    /// <summary>
+    /// A floating strip's DPS (or HPS), while its panel is out and shows
+    /// the column: once a second, not at the draw frequency. The panel's
+    /// halo is one effect over the whole strip, worked out again whenever
+    /// anything under it is drawn (PanelWindow.Halo), so the strip is
+    /// drawn at no more than a count's pace. Whatever the main window
+    /// shows: the panel is on screen when it is out.
+    /// </summary>
+    void StripRates(double secs, double healSecs)
+    {
+        if (Panels[PanelSet.Bars].IsOut && BarsColumns.Floating.Layout.Shows("dps") && (long)secs != stripSecond)
+        {
+            stripSecond = (long)secs;
+            foreach (var row in Strip) row.Dps = Rate(row.Total, secs);
+        }
+        if (Panels[PanelSet.HealBars].IsOut && HealersColumns.Floating.Layout.Shows("hps") && (long)healSecs != healStripSecond)
+        {
+            healStripSecond = (long)healSecs;
+            foreach (var row in HealStrip)
+                row.Hps = Format.Num(Counting.PerSecond(row.Total, healSecs) ?? double.NaN, 1);
+        }
     }
 
     /// <summary>An amount over the session clock as it is printed: a rate

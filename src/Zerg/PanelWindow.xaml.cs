@@ -23,7 +23,8 @@ namespace Zerg;
 /// the main window collapses its own copy and shows a stand-in.</para>
 ///
 /// <para><b>The bar is figures at rest</b>: the pair, the clock, the total
-/// and, quiet at the right, the card's name. The opacity slider and Dock are
+/// and, quiet at the right, the card's name. Columns (on a panel with a
+/// table), the opacity slider and Dock are
 /// there only while the pointer is over the panel (<see cref="Chrome"/>).</para>
 /// </summary>
 public partial class PanelWindow : Window
@@ -34,13 +35,20 @@ public partial class PanelWindow : Window
     /// a press on the top of Start is a press on Start.</summary>
     const double Grip = 6, TopGrip = 5, Corner = 16;
 
-    /// <summary>The tools at their full length (the slider, what it stands
-    /// at, Dock), and what is kept clear between them and whatever is left
-    /// of them on the bar.</summary>
-    const double ToolsWidth = 125, ToolsGap = 12;
+    /// <summary>The tools at their full length (Columns on a panel with a
+    /// table, the slider, what it stands at, Dock), and what is kept clear
+    /// between them and whatever is left of them on the bar.</summary>
+    readonly double ToolsWidth = 125;
+    const double ToolsGap = 12;
 
-    /// <summary>The tools with no slider at all: what it stands at, and Dock.</summary>
-    const double ToolsLeast = 61;
+    /// <summary>The tools with no slider at all: Columns, what the slider stands at, and Dock.</summary>
+    readonly double ToolsLeast = 61;
+
+    /// <summary>What Columns takes on the bar: its glyph and the gap after it.</summary>
+    const double ColumnsRoom = 29;
+
+    /// <summary>The Columns menu is open: the tools stay while the pointer is on it.</summary>
+    bool menuOpen;
 
     /// <summary>Where the title ends while clicks pass through: left of the lock.</summary>
     const double LockRoom = 22;
@@ -121,6 +129,37 @@ public partial class PanelWindow : Window
         };
         Body.Margin = Margins();
         Halo();
+
+        // Columns: the panel's own (TableColumns.Floating), of the table
+        // the card shows; the Filters pane's, of the tab shown.
+        string? columns = info.Key switch
+        {
+            PanelSet.Actions => nameof(MainViewModel.ActionsColumns),
+            PanelSet.Bars => nameof(MainViewModel.BarsColumns),
+            PanelSet.Filters => nameof(MainViewModel.FiltersShown) + "." + nameof(PickFilter.Columns),
+            PanelSet.Fights => nameof(MainViewModel.FightsColumns),
+            PanelSet.HealBars => nameof(MainViewModel.HealersColumns),
+            PanelSet.HealActions => nameof(MainViewModel.HealsColumns),
+            PanelSet.HealSupport => nameof(MainViewModel.SupportColumns),
+            PanelSet.Drill => nameof(MainViewModel.DamageDrill) + "." + nameof(DrillView.HitColumns),
+            PanelSet.HealDrill => nameof(MainViewModel.HealingDrill) + "." + nameof(DrillView.HitColumns),
+            PanelSet.CompareLive => nameof(MainViewModel.Compare) + "." + nameof(CompareViewModel.LiveColumns),
+            _ => null,
+        };
+        if (columns != null)
+        {
+            ColumnsTool.SetBinding(ColumnsButton.TableProperty,
+                new Binding(columns + "." + nameof(TableColumns.Floating)) { Source = model, Mode = BindingMode.OneWay });
+            ColumnsTool.Visibility = Visibility.Visible;
+            ColumnsTool.MenuOpen += open =>
+            {
+                menuOpen = open;
+                Chrome();
+            };
+            ToolsWidth += ColumnsRoom;
+            ToolsLeast += ColumnsRoom;
+            Tools.Width = ToolsWidth;
+        }
         // The runs' brushes, made for a dark panel from the colours set.
         if (info.Key == PanelSet.CompareLive)
         {
@@ -383,8 +422,8 @@ public partial class PanelWindow : Window
     /// <summary>
     /// What the bar shows beside its figures, which depends on where the
     /// pointer is. At rest: the card's name at the right, and nothing to
-    /// press but the pair. With the pointer over the panel: the opacity
-    /// slider and Dock at the right, the frame's edge a step stronger, and
+    /// press but the pair. With the pointer over the panel, or on the
+    /// Columns menu: Columns, the opacity slider and Dock at the right, the frame's edge a step stronger, and
     /// the name moved left of the tools and a step brighter while the panel
     /// is wide enough for both (<see cref="PanelFit.TitleStays"/>). In a
     /// panel too narrow for the tools beside the clock and the total, those
@@ -399,7 +438,7 @@ public partial class PanelWindow : Window
     /// </summary>
     void Chrome()
     {
-        bool through = model.Panels.ClickThrough, show = over && !through;
+        bool through = model.Panels.ClickThrough, show = (over || menuOpen) && !through;
         if (show != shown)
         {
             shown = show;

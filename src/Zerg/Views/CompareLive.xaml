@@ -51,8 +51,10 @@
     </Style>
   </UserControl.Resources>
 
+  <!-- Its columns are the panel's to choose (the bar's Columns, a
+       heading dragged: Tables.Live). -->
   <v:Pane Title="Live compare" v:Shading.Characters="{Binding ShadeCharacters}">
-    <StackPanel Margin="3,0,3,0">
+    <StackPanel Margin="3,0,3,0" v:ColumnSet.Table="{Binding LiveColumns}">
       <!-- LIVE 4:12.6   Party 742.1 +4.5%   Previous Run 710.3 -->
       <DockPanel Height="24" Margin="7,0,6,2" LastChildFill="False">
         <Border CornerRadius="8" BorderThickness="1" Padding="6,0" Height="16" VerticalAlignment="Center"
@@ -70,7 +72,7 @@
                    Foreground="{DynamicResource RunATextBrush}" TextTrimming="CharacterEllipsis" MaxWidth="140"
                    Style="{StaticResource Still}"/>
       </DockPanel>
-      <v:Cells Widths="{StaticResource LiveColumns}" Height="{StaticResource HitRowHeight}">
+      <v:Cells Widths="{StaticResource LiveColumns}" Height="{StaticResource HitRowHeight}" v:ColumnDrag.On="True">
         <v:Caps Text="CHARACTER" Style="{StaticResource GroupCaps}" HorizontalAlignment="Left" Margin="10,0,4,0"/>
         <v:Caps Text="{Binding RateWord}" Style="{StaticResource GroupCaps}" HorizontalAlignment="Right" Margin="4,0,4,0"/>
         <v:Caps Text="&#x394;" Style="{StaticResource GroupCaps}" HorizontalAlignment="Right" Margin="4,0,4,0"/>

@@ -669,8 +669,11 @@ public sealed class Tracker
         var healSession = HealScoped();
         var healScoped = healRange is null ? healSession : ClockRange.Within(healSession, healCut);
         var healShown = Healing.Filter(healScoped, new FilterOptions { Characters = healWho });
-        var healing = Healing.Totals(healShown);
-        var byHealer = healWho != null ? Healing.Totals(healScoped) : healing;
+        // Overcure is measured against what each caster's cures heal over
+        // the whole session, whatever the range or the healers isolated.
+        var overcure = OvercureNow(healSession);
+        var healing = Healing.Totals(healShown, overcure);
+        var byHealer = healWho != null ? Healing.Totals(healScoped, overcure) : healing;
         var healTimeline = healRange is null ? healShown
             : Healing.Filter(healSession, new FilterOptions { Characters = healWho });
         // Support likewise: kept apart from the damage rows, so a Protect
@@ -817,6 +820,17 @@ public sealed class Tracker
             rowsRead = all.Count;
         }
         return rowsKept;
+    }
+
+    (Scope? Scope, int Heals, Overcure Fit) overcureAt = (null, 0, Overcure.None);
+
+    /// <summary>The session's bases (<see cref="Overcure.Fit"/>), worked out
+    /// again only when a heal has come in or the session has changed.</summary>
+    Overcure OvercureNow(List<HealEvent> session)
+    {
+        if (overcureAt.Scope != healsScope || overcureAt.Heals != session.Count)
+            overcureAt = (healsScope, session.Count, Overcure.Fit(session));
+        return overcureAt.Fit;
     }
 
     /// <summary>The same for the heals (<see cref="Healing.Filter"/>).</summary>

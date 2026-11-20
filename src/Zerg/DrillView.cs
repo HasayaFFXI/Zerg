@@ -56,6 +56,10 @@ public sealed partial class DrillView : ObservableObject
     public PairPick Pick { get; }
     /// <summary>The list's order, as its headings set it: newest first, as it is listed, by none.</summary>
     public ColumnSort Sort { get; }
+    /// <summary>The list's columns, which are chosen while the drill-down
+    /// floats (its panel's Columns, its headings dragged); in the main
+    /// window it stands as written.</summary>
+    public TableColumns HitColumns { get; set; } = null!;
     /// <summary>How the chart cuts hits into columns: the heading's Columns
     /// button (Wide, Even, Fine), the section's own, saved.</summary>
     public PairPick? Columns { get; set; }
