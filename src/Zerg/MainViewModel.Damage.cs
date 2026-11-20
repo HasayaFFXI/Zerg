@@ -278,14 +278,16 @@ public sealed partial class MainViewModel
 
     /// <summary>The Character button's menu: everyone who dealt damage, each
     /// with their share of everyone's, of what the target and type filters
-    /// leave. And the healers' filter, which has no button, told who is
-    /// listed so its note and a panel's bar say the same as its table.</summary>
+    /// leave. And the Healing section's Caster, Target and Spell menus, each
+    /// of what the other two leave.</summary>
     void DrawCharacters(Snapshot c)
     {
         var dealt = c.Characters.Where(a => a.Total > 0).Select(a => new TargetTotal(a.Name, a.Total)).ToList();
         CharacterFilter.DrawMenu(dealt, dealt.Sum(t => t.Total));
         var healed = c.Healers.Where(a => a.Total > 0).Select(a => new TargetTotal(a.Name, a.Total)).ToList();
         HealerFilter.DrawMenu(healed, healed.Sum(t => t.Total));
+        HealTargetFilter.DrawMenu(c.HealTargets, c.AllHealTargets);
+        SpellFilter.DrawMenu(c.HealSpells, c.AllSpells);
     }
 
     void DrawBars(Snapshot c)

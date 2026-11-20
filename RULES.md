@@ -530,7 +530,9 @@ The Target button counts only the damage dealt to the targets picked
   Compare, read as they did.
 - **The total says what it is a total of**: "Damage to Kirin", "Damage to 3
   targets", with its share of the damage to every target under it.
-- **Healing is never isolated.** A heal's target is who it healed.
+- **The damage's targets cut no healing.** A heal's target is who it
+  healed; the Healing section isolates those with a filter of its own (see
+  "Isolating healing").
 - **The characters listed are of the targets isolated**, as the types
   are (see "Isolating characters").
 - **What is picked is not a setting, and belongs to the parse it was
@@ -640,12 +642,10 @@ empties it. (The Overview's boxes set the targets isolated too: see
 the same reason: "what did these two do" is a question about part of the
 fight, asked of the fight, not a change to what the party was.
 
-- **Healing has its own**, pressed on Healing by character: the heals,
-  the Heals pane, Support and the cumulative line are then the healers
-  isolated. The two never cut each other. Who healed is not a question about
-  who dealt damage, and a damage dealer isolated would leave the healing
-  section empty. It has no menu: a party has two or three healers, and the
-  table already shows every one.
+- **Healing has its own** casters, targets and spells (see "Isolating
+  healing"). The two never cut each other. Who healed is not a question
+  about who dealt damage, and a damage dealer isolated would leave the
+  healing section empty.
 - **Everyone stays in the table, with their own figures**; those not
   isolated are dimmed. A row that hid its figures could not be compared
   with, and one taken out could not be pressed back in. Damage % and
@@ -674,10 +674,67 @@ fight, asked of the fight, not a change to what the party was.
   the game and is often clicked through; a filter set by a stray click
   there would change every total on screen.
 
+## Isolating healing
+
+The Healing section asks its own three questions, as the Damage section asks
+its character, target and type: which casters (the Caster button, and the
+Overview's boxes), which targets, the people healed (the Target button, and
+the boxes beside the casters'), and which spells (the Spell button, a heal
+as its line names it, a pet's by its own name). None picked is everything.
+They cut no damage, and the damage's cut no healing: who healed whom is not
+a question about who dealt damage to what. The words are the Heals pane's:
+a caster casts, a target is healed.
+
+- **The Overview is the Damage section's, over the heals**
+  (`Tracker.Count`'s `HealGroups`, `OverviewTicks`). By caster, each
+  caster's heading has the targets they healed under it; By target, each
+  target's heading has their casters under it. A heading is pressed to fold
+  what is under it, a box ticked to isolate, by the same rules as the
+  damage's boxes (see "Isolating targets"): "Sylviane at Hasaya" is
+  Sylviane isolated and Hasaya isolated. The rows under a heading are of
+  the spells isolated, every caster at every target, so the next one is
+  picked from the same place. A caster's heading is of the targets and
+  spells isolated; a target's heading is everything that reached them.
+  Under a caster, a row's Healing % is that target's share of the
+  caster's, so the rows add to 100%; under a target, the caster's share of
+  what that target got. No pet column under a heading: it is the pet's
+  part of the caster's healing, and a row there is one target's.
+- **Each list is of what the others leave.** The casters listed are of
+  the targets and spells isolated; the targets of the casters and spells;
+  the spells of the casters and targets. A target none of the casters
+  isolated reached is not listed. One picked stays, with dashes, while
+  nothing that counts reached it.
+- **Asked of each heal, before its cast is folded.** A Curaga that reached
+  an isolated target and four others is one heal on that target, one cast
+  that reached them, what it healed them.
+- **A cast's MP is shared among everyone it reached, isolated or not**
+  (`Healing.Totals`' `reach`). A Curaga II on five charged to one of them
+  alone is a fifth of its 120 MP, as that person's MP Spent in the Heals
+  table always was; with two of the five isolated, two fifths. HP/MP is
+  then what was healed on them over what was spent on them. Charging the
+  whole cast to one target would read a Curaga as a poor heal on everyone
+  it reached.
+- **HPS stays a rate**, whatever is isolated, under a heading too. The
+  casters were healing all through the session, so their healing of one
+  target over its clock is a rate they healed that target at. Not as the
+  damage's targets: a monster is fought for part of the session, a party
+  member is in it all through.
+- **Support is cut by the casters alone.** A buff's or an enfeeble's
+  target is not a person healed, and no spell of a heal is a buff.
+- **The total says what it is of**: "Healing by Sylviane", "Cure IV
+  healing by Sylviane to Hasaya", "Healing of 2 spells by 2 casters to 3
+  targets", with its share of everyone's under it.
+- **Not a setting**, as the damage's filters are not: kept per parse and
+  emptied by Start and a new event file. The tab shown is saved
+  (`healOverviewBy`).
+- **A floating panel's strip is the casters'**, either tab, and dims; its
+  bar says what is isolated.
+
 ## Healing
 
 `Healing.Filter` applies the session window as the damage filter does, and
-the healers isolated (see "Isolating characters"), and credits a pet's heal
+the casters, targets and spells isolated (see "Isolating healing"), and
+credits a pet's heal
 to its owner.
 
 - **A pet's heals are its owner's healing**, as its damage is their damage:

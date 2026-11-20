@@ -20,6 +20,10 @@ public sealed class FilterOptions
     /// <summary>Only rows of one of these damage types
     /// (<see cref="DamageTypes.Of"/>). Null or empty: every type.</summary>
     public IReadOnlySet<string>? Types { get; init; }
+    /// <summary>Heals only: only heals of one of these spells, by
+    /// <see cref="HealEvent.Spell"/>. Null or empty: every spell. (A heal's
+    /// <see cref="Targets"/> is who it healed.)</summary>
+    public IReadOnlySet<string>? Spells { get; init; }
     /// <summary>Only the rows of this one fight (<see cref="Fight.Holds"/>).
     /// Null: every fight.</summary>
     public Fight? Fight { get; init; }

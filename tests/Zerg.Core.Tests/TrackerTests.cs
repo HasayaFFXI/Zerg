@@ -758,6 +758,64 @@ public class TrackerTests
     }
 
     [Fact]
+    public void Healing_isolated_to_a_target_counts_the_heals_on_them_alone()
+    {
+        var t = Following();
+        t.Start(20_000);
+        t.Feed([Lines.Hit(21, "Hasaya", 100),
+                Lines.Heal(22, "Sylviane", 300, "Curaga", "Hasaya", use: 900),
+                Lines.Heal(22, "Sylviane", 250, "Curaga", "Kirito", use: 900),
+                Lines.Heal(23, "Rhyllis", 90, "Curing Waltz", "Kirito"),
+                Lines.Heal(24, "Sylviane", 400, "Cure IV", "Kirito")]);
+        var c = t.Count(Nobody, true, 30_000, healTargets: new HashSet<string> { "Hasaya" });
+        Assert.Equal(300, c.Healing.Total);
+        Assert.Equal(1, c.Healing.Casts);
+        Assert.Equal(["Hasaya"], c.IsolatedHealTargets);
+        Assert.Equal(["Hasaya"], c.Heals.Select(h => h.Target).Distinct());
+        // The casters are of the target isolated; the targets of every caster;
+        // the rows under the headings of everyone at everyone.
+        Assert.Equal(["Sylviane"], c.Healers.Select(a => a.Name));
+        Assert.Equal([("Hasaya", 300d), ("Kirito", 740d)], c.HealTargets.Select(x => (x.Name, x.Total)));
+        Assert.Equal(1040, c.AllHealTargets);
+        Assert.Equal(1040, c.HealGroups.Total);
+        Assert.Equal(1040, c.HealWhole);
+        // The damage is untouched, and so is the rate's clock.
+        Assert.Equal(100, c.Totals.Total);
+        Assert.Equal(c.Clock, c.HealElapsed);
+
+        // A caster beside it: the targets list is that caster's.
+        var both = t.Count(Nobody, true, 30_000, healers: new HashSet<string> { "Rhyllis" },
+                           healTargets: new HashSet<string> { "Kirito" });
+        Assert.Equal(90, both.Healing.Total);
+        Assert.Equal([("Kirito", 90d)], both.HealTargets.Select(x => (x.Name, x.Total)));
+        Assert.Equal(["Sylviane", "Rhyllis"], both.Healers.Select(a => a.Name));
+        Assert.Equal("Healing by Rhyllis to Kirito", Healing.Heading(["Rhyllis"], ["Kirito"]));
+    }
+
+    [Fact]
+    public void Healing_isolated_to_a_spell_counts_its_heals_alone()
+    {
+        var t = Following();
+        t.Start(20_000);
+        t.Feed([Lines.Hit(21, "Hasaya", 100),
+                Lines.Heal(22, "Sylviane", 300, "Cure IV"),
+                Lines.Heal(23, "Rhyllis", 90, "Curing Waltz"),
+                Lines.Heal(24, "Sylviane", 200, "Cure III", "Kirito")]);
+        var c = t.Count(Nobody, true, 30_000, spells: new HashSet<string> { "Cure IV" });
+        Assert.Equal(300, c.Healing.Total);
+        Assert.Equal(["Cure IV"], c.IsolatedSpells);
+        // The spells listed are of the casters and targets isolated, every one of them.
+        Assert.Equal(["Cure III", "Cure IV", "Curing Waltz"], c.HealSpells.Select(s => s.Name));
+        Assert.Equal(590, c.AllSpells);
+        Assert.Equal(["Sylviane"], c.Healers.Select(a => a.Name));
+        // With a target isolated too, the spells listed are of what reached them.
+        var on = t.Count(Nobody, true, 30_000, healTargets: new HashSet<string> { "Hasaya" },
+                         spells: new HashSet<string> { "Cure IV" });
+        Assert.Equal([("Cure IV", 300d), ("Curing Waltz", 90d)], on.HealSpells.Select(s => (s.Name, s.Total)));
+        Assert.Equal("Cure IV healing to Hasaya", Healing.Heading([], ["Hasaya"], ["Cure IV"]));
+    }
+
+    [Fact]
     public void A_pets_heal_is_its_owners_healing_and_said_apart_too()
     {
         var t = Following();

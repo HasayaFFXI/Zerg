@@ -28,11 +28,11 @@ public sealed partial class MainViewModel
 
     [ObservableProperty] private string healTotalText = "0";
     [ObservableProperty] private string healTotalNote = "";
-    /// <summary>"Total healing", or with healers isolated "Healing by
-    /// Sylviane"; every one of them by name for the pointer.</summary>
+    /// <summary>"Total healing", or with something isolated "Healing by
+    /// Sylviane to Hasaya"; every one of them by name for the pointer.</summary>
     [ObservableProperty] private string healTotalLabel = Healing.Heading([]);
     [ObservableProperty] private string? healTotalTip;
-    /// <summary>With a healer isolated, what leads the note under the total:
+    /// <summary>With anything isolated, what leads the note under the total:
     /// how much of all the healing this is.</summary>
     string healTotalShare = "";
     [ObservableProperty] private string hpsText = "0.0";
@@ -72,10 +72,11 @@ public sealed partial class MainViewModel
         var h = c.Healing;
         HealTotalText = Format.Int(h.Total);
         var by = c.IsolatedHealers.Select(NameOf).ToList();
-        HealTotalLabel = Healing.Heading(by);
-        HealTotalTip = Healing.Told(by);
-        double whole = c.Healers.Sum(a => a.Total);
-        healTotalShare = by.Count > 0 && whole > 0
+        var to = c.IsolatedHealTargets.Select(NameOf).ToList();
+        HealTotalLabel = Healing.Heading(by, to, c.IsolatedSpells);
+        HealTotalTip = Healing.Told(by, to, c.IsolatedSpells);
+        double whole = c.HealWhole;
+        healTotalShare = (by.Count > 0 || to.Count > 0 || c.IsolatedSpells.Count > 0) && whole > 0
             ? Format.Num(h.Total / whole * 100, 1) + "% of " + Format.Int(whole) + Dot
             : "";
         // Whoever healed anything, their pet's heals included.
@@ -135,70 +136,65 @@ public sealed partial class MainViewModel
         };
     }
 
-    // -------------------------------------------------- healing by character
+    // ------------------------------------------------------ healing overview
+
+    // The Healing section's Overview, as the Damage section's is: a tab of
+    // casters with the targets each healed under them, and a tab of targets
+    // (the people healed) with their casters under them. A heading is
+    // pressed to fold, a box ticked to isolate; the boxes set the caster and
+    // target filters together (OverviewTicks), as the damage's set the
+    // character and target filters.
 
     public ObservableCollection<HealerRow> Healers { get; } = [];
     [ObservableProperty] private bool hasHealers;
+    /// <summary>The By target tab: each target's heading, and while it is
+    /// open the casters under it.</summary>
+    public ObservableCollection<HealerRow> HealTargetRows { get; } = [];
+    [ObservableProperty] private bool hasHealTargetRows;
     /// <summary>The line that closes the table: the party as a whole.</summary>
     public HealPartyRow HealParty { get; } = new();
 
     /// <summary>The card as it floats: one short row per character.</summary>
     public ObservableCollection<HealStripRow> HealStrip { get; } = [];
 
+    /// <summary>Something the boxes set is isolated: a caster or a target.</summary>
+    [ObservableProperty] private bool healOverviewOn;
+    /// <summary>What the pane says after its title: what is isolated, or
+    /// what the tab is and how it is used.</summary>
+    [ObservableProperty] private string healOverviewNote = "";
+
+    /// <summary>The casters, and the targets, whose rows show under their
+    /// heading, by real name. Every heading starts folded; not saved.</summary>
+    readonly HashSet<string> openCasters = new(StringComparer.Ordinal), openHealTargets = new(StringComparer.Ordinal);
+
     void DrawHealBars(Snapshot c)
     {
-        // Everyone who healed anything, a pet's heals counting as theirs,
-        // whoever is isolated: as in the Damage section, one isolated or not
-        // is listed with their own figures, and one isolated stays though
-        // they healed nothing. Largest first, or as the headings order it;
-        // the strip the same.
+        // Every caster, whoever is isolated: as in the Damage section, one
+        // isolated or not is listed with their own figures, and one
+        // isolated stays though they healed nothing. Largest first, or as
+        // the headings order it; the strip the same.
         var picked = HealerFilter.Picked;
         var listed = c.Healers.Where(a => a.Total > 0 || picked.Contains(a.Name)).ToList();
         foreach (var n in picked)
             if (!listed.Any(a => a.Name == n)) listed.Add(new HealerTotals { Name = n });
         var actors = HealersSort.Order(listed, HealerKey);
 
-        // The row is the bar, to the leading healer's healing.
+        // The row is the bar, to the leading caster's healing.
         double top = RowMarks.Largest(actors.Select(a => a.Total));
 
-        string Tip(HealerTotals a) => RowTip(a.Name, a.Avg is double avg ? Format.Int(avg) + " avg per cast" : null);
-
         HasHealers = actors.Count > 0;
-        Rows.Sync(Healers, actors, a => a.Name, a => new HealerRow(a.Name, HealerFilter.Toggle), (row, a) =>
-        {
-            var (isolated, dimmed, pick) = HealerFilter.Marks(a.Name, NameOf(a.Name));
-            row.Total = a.Total;
-            row.Shade = ShadeOf(a.Name);
-            row.Fraction = RowMarks.Fraction(a.Total, top);
-            row.IsOwner = a.Name == Roster.Owner;
-            row.Isolated = isolated;
-            row.Dimmed = dimmed;
-            row.Tip = Tip(a) + "\n" + pick;
-            row.Name = NameOf(a.Name);
-            row.Swatch = SwatchOf(a.Name);
-            row.Job = Roster.JobLabel(a.Name) is { Length: > 0 } job ? job : None;
-            row.JobTip = Roster.JobTitle(a.Name);
-            row.ShowJob = !HideNames;
-            row.Healing = Format.Int(a.Total);
-            row.Share = Percent(a.Share);
-            row.Casts = Format.Int(a.Casts);
-            row.Avg = Whole(a.Avg);
-            row.Mp = MpText(a.Mp);
-            row.PerMp = PerMpText(a.PerMp);
-            (row.Overcure, row.OvercurePct) = OvercureText(a.Overcure, a.OvercurePct);
-            // A dash, not a zero: most characters have no pet to have healed.
-            row.PetHealing = a.PetTotal != 0 ? Format.Int(a.PetTotal) : None;
-        });
+        DescribeHealOverview();
+        DrawCasterRows(c, actors, top);
+        if (HealOverviewByTarget) DrawHealTargetRows(c);
 
         // The Party line: the party's own figures, which the count already
-        // has (HealTotals), of the healers who count, and its Healing % theirs
-        // out of everyone's. The number under Job is how many rows above it
-        // count; its HPS is written by the draw beat with every row's.
+        // has (HealTotals), of the casters and targets who count, and its
+        // Healing % theirs out of everyone's. The number under Job is how
+        // many casters above it count; its HPS is written by the draw beat.
         var h = c.Healing;
-        double everyone = c.Healers.Sum(a => a.Total);
         HealParty.Count = Format.Int(actors.Count(a => !HealerFilter.Marks(a.Name, "").Dimmed));
         HealParty.Healing = Format.Int(h.Total);
-        HealParty.Share = everyone > 0 ? Percent(h.Total / everyone) : None;
+        HealParty.Share = c.HealWhole > 0 ? Percent(h.Total / c.HealWhole) : None;
         HealParty.Casts = Format.Int(h.Casts);
         HealParty.Avg = Whole(h.Avg);
         HealParty.Mp = MpText(h.Mp);
@@ -209,6 +205,7 @@ public sealed partial class MainViewModel
         // Floating, the strip: whichever of the table's columns the panel
         // shows (Tables.HealStrip). HPS is written by the draw beat once a
         // second, as the damage strip's DPS is.
+        string Tip(HealerTotals a) => RowTip(a.Name, a.Avg is double avg ? Format.Int(avg) + " avg per cast" : null);
         Rows.Sync(HealStrip, actors, a => a.Name, a => new HealStripRow(a.Name), (row, a) =>
         {
             row.Name = NameOf(a.Name);
@@ -219,7 +216,7 @@ public sealed partial class MainViewModel
             row.Total = a.Total;
             row.Healing = Format.Int(a.Total);
             row.Share = Percent(a.Share);
-            row.Hps = Format.Num(Counting.PerSecond(a.Total, c.HealElapsed / 1000) ?? double.NaN, 1);
+            row.Hps = HpsOf(c, a.Total);
             row.Casts = Format.Int(a.Casts);
             row.Avg = Whole(a.Avg);
             row.Mp = MpText(a.Mp);
@@ -231,6 +228,297 @@ public sealed partial class MainViewModel
             row.Tip = Tip(a);
         });
     }
+
+    /// <summary>Healing over the Healing section's clock, as a row prints
+    /// it. A rate whatever is isolated: the casters were healing all through.</summary>
+    static string HpsOf(Snapshot c, double total) =>
+        Format.Num(Counting.PerSecond(total, c.HealElapsed / 1000) ?? double.NaN, 1);
+
+    /// <summary>The targets a caster healed, as the rows under their heading
+    /// list them, of the spells isolated: every target, isolated or not; one
+    /// isolated that they reached and healed nothing stays, to be let go.</summary>
+    List<HealPart> TargetsOfCaster(Snapshot c, string who)
+    {
+        var targets = HealTargetFilter.Picked;
+        return c.HealGroups.Actors.FirstOrDefault(a => a.Name == who) is { } a
+            ? a.Targets.Where(t => t.Name.Length > 0 && (t.Total > 0 || targets.Contains(t.Name))).ToList()
+            : [];
+    }
+
+    /// <summary>The casters who healed a target, as the rows under its
+    /// heading list them; one isolated who reached it and healed nothing stays.</summary>
+    List<HealPart> CastersAt(Snapshot c, string target)
+    {
+        var casters = HealerFilter.Picked;
+        return c.HealGroups.Targets.FirstOrDefault(p => p.Name == target) is { } p
+            ? p.Parts.Where(a => a.Total > 0 || casters.Contains(a.Name)).ToList()
+            : [];
+    }
+
+    /// <summary>
+    /// The By caster tab: each caster's heading, pressed to show or put
+    /// away their targets, and under it while it is open each target they
+    /// healed. A target's row is the caster's healing on them; its Healing %
+    /// is its share of the caster's, so the rows under a heading add to
+    /// 100%, shaded in the caster's colour out of their largest target's.
+    /// </summary>
+    void DrawCasterRows(Snapshot c, List<HealerTotals> actors, double top)
+    {
+        var lines = new List<(string Key, HealerTotals Caster, HealPart? At, double Top, double Whole)>();
+        foreach (var a in actors)
+        {
+            lines.Add((a.Name, a, null, top, 0));
+            if (!openCasters.Contains(a.Name)) continue;
+            var under = TargetsOfCaster(c, a.Name);
+            double most = RowMarks.Largest(under.Select(t => t.Total));
+            double whole = under.Sum(t => t.Total);
+            foreach (var t in HealersSort.Order(under, column => HealPartKey(column, people: true)))
+                lines.Add((a.Name + PickFilter.Rest + t.Name, a, t, most, whole));
+        }
+
+        var casters = HealerFilter.Picked;
+        var targets = HealTargetFilter.Picked;
+        Rows.Sync(Healers, lines, l => l.Key,
+            l => l.At is { } at
+                ? new HealerRow(l.Key, _ => TickCasterAt(l.Caster.Name, at.Name), _ => TickCasterAt(l.Caster.Name, at.Name))
+                  { Nested = true, IsTarget = true }
+                : new HealerRow(l.Key, FoldCaster, TickCaster),
+            (row, l) =>
+            {
+                var a = l.Caster;
+                row.Shade = ShadeOf(a.Name);
+                row.ShowJob = !HideNames;
+                if (l.At is { } t)
+                {
+                    bool counts = OverviewTicks.Counts(casters, targets, a.Name, t.Name);
+                    row.Total = t.Total;
+                    row.Fraction = RowMarks.Fraction(t.Total, l.Top);
+                    row.Show(counts);
+                    row.Dimmed = HealOverviewOn && !counts;
+                    row.Name = NameOf(t.Name);
+                    row.TickName = (counts ? "Let go of " : "Isolate ") + NameOf(a.Name) + " at " + NameOf(t.Name);
+                    row.Tip = NameOf(a.Name) + " at " + NameOf(t.Name) + "\n" + Format.Int(t.Avg) + " avg per cast";
+                    row.Job = "";
+                    row.JobTip = "";
+                    WritePart(row, c, t, l.Whole > 0 ? Percent(t.Total / l.Whole) : None);
+                    return;
+                }
+                var tick = CasterTick(c, a.Name);
+                row.Total = a.Total;
+                row.Fraction = RowMarks.Fraction(a.Total, l.Top);
+                row.Open = openCasters.Contains(a.Name);
+                row.Show(TickOf(tick));
+                row.Dimmed = HealOverviewOn && tick == TickState.None;
+                row.IsOwner = a.Name == Roster.Owner;
+                row.TickName = (tick == TickState.All ? "Let go of " : "Isolate ") + NameOf(a.Name);
+                row.Tip = RowTip(a.Name, a.Avg is double avg ? Format.Int(avg) + " avg per cast" : null) + "\n" +
+                          (row.Open ? "Select to put away their targets" : "Select to show their targets");
+                row.Name = NameOf(a.Name);
+                row.Swatch = SwatchOf(a.Name);
+                row.Job = Roster.JobLabel(a.Name) is { Length: > 0 } job ? job : None;
+                row.JobTip = Roster.JobTitle(a.Name);
+                row.Healing = Format.Int(a.Total);
+                row.Share = Percent(a.Share);
+                row.Hps = HpsOf(c, a.Total);
+                row.Casts = Format.Int(a.Casts);
+                row.Avg = Whole(a.Avg);
+                row.Mp = MpText(a.Mp);
+                row.PerMp = PerMpText(a.PerMp);
+                (row.Overcure, row.OvercurePct) = OvercureText(a.Overcure, a.OvercurePct);
+                // A dash, not a zero: most characters have no pet to have healed.
+                row.PetHealing = a.PetTotal != 0 ? Format.Int(a.PetTotal) : None;
+            });
+        HasHealers = lines.Count > 0;
+    }
+
+    /// <summary>A row's figures from a part of the healing: one caster's on
+    /// one target. No pet column: the pet's part of it is not said apart here.</summary>
+    static void WritePart(HealerRow row, Snapshot c, HealPart p, string share)
+    {
+        row.Healing = Format.Int(p.Total);
+        row.Share = share;
+        row.Hps = HpsOf(c, p.Total);
+        row.Casts = Format.Int(p.Casts);
+        row.Avg = p.Casts > 0 ? Format.Int(p.Avg) : None;
+        row.Mp = MpText(p.Mp);
+        row.PerMp = PerMpText(p.PerMp);
+        (row.Overcure, row.OvercurePct) = OvercureText(p.Overcure, p.OvercurePct);
+        row.PetHealing = None;
+    }
+
+    void FoldCaster(string key)
+    {
+        if (!openCasters.Remove(key)) openCasters.Add(key);
+        // Nothing is counted again: the last count, with more or fewer of its lines.
+        if (snapshot is { } c) DrawHealBars(c);
+    }
+
+    void FoldHealed(string name)
+    {
+        if (!openHealTargets.Remove(name)) openHealTargets.Add(name);
+        if (snapshot is { } c) DrawHealTargetRows(c);
+    }
+
+    /// <summary>
+    /// The By target tab: each target (a person healed) as a heading with
+    /// everything that reached them of the spells isolated, pressed to show
+    /// or put away the casters under it. A target's Healing % is its share
+    /// of what everyone healed; a caster's is their share of what this
+    /// target got, shaded to their healing out of its leader's.
+    /// </summary>
+    void DrawHealTargetRows(Snapshot c)
+    {
+        var targets = HealTargetFilter.Picked;
+        var casters = HealerFilter.Picked;
+        var groups = c.HealGroups.Targets.Where(p => p.Name.Length > 0 && (p.Total > 0 || targets.Contains(p.Name))).ToList();
+        foreach (var n in targets)
+            if (!groups.Any(p => p.Name == n)) groups.Add(new HealPart { Name = n });
+        groups = HealersSort.Order(groups, column => HealPartKey(column, people: true));
+        double topTarget = RowMarks.Largest(groups.Select(p => p.Total));
+
+        var lines = new List<(string Key, HealPart Target, HealPart? Caster, double Top)>();
+        foreach (var p in groups)
+        {
+            lines.Add(("t" + PickFilter.Rest + p.Name, p, null, topTarget));
+            if (!openHealTargets.Contains(p.Name)) continue;
+            var under = CastersAt(c, p.Name);
+            double top = RowMarks.Largest(under.Select(a => a.Total));
+            foreach (var a in HealersSort.Order(under, column => HealPartKey(column, people: true)))
+                lines.Add(("c" + PickFilter.Rest + p.Name + PickFilter.Rest + a.Name, p, a, top));
+        }
+
+        double all = c.HealGroups.Total;
+        HasHealTargetRows = lines.Count > 0;
+        Rows.Sync(HealTargetRows, lines, l => l.Key,
+            l => l.Caster is { } who
+                ? new HealerRow(l.Key, _ => TickHealedBy(l.Target.Name, who.Name), _ => TickHealedBy(l.Target.Name, who.Name))
+                  { Nested = true }
+                : new HealerRow(l.Key, _ => FoldHealed(l.Target.Name), _ => TickHealed(l.Target.Name)) { IsTarget = true },
+            (row, l) =>
+            {
+                var p = l.Target;
+                row.ShowJob = !HideNames;
+                if (l.Caster is not { } a)
+                {
+                    var tick = HealedTick(c, p.Name);
+                    row.Total = p.Total;
+                    row.Shade = null;
+                    row.Fraction = 0;
+                    row.Name = NameOf(p.Name);
+                    row.Open = openHealTargets.Contains(p.Name);
+                    row.Show(TickOf(tick));
+                    row.Dimmed = HealOverviewOn && tick == TickState.None;
+                    row.TickName = (tick == TickState.All ? "Let go of " : "Isolate ") + NameOf(p.Name);
+                    row.Tip = NameOf(p.Name) + "\n" +
+                              (row.Open ? "Select to put away their casters" : "Select to show who healed them");
+                    row.Job = "";
+                    row.JobTip = "";
+                    WritePart(row, c, p, all > 0 ? Percent(p.Total / all) : None);
+                    return;
+                }
+                bool counts = OverviewTicks.Counts(targets, casters, p.Name, a.Name);
+                row.Total = a.Total;
+                row.Shade = ShadeOf(a.Name);
+                row.Fraction = RowMarks.Fraction(a.Total, l.Top);
+                row.IsOwner = a.Name == Roster.Owner;
+                row.Show(counts);
+                row.Dimmed = HealOverviewOn && !counts;
+                row.TickName = (counts ? "Let go of " : "Isolate ") + NameOf(a.Name) + " at " + NameOf(p.Name);
+                row.Tip = RowTip(a.Name, Format.Int(a.Avg) + " avg per cast on " + NameOf(p.Name));
+                row.Name = NameOf(a.Name);
+                row.Swatch = SwatchOf(a.Name);
+                row.Job = Roster.JobLabel(a.Name) is { Length: > 0 } job ? job : None;
+                row.JobTip = Roster.JobTitle(a.Name);
+                WritePart(row, c, a, p.Total > 0 ? Percent(a.Total / p.Total) : None);
+            });
+    }
+
+    void DescribeHealOverview()
+    {
+        var casters = HealerFilter.Picked;
+        var targets = HealTargetFilter.Picked;
+        HealOverviewOn = casters.Count > 0 || targets.Count > 0;
+        string Who() => casters.Count == 0 ? "everyone" : casters.Count == 1 ? NameOf(casters.First()) : casters.Count + " casters";
+        string At() => targets.Count == 1 ? NameOf(targets.First()) : targets.Count + " targets";
+        HealOverviewNote = HealOverviewOn
+            ? "Isolated: " + Who() + (targets.Count > 0 ? " at " + At() : "")
+            : HealOverviewByTarget
+                ? "Everyone healed. Select one for who healed them, and tick to isolate"
+                : "Total healed since the session started. Select a caster for their targets, and tick to isolate";
+    }
+
+    /// <summary>The Overview's Clear: every caster and every target count again.</summary>
+    [RelayCommand]
+    void ClearHealOverview() => SetHealPairs([], []);
+
+    /// <summary>What the boxes set: the casters isolated and the targets
+    /// isolated, both at once, then one count.</summary>
+    void SetHealPairs(IEnumerable<string> casters, IEnumerable<string> targets)
+    {
+        HealerFilter.Set(casters);
+        HealTargetFilter.Set(targets);
+        Log.Write("casters " + (HealerFilter.IsOn ? string.Join(", ", HealerFilter.Picked) : "all") +
+                  "; healed targets " + (HealTargetFilter.IsOn ? string.Join(", ", HealTargetFilter.Picked) : "all"));
+        Recount();
+    }
+
+    /// <summary>A caster's heading box, By caster: of their targets listed under them.</summary>
+    TickState CasterTick(Snapshot c, string who) =>
+        OverviewTicks.Heading(HealerFilter.Picked, HealTargetFilter.Picked, who,
+                              () => TargetsOfCaster(c, who).Select(t => t.Name).ToList());
+
+    /// <summary>A target's heading box, By target: of their casters listed under them.</summary>
+    TickState HealedTick(Snapshot c, string target) =>
+        OverviewTicks.Heading(HealTargetFilter.Picked, HealerFilter.Picked, target,
+                              () => CastersAt(c, target).Select(a => a.Name).ToList());
+
+    void TickCaster(string who)
+    {
+        if (snapshot is not { } c) return;
+        var (casters, targets) = OverviewTicks.PressHeading(HealerFilter.Picked, HealTargetFilter.Picked, who,
+                                                            CasterTick(c, who));
+        SetHealPairs(casters, targets);
+    }
+
+    void TickCasterAt(string who, string target)
+    {
+        if (snapshot is not { } c) return;
+        var (casters, targets) = OverviewTicks.PressPair(HealerFilter.Picked, HealTargetFilter.Picked, who, target,
+            TargetsOfCaster(c, who).Select(t => t.Name), CastersAt(c, target).Select(a => a.Name));
+        SetHealPairs(casters, targets);
+    }
+
+    void TickHealed(string target)
+    {
+        if (snapshot is not { } c) return;
+        var (targets, casters) = OverviewTicks.PressHeading(HealTargetFilter.Picked, HealerFilter.Picked, target,
+                                                            HealedTick(c, target));
+        SetHealPairs(casters, targets);
+    }
+
+    void TickHealedBy(string target, string who)
+    {
+        if (snapshot is not { } c) return;
+        var (targets, casters) = OverviewTicks.PressPair(HealTargetFilter.Picked, HealerFilter.Picked, target, who,
+            CastersAt(c, target).Select(a => a.Name), TargetsOfCaster(c, who).Select(t => t.Name));
+        SetHealPairs(casters, targets);
+    }
+
+    /// <summary>What each column orders a part of the healing by: a target
+    /// under a caster, a target's heading, a caster under a target. Job and
+    /// Pet Healing have none to give.</summary>
+    SortKey<HealPart>? HealPartKey(string column, bool people) => column switch
+    {
+        "name" => SortKey<HealPart>.Of(x => people ? NameOf(x.Name) : x.Name),
+        "healing" or "share" or "hps" => SortKey<HealPart>.Of(x => x.Total),
+        "casts" => SortKey<HealPart>.Of(x => x.Casts),
+        "avg" => SortKey<HealPart>.Of(x => x.Casts > 0 ? (double?)x.Avg : null),
+        "mp" => SortKey<HealPart>.Of(x => x.Mp > 0 ? (double?)x.Mp : null),
+        "perMp" => SortKey<HealPart>.Of(x => x.PerMp),
+        "overcure" => SortKey<HealPart>.Of(x => x.OvercurePct != null ? (double?)x.Overcure : null),
+        "overcurePct" => SortKey<HealPart>.Of(x => x.OvercurePct),
+        _ => null,
+    };
 
     /// <summary>What each column of the Healing by character table is
     /// ordered by: what it prints, a dash being nothing. Healing % and HPS go

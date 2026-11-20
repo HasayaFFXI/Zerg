@@ -100,7 +100,8 @@ public partial class PanelWindow : Window
         else BarTitle.Inlines.Add(new Run(info.Title));
         // Compare's live panel says what it compares in its own heading.
         string[] filters = info.Key == PanelSet.CompareLive ? []
-            : PanelSet.IsHealing(info.Key) ? [nameof(MainViewModel.HealerFilter)]
+            : PanelSet.IsHealing(info.Key)
+                ? [nameof(MainViewModel.HealerFilter), nameof(MainViewModel.HealTargetFilter), nameof(MainViewModel.SpellFilter)]
             : [nameof(MainViewModel.CharacterFilter), nameof(MainViewModel.TargetFilter), nameof(MainViewModel.TypeFilter)];
         foreach (var filter in filters)
         {

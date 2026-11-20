@@ -314,14 +314,19 @@ public class DamageTypesTests
     }
 
     [Fact]
-    public void A_healing_total_says_which_healers_it_is_of()
+    public void A_healing_total_says_what_it_is_of()
     {
         Assert.Equal("Total healing", Healing.Heading([]));
         Assert.Equal("Healing by Sylviane", Healing.Heading(["Sylviane"]));
-        Assert.Equal("Healing by 2 characters", Healing.Heading(["Sylviane", "Rhyllis"]));
+        Assert.Equal("Healing by 2 casters", Healing.Heading(["Sylviane", "Rhyllis"]));
+        Assert.Equal("Healing to 2 targets", Healing.Heading([], ["Hasaya", "Kirito"]));
+        Assert.Equal("Healing of 2 spells by Sylviane to Hasaya",
+                     Healing.Heading(["Sylviane"], ["Hasaya"], ["Cure IV", "Curaga"]));
 
         Assert.Null(Healing.Told([]));
         Assert.Equal("Only the healing done by Sylviane, Rhyllis", Healing.Told(["Sylviane", "Rhyllis"]));
+        Assert.Equal("Only the healing done to Hasaya", Healing.Told([], ["Hasaya"]));
+        Assert.Equal("Only the Cure IV healing done by Sylviane to Hasaya", Healing.Told(["Sylviane"], ["Hasaya"], ["Cure IV"]));
     }
 
     [Fact]

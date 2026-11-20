@@ -100,6 +100,10 @@ public sealed class Settings
     /// installed (By character), or "Targets" (By target).</summary>
     public string OverviewBy { get; set; } = "Characters";
 
+    /// <summary>Which tab the Healing section's Overview shows: "Casters",
+    /// as installed (By caster), or "Targets" (By target).</summary>
+    public string HealOverviewBy { get; set; } = "Casters";
+
     /// <summary>What a build before <see cref="Columns"/> kept: the column
     /// groups the Overview's Columns menu had hidden ("ranged", "pet").
     /// Read once into <see cref="Columns"/>' "bars", then no longer
@@ -318,6 +322,7 @@ public sealed class Settings
         SupportBy ??= installed.SupportBy;
         FiltersBy ??= installed.FiltersBy;
         OverviewBy ??= installed.OverviewBy;
+        HealOverviewBy ??= installed.HealOverviewBy;
         if (CompareBy is not null)
         {
             CompareOverviewBy = CompareBy == "Job" ? "Jobs" : "Characters";

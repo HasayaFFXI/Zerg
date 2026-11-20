@@ -252,25 +252,58 @@ public static class Healing
             if (Counting.Credited(h.Owner, h.Actor, h.Pet) is { } by)
                 c = c with { Actor = h.Owner!, By = by, Action = Counting.Credited(by, h.Action), Spell = h.Spell };
             if (!Counting.Counts(opts.Characters, c.Actor)) continue;
+            // Who it healed, and with what: asked of each heal, so a Curaga
+            // that reached an isolated target and four others is the one heal
+            // on that target.
+            if (opts.Targets is { Count: > 0 } to && !to.Contains(c.Target)) continue;
+            if (opts.Spells is { Count: > 0 } sp && !sp.Contains(c.Spell)) continue;
             if (el is double t) c = c with { T = t };
             output.Add(c);
         }
         return output;
     }
 
-    /// <summary>The label over the healing total: "Total healing" with no
-    /// healer isolated, "Healing by Sylviane" with one (a long name cut),
-    /// "Healing by 2 characters" with more.</summary>
-    /// <param name="by">The healers isolated, as they are drawn.</param>
-    public static string Heading(IReadOnlyCollection<string> by) =>
-        by.Count == 0 ? "Total healing"
-        : by.Count == 1 ? "Healing by " + Targets.Short(by.First(), Targets.LabelLength)
-        : "Healing by " + Format.Int(by.Count) + " characters";
+    /// <summary>The label over the healing total: "Total healing" with
+    /// nothing isolated; otherwise what is, as the damage total's says it:
+    /// "Healing by Sylviane", "Cure IV healing by Sylviane to Hasaya",
+    /// "Healing of 2 spells by 2 casters to 3 targets" (a long name cut).</summary>
+    /// <param name="by">The casters isolated, as they are drawn.</param>
+    /// <param name="to">The targets isolated (the people healed), as they are drawn.</param>
+    /// <param name="spells">The spells isolated.</param>
+    public static string Heading(IReadOnlyCollection<string> by, IReadOnlyCollection<string>? to = null,
+                                 IReadOnlyCollection<string>? spells = null)
+    {
+        to ??= [];
+        spells ??= [];
+        if (by.Count == 0 && to.Count == 0 && spells.Count == 0) return "Total healing";
+        var what = spells.Count == 0 ? "Healing"
+            : spells.Count == 1 ? Targets.Short(spells.First(), Targets.LabelLength) + " healing"
+            : "Healing of " + Format.Int(spells.Count) + " spells";
+        return what + (by.Count == 0 ? ""
+            : by.Count == 1 ? " by " + Targets.Short(by.First(), Targets.LabelLength)
+            : " by " + Format.Int(by.Count) + " casters") + (to.Count == 0 ? ""
+            : to.Count == 1 ? " to " + Targets.Short(to.First(), Targets.LabelLength)
+            : " to " + Format.Int(to.Count) + " targets");
+    }
 
     /// <summary>The same in a sentence, with every name, for the pointer;
-    /// null with no healer isolated.</summary>
-    public static string? Told(IReadOnlyCollection<string> by) =>
-        by.Count == 0 ? null : "Only the healing done by " + string.Join(", ", by);
+    /// null with nothing isolated.</summary>
+    public static string? Told(IReadOnlyCollection<string> by, IReadOnlyCollection<string>? to = null,
+                               IReadOnlyCollection<string>? spells = null) =>
+        by.Count == 0 && to is not { Count: > 0 } && spells is not { Count: > 0 } ? null
+        : "Only " + (spells is { Count: > 0 } ? "the " + string.Join(", ", spells) + " healing" : "the healing") +
+          (by.Count > 0 ? " done by " + string.Join(", ", by) : "") +
+          (to is { Count: > 0 } ? (by.Count > 0 ? " to " : " done to ") + string.Join(", ", to) : "");
+
+    /// <summary>What each spell healed (<see cref="HealEvent.Spell"/>), a
+    /// pet's included: the Spell button's list.</summary>
+    public static Dictionary<string, double> BySpell(IEnumerable<HealEvent> heals)
+    {
+        var by = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var h in heals)
+            by[h.Spell] = by.GetValueOrDefault(h.Spell) + (double.IsNaN(h.Hp) ? 0 : h.Hp);
+        return by;
+    }
 
     /// <summary>
     /// The heals as rows the cumulative line and the distribution can read
@@ -302,7 +335,14 @@ public static class Healing
     /// <summary>Heals (already filtered) → per character, per action. Largest first.</summary>
     /// <param name="overcure">The session's bases (<see cref="Overcure.Fit"/>),
     /// which every heal's overcure is measured against; none without.</param>
-    public static HealTotals Totals(IReadOnlyList<HealEvent> heals, Overcure? overcure = null)
+    /// <param name="reach">With targets isolated, every heal of the casts
+    /// <paramref name="heals"/> came from, whoever it reached: a cast's MP is
+    /// shared among everyone it reached, so a Curaga II on five charged to
+    /// one of them alone is a fifth of its cost. Null: the heals are whole
+    /// casts (nothing is isolated, or only casters or spells, which keep
+    /// a cast whole).</param>
+    public static HealTotals Totals(IReadOnlyList<HealEvent> heals, Overcure? overcure = null,
+                                    IReadOnlyList<HealEvent>? reach = null)
     {
         // In the order they first healed, which is the order a tie keeps.
         var by = new OrderedDictionary<string, HealerTotals>(StringComparer.Ordinal);
@@ -310,7 +350,10 @@ public static class Healing
         var spells = new OrderedDictionary<string, HealPart>(StringComparer.Ordinal);
         double total = 0, petTotal = 0, max = 0, mpAll = 0, costedAll = 0, ocAll = 0, curedAll = 0;
         int casts = 0;
-        var reached = Reached(heals);
+        var reached = Reached(reach ?? heals);
+        // How many of those people these heals are of: all of them, but for
+        // targets isolated.
+        var here = reach is null ? reached : Reached(heals);
 
         foreach (var h in heals)
         {
@@ -324,9 +367,12 @@ public static class Healing
             // The cast's MP, and each person's part of it: shared evenly
             // among everyone the cast reached.
             var cost = ManaCost.Of(h);
-            double? each = cost is double c
-                ? c / (h.Use is double u && reached.TryGetValue(u, out var n) ? n : 1)
-                : null;
+            int all = h.Use is double u && reached.TryGetValue(u, out var n) ? n : 1;
+            double? each = cost is double c ? c / all : null;
+            // What the cast is charged here, once: the parts of the people
+            // counted, which is all of it unless targets are isolated.
+            if (cost is double whole && h.Use is double uu && here.TryGetValue(uu, out var m) && m < all)
+                cost = whole * m / all;
 
             double? oc = overcure?.Of(h);
             if (oc is double o)

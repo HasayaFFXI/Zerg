@@ -46,9 +46,10 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>What one parse was being looked into with: its
     /// drill-downs (a heal one for each of the Heals table's three ways) and the
-    /// characters, healers, targets, types and fight isolated in it.</summary>
+    /// characters, targets, types and fight isolated in it, and the casters,
+    /// targets and spells its healing is isolated to.</summary>
     sealed record Looking(DrillOn? Drill, DrillOn? HealDrill, DrillOn? PersonDrill, DrillOn? HealedDrill, string[] Characters,
-                          string[] Healers, string[] Targets, string[] Types, Fight? Fight,
+                          string[] Healers, string[] HealTargets, string[] Spells, string[] Targets, string[] Types, Fight? Fight,
                           ClockRange? DamageRange, ClockRange? HealingRange, Session? RangedOf);
 
     /// <summary>
@@ -185,10 +186,20 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     public PickFilter CharacterFilter { get; }
 
-    /// <summary>Which characters the healing is isolated to: the rows of the
-    /// Healing by character table, which has no button. The Healing
-    /// section's own; it cuts no damage. Kept and emptied as the other is.</summary>
+    /// <summary>Which casters the healing is isolated to: the Caster button
+    /// in the Healing section's command bar, and the boxes of its Overview.
+    /// The Healing section's own; it cuts no damage. Kept and emptied as
+    /// the damage's filters are.</summary>
     public PickFilter HealerFilter { get; }
+
+    /// <summary>Which targets the healing is isolated to, the people healed:
+    /// the Target button in the Healing section's command bar, and the
+    /// Overview's boxes beside the casters'. It cuts the heals alone.</summary>
+    public PickFilter HealTargetFilter { get; }
+
+    /// <summary>Which spells the healing is isolated to: the Spell button
+    /// beside those two. It cuts the heals alone.</summary>
+    public PickFilter SpellFilter { get; } = PickFilter.OfSpells();
 
     /// <summary>
     /// Which targets the damage on screen is isolated to, and the list they
@@ -249,6 +260,26 @@ public sealed partial class MainViewModel : ObservableObject
         settings.OverviewBy = value;
         settings.Save();
         if (snapshot is { } c) DrawBars(c);
+    }
+
+    const string HealOverviewByCasters = "Casters", HealOverviewByTargets = "Targets";
+
+    /// <summary>Which of the Healing section's Overview tabs is shown:
+    /// "Casters" (By caster, each caster's targets under them) or "Targets"
+    /// (By target, each target's casters under them). Saved, as the
+    /// Damage section's is; a floating one is the casters' strip either way.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HealOverviewByTarget))]
+    private string healOverviewBy = HealOverviewByCasters;
+
+    /// <summary>The Healing section's By target tab is shown.</summary>
+    public bool HealOverviewByTarget => HealOverviewBy == HealOverviewByTargets;
+
+    partial void OnHealOverviewByChanged(string value)
+    {
+        settings.HealOverviewBy = value;
+        settings.Save();
+        if (snapshot is { } c) DrawHealBars(c);
     }
 
     // ------------------------------------------------------------- columns
@@ -324,6 +355,7 @@ public sealed partial class MainViewModel : ObservableObject
         MakeSavers();
         CharacterFilter = PickFilter.OfCharacters(NameOf);
         HealerFilter = PickFilter.OfHealers(NameOf);
+        HealTargetFilter = PickFilter.OfHealTargets(NameOf);
         Panels = new PanelSet(settings);
         DamageDrill = new DrillView(DrillWords.Damage, Panels[PanelSet.Actions], Panels[PanelSet.Drill],
                                     CloseDrillCommand, SwapDrillCommand, MakeDamagePick(), new ColumnSort("hits", settings));
@@ -357,6 +389,7 @@ public sealed partial class MainViewModel : ObservableObject
         supportBy = settings.SupportBy == SupportByEnfeebles ? SupportByEnfeebles : SupportByBuffs;
         filtersBy = settings.FiltersBy == FiltersByTypes ? FiltersByTypes : FiltersByTargets;
         overviewBy = settings.OverviewBy == OverviewByTargets ? OverviewByTargets : OverviewByCharacters;
+        healOverviewBy = settings.HealOverviewBy == HealOverviewByTargets ? HealOverviewByTargets : HealOverviewByCasters;
         ReadOldHidden(settings);
         BarsColumns = TableColumns.Strip(CharacterColumns.Table, Tables.Strip, settings);
         ActionsColumns = new TableColumns(Tables.Actions, settings);
@@ -387,7 +420,17 @@ public sealed partial class MainViewModel : ObservableObject
         };
         HealerFilter.Changed += () =>
         {
-            Log.Write("healers " + (HealerFilter.IsOn ? string.Join(", ", HealerFilter.Picked) : "all"));
+            Log.Write("casters " + (HealerFilter.IsOn ? string.Join(", ", HealerFilter.Picked) : "all"));
+            Recount();
+        };
+        HealTargetFilter.Changed += () =>
+        {
+            Log.Write("healed targets " + (HealTargetFilter.IsOn ? string.Join(", ", HealTargetFilter.Picked) : "all"));
+            Recount();
+        };
+        SpellFilter.Changed += () =>
+        {
+            Log.Write("spells " + (SpellFilter.IsOn ? SpellFilter.Names : "all"));
             Recount();
         };
         TargetFilter.Changed += () =>
@@ -478,6 +521,8 @@ public sealed partial class MainViewModel : ObservableObject
                 // them; so were its characters.
                 CharacterFilter.Reset();
                 HealerFilter.Reset();
+                HealTargetFilter.Reset();
+                SpellFilter.Reset();
                 TargetFilter.Reset();
                 TypeFilter.Reset();
                 fight = null;
@@ -592,6 +637,8 @@ public sealed partial class MainViewModel : ObservableObject
         // and so do a fight and the characters isolated.
         CharacterFilter.Reset();
         HealerFilter.Reset();
+        HealTargetFilter.Reset();
+        SpellFilter.Reset();
         TargetFilter.Reset();
         TypeFilter.Reset();
         fight = null;
@@ -688,13 +735,16 @@ public sealed partial class MainViewModel : ObservableObject
         {
             if (drawn != null)
                 looking[drawn] = new(drill, healDrill, personDrill, healedDrill, [.. CharacterFilter.Picked],
-                                     [.. HealerFilter.Picked], [.. TargetFilter.Picked], [.. TypeFilter.Picked], fight,
+                                     [.. HealerFilter.Picked], [.. HealTargetFilter.Picked], [.. SpellFilter.Picked],
+                                     [.. TargetFilter.Picked], [.. TypeFilter.Picked], fight,
                                      DamageRange, HealingRange, rangedOf);
             drawn = Shown;
             looking.Remove(drawn, out var back);
             (drill, healDrill, personDrill, healedDrill) = (back?.Drill, back?.HealDrill, back?.PersonDrill, back?.HealedDrill);
             CharacterFilter.Set(back?.Characters ?? []);
             HealerFilter.Set(back?.Healers ?? []);
+            HealTargetFilter.Set(back?.HealTargets ?? []);
+            SpellFilter.Set(back?.Spells ?? []);
             TargetFilter.Set(back?.Targets ?? []);
             TypeFilter.Set(back?.Types ?? []);
             fight = back?.Fight;
@@ -702,7 +752,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
         KeepRanges();
         var c = snapshot = Shown.Count(CharacterFilter.Only, Skillchains, now, TargetFilter.Only, TypeFilter.Only, fight,
-                                       HealerFilter.Only, DamageRange, HealingRange);
+                                       HealerFilter.Only, DamageRange, HealingRange, HealTargetFilter.Only, SpellFilter.Only);
         if (c.Latched) LogSession("started");
         // A drill-down into an action never used on what is isolated closes,
         // as it does when its character is not among those isolated; one set
@@ -796,7 +846,10 @@ public sealed partial class MainViewModel : ObservableObject
             // Healing per second is over the session clock, as damage's is,
             // or over the Healing section's range.
             HpsText = Format.Num(Counting.PerSecond(heals?.Total ?? 0, healSecs) ?? double.NaN, 1);
-            foreach (var row in Healers) row.Hps = Format.Num(Counting.PerSecond(row.Total, healSecs) ?? double.NaN, 1);
+            // Every row of the tab shown, those under a heading too: a rate
+            // whatever is isolated (RULES.md, "Isolating healing").
+            foreach (var row in HealOverviewByTarget ? HealTargetRows : Healers)
+                row.Hps = Format.Num(Counting.PerSecond(row.Total, healSecs) ?? double.NaN, 1);
             HealParty.Hps = HpsText;
         }
         StripRates(secs, healSecs);

@@ -173,4 +173,31 @@ public class ManaCostTests
         var b = Heal(2, "Mage", "Cure II", 2, "A", 90) with { Use = null };
         Assert.Equal(48, Healing.Totals([a, b]).Mp);
     }
+
+    [Fact]
+    public void With_targets_isolated_a_cast_is_charged_their_part_of_it()
+    {
+        List<HealEvent> all =
+        [
+            Heal(1, "Mage", "Curaga II", 8, "A", 200),
+            Heal(1, "Mage", "Curaga II", 8, "B", 200),
+            Heal(1, "Mage", "Curaga II", 8, "C", 200),
+            Heal(2, "Mage", "Cure IV", 4, "A", 440),
+        ];
+        var onA = Healing.Filter(all, new FilterOptions { Targets = new HashSet<string> { "A" } });
+        var t = Healing.Totals(onA, reach: all);
+        var mage = t.Actors.Single();
+        // A third of the Curaga, and the whole Cure IV.
+        Assert.Equal(40 + 88, mage.Mp);
+        Assert.Equal(640.0 / 128, mage.PerMp);
+        Assert.Equal(40, mage.Actions["Curaga II"].Mp);
+        Assert.Equal(1, mage.Actions["Curaga II"].Casts);
+        Assert.Equal(128, t.Mp);
+        Assert.Equal(40, t.Spells.Single(s => s.Name == "Curaga II").Mp);
+        // Two of the three: two thirds, charged once.
+        var onAB = Healing.Filter(all, new FilterOptions { Targets = new HashSet<string> { "A", "B" } });
+        Assert.Equal(80 + 88, Healing.Totals(onAB, reach: all).Mp);
+        // Without the casts it is whole: what reached A is all the Curaga reached.
+        Assert.Equal(120 + 88, Healing.Totals(onA).Mp);
+    }
 }

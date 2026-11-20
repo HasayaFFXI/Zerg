@@ -31,14 +31,46 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
     /// <summary>How many times this character died, isolated or not.</summary>
     public int DiedOf(string name) => Died.Count(d => d.Name == name);
 
-    /// <summary>The characters healing is isolated to, by name; none while
+    /// <summary>The casters healing is isolated to, by name; none while
     /// everyone counts. The Healing section's own: it cuts the heals and
     /// the support, and no damage.</summary>
     public IReadOnlyList<string> IsolatedHealers { get; init; } = [];
 
+    /// <summary>The targets healing is isolated to: the people healed, by
+    /// name; none while everyone counts. It cuts the heals alone.</summary>
+    public IReadOnlyList<string> IsolatedHealTargets { get; init; } = [];
+
+    /// <summary>The spells healing is isolated to (<see cref="HealEvent.Spell"/>);
+    /// none while every spell counts. It cuts the heals alone.</summary>
+    public IReadOnlyList<string> IsolatedSpells { get; init; } = [];
+
     /// <summary>The heals that count: in the session, the party's, of the
-    /// healers isolated, on the session clock, a pet's credited to its owner.</summary>
+    /// casters, targets and spells isolated, on the session clock, a pet's
+    /// credited to its owner.</summary>
     public IReadOnlyList<HealEvent> Heals { get; init; } = [];
+
+    /// <summary>The healing of the spells isolated, of every caster to every
+    /// target: what the Overview's rows under a heading are read from
+    /// (<see cref="HealTotals.Targets"/> By target, a caster's
+    /// <see cref="HealerTotals.Targets"/> By caster), so that each lists
+    /// everyone, isolated or not.</summary>
+    public HealTotals HealGroups { get; init; } = new();
+
+    /// <summary>What each person healed got from the casters isolated, of
+    /// the spells isolated: every target, isolated or not, alphabetically.</summary>
+    public IReadOnlyList<TargetTotal> HealTargets { get; init; } = [];
+    /// <summary>What those add up to: the figure of "All targets".</summary>
+    public double AllHealTargets { get; init; }
+
+    /// <summary>What each spell healed, of the casters and targets isolated:
+    /// every spell, isolated or not, alphabetically.</summary>
+    public IReadOnlyList<TargetTotal> HealSpells { get; init; } = [];
+    /// <summary>What those add up to: the figure of "All spells".</summary>
+    public double AllSpells { get; init; }
+
+    /// <summary>Everyone's healing over the Healing section's range, nothing
+    /// isolated: what an isolated total is a share of.</summary>
+    public double HealWhole { get; init; }
 
     /// <summary>The party's healing, over those heals.</summary>
     public HealTotals Healing { get; init; } = new();
@@ -197,8 +229,8 @@ public sealed record Snapshot(IReadOnlyList<CombatEvent> Events, Aggregate Total
         IsolatedFight != null && Isolated.Count == 0 ? null : Zerg.Core.Kills.PerHour(Killed.Count, seconds);
 
     /// <summary>Every character who healed in the session, largest first,
-    /// isolated or not, each with their share of them all: what the
-    /// Healing by character table lists.</summary>
+    /// isolated or not, each with their share of them all, of the targets
+    /// and spells isolated: what the Overview's casters are.</summary>
     public IReadOnlyList<HealerTotals> Healers { get; init; } = [];
 
     /// <summary>The biggest hit of any action; the first found wins a tie.</summary>
@@ -582,9 +614,14 @@ public sealed class Tracker
     /// either, and unlike a target takes no rate away.</param>
     /// <param name="fight">One fight to isolate (a line of the Battle Log):
     /// only damage of its rows is counted. As a target is, and with it.</param>
-    /// <param name="healers">Characters to isolate healing to, by name: only
+    /// <param name="healers">Casters to isolate healing to, by name: only
     /// their heals and support are counted. The Healing section's own; it
     /// moves no damage figure. Null or empty: everyone.</param>
+    /// <param name="healTargets">Targets to isolate healing to: only heals on
+    /// these people are counted. Heals alone: no support, no damage figure,
+    /// and no rate (HPS stays: the casters were healing all through).</param>
+    /// <param name="spells">Spells to isolate healing to: only heals of
+    /// these are counted. Heals alone, as targets.</param>
     /// <param name="range">The Damage section's range (<see cref="ClockRange"/>):
     /// only damage, kills, deaths and delay inside it are counted, over its
     /// own clock. Null: the whole session. The Timeline's rows are not cut.</param>
@@ -594,7 +631,8 @@ public sealed class Tracker
     public Snapshot Count(IReadOnlySet<string>? characters, bool skillchains, double? now = null,
                           IReadOnlySet<string>? targets = null, IReadOnlySet<string>? types = null,
                           Fight? fight = null, IReadOnlySet<string>? healers = null,
-                          ClockRange? range = null, ClockRange? healRange = null)
+                          ClockRange? range = null, ClockRange? healRange = null,
+                          IReadOnlySet<string>? healTargets = null, IReadOnlySet<string>? spells = null)
     {
         var all = Reader.Events;
         var roster = Reader.Roster;
@@ -666,16 +704,41 @@ public sealed class Tracker
         // none of them can start the clock: only a counted hit does that, and
         // a cure cast before the first swing falls before the zero.
         var healWho = Targets.Only(healers);
+        var healTo = Targets.Only(healTargets);
+        var onlySpells = Targets.Only(spells);
         var healSession = HealScoped();
         var healScoped = healRange is null ? healSession : ClockRange.Within(healSession, healCut);
-        var healShown = Healing.Filter(healScoped, new FilterOptions { Characters = healWho });
+        // Always a new list: the one kept between counts grows.
+        var healOptions = new FilterOptions { Characters = healWho, Targets = healTo, Spells = onlySpells };
+        var healShown = Healing.Filter(healScoped, healOptions);
         // Overcure is measured against what each caster's cures heal over
-        // the whole session, whatever the range or the healers isolated.
+        // the whole session, whatever the range or what is isolated.
         var overcure = OvercureNow(healSession);
-        var healing = Healing.Totals(healShown, overcure);
-        var byHealer = healWho != null ? Healing.Totals(healScoped, overcure) : healing;
-        var healTimeline = healRange is null ? healShown
-            : Healing.Filter(healSession, new FilterOptions { Characters = healWho });
+        // A cast's MP is shared among everyone it reached, isolated or not.
+        var casts = healTo != null ? healScoped : null;
+        var healing = Healing.Totals(healShown, overcure, casts);
+        // Each list before its own filter and after the others', as the
+        // damage's: the casters of the targets and spells isolated; every
+        // caster at every target of the spells isolated, for the rows under
+        // the Overview's headings; the targets of the casters and spells
+        // isolated; the spells of the casters and targets isolated.
+        var ofSpells = onlySpells != null ? Healing.Filter(healScoped, new FilterOptions { Spells = onlySpells }) : healScoped;
+        var groups = healWho == null && healTo == null ? healing : Healing.Totals(ofSpells, overcure);
+        var byHealer = healWho == null ? healing
+            : healTo == null ? groups
+            : Healing.Totals(Healing.Filter(ofSpells, new FilterOptions { Targets = healTo }), overcure, casts);
+        // A target none of the casters isolated reached is not listed.
+        var healTargetTotals = groups.Targets
+            .Where(p => p.Name.Length > 0 && (healWho == null || p.Parts.Any(x => healWho.Contains(x.Name))))
+            .ToDictionary(p => p.Name,
+            p => healWho == null ? p.Total : p.Parts.Where(x => healWho.Contains(x.Name)).Sum(x => x.Total),
+            StringComparer.Ordinal);
+        var bySpell = Healing.BySpell(onlySpells == null ? healShown
+            : Healing.Filter(healScoped, new FilterOptions { Characters = healWho, Targets = healTo }));
+        double healWhole = 0;
+        foreach (var h in healScoped)
+            if (!double.IsNaN(h.Hp)) healWhole += h.Hp;
+        var healTimeline = healRange is null ? healShown : Healing.Filter(healSession, healOptions);
         // Support likewise: kept apart from the damage rows, so a Protect
         // before the pull neither starts the clock nor is counted, since it
         // falls before the zero.
@@ -702,7 +765,15 @@ public sealed class Tracker
             Characters = byCharacter.Actors,
             IsolatedCharacters = who != null ? Targets.Sorted(who) : [],
             IsolatedHealers = healWho != null ? Targets.Sorted(healWho) : [],
+            IsolatedHealTargets = healTo != null ? Targets.Sorted(healTo) : [],
+            IsolatedSpells = onlySpells != null ? Targets.Sorted(onlySpells) : [],
             Heals = healShown, Healing = healing, Healers = byHealer.Actors, Support = support, Enfeebles = enfeebles,
+            HealGroups = groups,
+            HealTargets = Targets.Pickable(healTargetTotals.Keys).Select(n => new TargetTotal(n, healTargetTotals[n])).ToList(),
+            AllHealTargets = healTargetTotals.Values.Sum(),
+            HealSpells = Targets.Pickable(bySpell.Keys).Select(n => new TargetTotal(n, bySpell[n])).ToList(),
+            AllSpells = bySpell.Values.Sum(),
+            HealWhole = healWhole,
             Isolated = only != null ? Targets.Sorted(only) : [],
             Targets = Targets.Pickable(byTarget.Keys).Select(n => new TargetTotal(n, byTarget[n])).ToList(),
             AllTargets = byTarget.Values.Sum(),

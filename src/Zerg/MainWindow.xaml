@@ -516,16 +516,23 @@
 
           <!-- Which characters the damage is isolated to, which targets and
                which damage types, and the way to pick them: filters on what
-               damage is counted. Not offered over healing (whose table
-               isolates its own healers); the whole group goes, and the bar
-               draws one rule where two would meet. In Compare the last two
-               are on the Compare card too. One piece, so a narrow window
-               wraps the group and never parts it. -->
+               damage is counted. In Compare the last two are on the Compare
+               card too. One piece, so a narrow window wraps the group and
+               never parts it. -->
           <StackPanel Orientation="Horizontal" Margin="0,0,0,6"
                       Visibility="{Binding IsDamage, Converter={StaticResource Visible}}">
             <v:PickButton DataContext="{Binding CharacterFilter}" Margin="0,0,6,0"/>
             <v:PickButton DataContext="{Binding TargetFilter}" Margin="0,0,6,0"/>
             <v:PickButton DataContext="{Binding TypeFilter}"/>
+          </StackPanel>
+          <!-- Over healing, its own three: which casters, which targets (the
+               people healed) and which spells. The Overview's boxes set the
+               first two as well. -->
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,6"
+                      Visibility="{Binding IsHealing, Converter={StaticResource Visible}}">
+            <v:PickButton DataContext="{Binding HealerFilter}" Margin="0,0,6,0"/>
+            <v:PickButton DataContext="{Binding HealTargetFilter}" Margin="0,0,6,0"/>
+            <v:PickButton DataContext="{Binding SpellFilter}"/>
           </StackPanel>
           <!-- In Compare, the same three over both runs, by name. -->
           <StackPanel Orientation="Horizontal" Margin="0,0,0,6"

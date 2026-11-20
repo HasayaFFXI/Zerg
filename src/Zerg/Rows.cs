@@ -308,17 +308,55 @@ public interface IGroupedRow
     bool IsUnder => false;
 }
 
-/// <summary>One character in the Healing section's per-character table: a
-/// row to press, which isolates their healing (or lets it go).</summary>
-public sealed partial class HealerRow(string key, Action<string> pick) : Row(key)
+/// <summary>
+/// One row of the Healing section's Overview, as <see cref="ActorRow"/> is
+/// of the Damage section's: a heading (a caster, or By target a target, the
+/// person healed) or a row under one (Nested: a target under a caster, a
+/// caster under a target). A heading is pressed to fold what is under it,
+/// a row under one to tick its box; the box isolates.
+/// </summary>
+public sealed partial class HealerRow(string key, Action<string> press, Action<string> tick) : Row(key)
 {
-    /// <summary>Healing is isolated to this character, alone or among others.</summary>
+    /// <summary>The row names a target, a person healed: no swatch, no job.</summary>
+    public bool IsTarget { get; init; }
+    /// <summary>A row under a heading.</summary>
+    public bool Nested { get; init; }
+    /// <summary>A heading's rows show under it.</summary>
+    [ObservableProperty] private bool open;
+
+    /// <summary>Unused by the Overview's rows, whose box says it; kept for
+    /// the row style they share with the other tables that pick.</summary>
     [ObservableProperty] private bool isolated;
-    /// <summary>Healing is isolated to others and not this character.</summary>
+    /// <summary>Something is isolated and none of this row is counted.</summary>
     [ObservableProperty] private bool dimmed;
 
     [RelayCommand]
-    void Pick() => pick(Key);
+    void Pick() => press(Key);
+
+    bool? ticked = false;
+    /// <summary>The box, as <see cref="ActorRow.Ticked"/>: set by a press
+    /// or UI Automation's toggle, which isolates; told what it reads by
+    /// <see cref="Show"/> after the count that follows.</summary>
+    public bool? Ticked
+    {
+        get => ticked;
+        set
+        {
+            tick(Key);
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>What the box reads, as the filters now leave the row.</summary>
+    public void Show(bool? value)
+    {
+        if (ticked == value) return;
+        ticked = value;
+        OnPropertyChanged(nameof(Ticked));
+    }
+
+    /// <summary>What the box is called and told the pointer: "Isolate Sylviane at Hasaya".</summary>
+    [ObservableProperty] private string tickName = "";
 
     /// <summary>The healing HPS is worked out from, on every clock tick.</summary>
     public double Total { get; set; }

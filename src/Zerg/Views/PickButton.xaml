@@ -131,7 +131,7 @@
                         <ColumnDefinition Width="46"/>
                       </Grid.ColumnDefinitions>
                       <TextBlock Text="{Binding Word}" Style="{StaticResource Heading}"/>
-                      <TextBlock Grid.Column="1" Text="Damage" Style="{StaticResource Heading}" TextAlignment="Right"/>
+                      <TextBlock Grid.Column="1" Text="{Binding Amount}" Style="{StaticResource Heading}" TextAlignment="Right"/>
                       <TextBlock Grid.Column="2" Text="Share" Style="{StaticResource Heading}" TextAlignment="Right"/>
                     </Grid>
                     <Grid Visibility="{Binding Paired, Converter={StaticResource Visible}}">

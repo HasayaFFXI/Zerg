@@ -140,9 +140,11 @@ public sealed partial class PickFilter : ObservableObject
                         Func<IReadOnlyList<TargetTotal>, IReadOnlyCollection<string>, List<TargetTotal>> Order);
 
     PickFilter(bool paired, string word, string allRow, string clearName, string clearTip, string idle,
-           Func<string, string> busy, Words words, Func<string, string>? called = null, bool hasFigures = false)
+           Func<string, string> busy, Words words, Func<string, string>? called = null, bool hasFigures = false,
+           string amount = "Damage")
     {
         (Paired, Word, AllRow, ClearName, ClearTip, HasFigures) = (paired, word, allRow, clearName, clearTip, hasFigures);
+        Amount = amount;
         (this.idle, this.busy, this.called, this.words) = (idle, busy, called ?? (k => k), words);
         tip = idle;
         tableNote = words.Note;
@@ -189,18 +191,48 @@ public sealed partial class PickFilter : ObservableObject
                   (list, _) => [.. list]),
         called);
 
-    /// <summary>By healer, over one parse: the Healing by character table's
-    /// rows, which have no button. The Healing section's own: it cuts the
-    /// healing and the support, and no damage.</summary>
-    public static PickFilter OfHealers(Func<string, string> called) => new(false, "Character", "All characters",
-        "Clear the healer filter", "Count every healer again",
-        "Count only the healing of the characters you pick. Every character counts now.",
+    /// <summary>By caster, over one parse: the Healing section's Caster
+    /// button and its Overview's boxes. The Healing section's own: it cuts
+    /// the healing and the support, and no damage.</summary>
+    public static PickFilter OfHealers(Func<string, string> called) => new(false, "Caster", "All casters",
+        "Clear the caster filter", "Count every caster again",
+        "Count only the healing of the casters you pick. Every caster counts now.",
         names => "Counting only the healing done by " + names + ".",
-        new Words("Clear the isolated healers", "Out of the healing of every character",
+        new Words("Clear the isolated casters", "Out of the healing of every caster",
                   name => "Count only the healing done by " + name, "",
-                  "Total healed since the session started. Select a character to isolate them",
+                  "Total healed since the session started. Select a caster to isolate them",
                   (list, _) => [.. list]),
-        called);
+        called, amount: "Healing");
+
+    /// <summary>By target of a heal, over one parse: who was healed. The
+    /// Healing section's Target button and its Overview's boxes. It cuts
+    /// the heals alone. A key is a character's real name.</summary>
+    public static PickFilter OfHealTargets(Func<string, string> called) => new(false, "Target", "All targets",
+        "Clear the healed target filter", "Count the healing on every target again",
+        "Count only the healing done to the targets you pick. Every target counts now.",
+        names => "Counting only the healing done to " + names + ".",
+        new Words("Clear the isolated targets", "Out of the healing on every target",
+                  name => "Count only the healing done to " + name, "",
+                  "Everyone healed. Select one to isolate them",
+                  (list, _) => [.. list]),
+        called, amount: "Healing");
+
+    /// <summary>By spell, over one parse: the Healing section's Spell
+    /// button. A key is a heal as its line names it (<see cref="HealEvent.Spell"/>).
+    /// It cuts the heals alone.</summary>
+    public static PickFilter OfSpells() => new(false, "Spell", "All spells",
+        "Clear the spell filter", "Count every spell again",
+        "Count only the healing of the spells you pick. Every spell counts now.",
+        names => "Counting only the healing of " + names + ".",
+        new Words("Clear the isolated spells", "Out of the healing of every spell",
+                  name => "Count only the healing of " + name, "",
+                  "Every heal by name. Select one to isolate it",
+                  (list, _) => [.. list]),
+        amount: "Healing");
+
+    /// <summary>What a menu's figures are: "Damage", or "Healing" for the
+    /// Healing section's.</summary>
+    public string Amount { get; }
 
     /// <summary>The list is of two runs, a column each; otherwise of one
     /// parse, with each one's share.</summary>

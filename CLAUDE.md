@@ -313,8 +313,13 @@ packaging/wizard/       its pictures (made by tools/make-wizard-images.ps1; chec
 - **Filters.** Target, Type and Character (`PickFilter`) cut together;
   each list shows what the others leave. Characters are isolated by the
   Overview's tick boxes (`ActorRow.Ticked`, which set the character and
-  target filters together) or from the Character menu; the Healing section
-  has its own (`HealerFilter`, rows only). Neither moves the clock. While a target is isolated every DPS is a dash
+  target filters together) or from the Character menu. The Healing section
+  has its own three, Caster, Target (the people healed) and Spell
+  (`HealerFilter`, `HealTargetFilter`, `SpellFilter`; `Tracker.Count`'s
+  `healers`, `healTargets`, `spells`), on its command bar; its Overview
+  (`Views/HealBarsCard`, By caster / By target, `HealOverviewBy` saved)
+  ticks the first two as the Damage Overview does (`SetHealPairs`). None
+  of them moves the clock. While a target is isolated every DPS is a dash
   (`MainViewModel.Rate`, which the beat goes through too). Never saved.
   `RULES.md` has the rules. In the Damage section their tables
   (`Views/TallyCard`) are the Filters pane's two tabs (`Views/FiltersCard`);

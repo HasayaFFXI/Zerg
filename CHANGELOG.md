@@ -7,6 +7,18 @@ takes its number when the version is cut.
 
 ## Unreleased
 
+- The Healing section filters as the Damage section does. Healing by
+  character is now its Overview, with By caster and By target tabs: each
+  caster with the targets they healed under them, or each target with
+  their casters under them. A row is pressed to show what is under it,
+  and a box ticked to isolate a caster, a target, or one caster at one
+  target ("Isolated: Sylviane at Hasaya"), with one Clear for both. The
+  command bar has Caster, Target and Spell menus in the Healing section,
+  each listing what the other two leave. Isolating a target counts only
+  the heals on them, each cast charged their part of its MP; HPS stays a
+  rate. The band's total says what it is of ("Cure IV healing by Sylviane
+  to Hasaya"), and a floating panel's bar says it too. The tab is saved in
+  settings.json's `healOverviewBy`.
 - Every floating panel with a table has its own columns: a Columns button
   on its bar (with the pointer over the panel, beside the opacity slider)
   shows and hides them, and a heading is dragged to move one, as in the
